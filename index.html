@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.2</title>
+  <title>부부 AI 가계부 v1.3</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.2';
+    const APP_VERSION = 'v1.3';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 1;
     // ★ 가족 보안 코드 최소 길이 (DB에서도 같은 규칙으로 막음)
@@ -327,6 +327,19 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.3',
+        date: '2026-10-29',
+        title: 'AI 영수증 인식 (Gemini 무료 등급)',
+        changes: [
+          '[영수증] 가짜 테스트 데이터 제거, 실제 사진을 Gemini가 읽어 가게·날짜·총액·품목 추출',
+          '[보안] Gemini 키는 Supabase 서버 함수(scan-receipt)에만 보관, 등록된 가족 코드만 사용 가능',
+          '[확인] 등록 전에 가게·금액·일시·분류를 고칠 수 있고, 품목 합계와 결제 금액을 대조해 표시',
+          '[병합] 같은 결제의 카드 문자·카드사 파일 내역이 있으면 새로 만들지 않고 품목만 합침',
+          '[편의] 촬영 / 앨범에서 선택, 사진은 보내기 전에 1600px로 줄여 빠르게 전송',
+          '[DB] 변경 없음 (스키마 1 그대로)'
+        ]
+      },
+      {
         version: 'v1.2',
         date: '2026-10-29',
         title: 'PWA 전환 — 홈 화면에 설치하는 앱',
@@ -399,7 +412,9 @@
       const [editForm, setEditForm] = useState({ store: '', amount: 0, date: '', memo: '', payer: '남편' });
 
       const [isScanning, setIsScanning] = useState(false);
-      const [scanResult, setScanResult] = useState(null);
+      const [scanResult, setScanResult] = useState(null);   // AI가 읽은 결과 (등록 전 확인·수정용)
+      const [scanError, setScanError] = useState('');
+      const [scanPreview, setScanPreview] = useState('');
       const [smsText, setSmsText] = useState('');
 
       const [newCatName, setNewCatName] = useState('');
@@ -853,87 +868,144 @@
         await saveCategories(updated);
       };
 
-      const handleScan = (type) => {
-        setIsScanning(true);
-        setScanResult(null);
-        setTimeout(() => {
-          setIsScanning(false);
-          const todayKST = getKSTDateTimeString().slice(0, 10);
-          let mock;
-          if (type === 'mart') {
-            mock = {
-              date: `${todayKST} 14:20`,
-              store: '이마트 연수점',
-              category: '마트/장보기',
-              sub_category: '대형마트',
-              amount: 50000,
-              tax: 4545,
-              is_business: false,
-              memo: '주말 장보기',
-              items: [
-                { name: '유기농 우유 900ml', price: 4500 },
-                { name: '한돈 삼겹살 600g', price: 18500 },
-                { name: '아기 물티슈 기획팩', price: 15000 },
-                { name: '제주 감귤 1박스', price: 12000 }
-              ]
-            };
-          } else {
-            mock = {
-              date: getKSTDateTimeString(),
-              store: '투썸플레이스 송도점',
-              category: '식비',
-              sub_category: '카페/간식',
-              amount: 16500,
-              tax: 1500,
-              is_business: true,
-              memo: '미팅 다과비',
-              items: [
-                { name: '아메리카노 2잔', price: 9000 },
-                { name: '생크림 케이크', price: 7500 }
-              ]
-            };
+      // =====================================================================
+      // ★ AI 영수증 인식: 사진을 줄여서 Supabase 서버 함수(scan-receipt)로 보내고,
+      //   Gemini가 읽은 가게·날짜·총액·품목을 확인·수정한 뒤 등록
+      // =====================================================================
+      const SCAN_MAX_SIDE = 1600;   // 긴 변 최대 픽셀 (글씨는 충분히 보이고 전송은 가볍게)
+
+      const resizeImage = (file) => new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, SCAN_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+          const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(url);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg', preview: dataUrl });
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('사진을 열 수 없습니다.')); };
+        img.src = url;
+      });
+
+      // 서버 함수 오류를 사람이 읽을 수 있는 문장으로
+      const describeScanError = async (error) => {
+        try {
+          const ctx = error?.context;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json().catch(() => null);
+            // 우리 함수가 보낸 오류(code 있음)는 그 문장을, Supabase 자체 오류는 한국어 안내를
+            if (body?.code && body?.status === 'error' && body?.message) return body.message;
+            if (ctx.status === 404) return '영수증 인식 서버 함수(scan-receipt)가 아직 배포되지 않았습니다.';
+            if (ctx.status === 401) return '서버 함수 설정에서 JWT 확인(Verify JWT)을 꺼주세요.';
+            if (body?.message) return body.message;
+            return `서버 함수 오류 (${ctx.status})`;
           }
-          mock.verified = true;
-          setScanResult(mock);
-        }, 500);
+        } catch (e) {}
+        return '서버 함수에 연결할 수 없습니다. 인터넷 연결과 함수 배포 상태를 확인해주세요.';
+      };
+
+      const handleReceiptFile = async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        if (!ensureConnected()) return;
+        setScanResult(null);
+        setScanError('');
+        setIsScanning(true);
+        try {
+          const { base64, mimeType, preview } = await resizeImage(file);
+          setScanPreview(preview);
+          const { data, error } = await supabaseClient.functions.invoke('scan-receipt', { body: { image: base64, mimeType } });
+          if (error) { setScanError(await describeScanError(error)); return; }
+          if (data?.status === 'not_receipt') { setScanError('영수증이 아닌 사진 같습니다. 영수증 전체가 보이게 다시 찍어주세요.'); return; }
+          if (data?.status !== 'success' || !data.receipt) { setScanError(data?.message || '영수증을 읽지 못했습니다.'); return; }
+
+          const r = data.receipt;
+          const items = (r.items || []).filter(it => it.name);
+          const itemsSum = items.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
+          const amount = r.total ?? itemsSum;
+          const store = r.store || '영수증가맹점';
+          const { category, sub_category } = classifyStoreAndText(store, categories);
+          setScanResult({
+            store,
+            // 시각이 없으면 00:00 (= 시각 모름, 카드사 파일과 같은 규칙)
+            date: r.date ? normalizeDateString(r.date) : getKSTDateTimeString(),
+            amount: amount || 0,
+            tax: r.tax ?? Math.round((amount || 0) / 11),
+            items,
+            itemsSum,
+            category,
+            sub_category,
+            is_business: false
+          });
+        } catch (err) {
+          setScanError(err.message || String(err));
+        } finally {
+          setIsScanning(false);
+        }
+      };
+
+      // 같은 결제로 보이는 기존 내역 (카드 문자·카드사 파일, 아직 품목이 없는 것)
+      const findScanMergeTarget = (sr) => {
+        if (!sr) return null;
+        const day = normalizeDateString(sr.date).slice(0, 10);
+        const time = normalizeDateString(sr.date).slice(11, 16);
+        return expenses.find(e => {
+          if (e.amount !== Number(sr.amount)) return false;
+          if (!['카드문자', '자동문자수신', 'CSV일괄등록', '엑셀일괄등록'].includes(e.source)) return false;
+          if (e.items && e.items.length > 0) return false;
+          const en = normalizeDateString(e.date);
+          if (en.slice(0, 10) !== day) return false;
+          const et = en.slice(11, 16);
+          if (time !== '00:00' && et !== '00:00') return et === time || isSimilarStoreName(sr.store, e.store);
+          return true;
+        }) || null;
       };
 
       const confirmScan = async () => {
         if (!scanResult) return;
-        const scanDay = scanResult.date.slice(0, 10);
-        const dupItem = expenses.find(
-          e => e.amount === scanResult.amount &&
-               ['카드문자', '자동문자수신', 'CSV일괄등록', '엑셀일괄등록'].includes(e.source) &&
-               (!e.items || e.items.length === 0) &&
-               (e.date || '').slice(0, 10) === scanDay
-        );
-
-        if (dupItem) {
-          const ok = await updateExpenseRow(dupItem.id, {
-            store: scanResult.store,
-            category: scanResult.category,
-            sub_category: scanResult.sub_category,
-            items: scanResult.items,
+        const amount = Number(scanResult.amount) || 0;
+        if (amount <= 0) return showToast('⚠️ 결제 금액을 확인해주세요.');
+        const sr = { ...scanResult, amount, date: normalizeDateString(scanResult.date) };
+        const target = findScanMergeTarget(sr);
+        let ok;
+        if (target) {
+          ok = await updateExpenseRow(target.id, {
+            store: sr.store,
+            category: sr.category,
+            sub_category: sr.sub_category,
+            items: sr.items,
             source: '영수증+내역병합',
-            memo: (dupItem.memo || '') + ' (영수증 품목 병합)'
+            memo: ((target.memo || '') + ' (영수증 품목 병합)').trim()
           });
-          if (ok) {
-            showToast('✨ 동일 날짜·금액의 기존 내역에 영수증 품목이 병합되었습니다!');
-            setScanResult(null);
-            setActiveTab('list');
-          }
+          if (ok) showToast('✨ 같은 결제의 카드 내역에 영수증 품목을 합쳤습니다.');
         } else {
-          const ok = await insertExpenseRows([{
-            id: 'exp-' + Date.now(),
-            ...scanResult,
+          ok = await insertExpenseRows([{
+            id: 'rcpt-' + Date.now(),
+            date: sr.date,
+            store: sr.store,
+            category: sr.category,
+            sub_category: sr.sub_category,
+            amount,
+            tax: Number(sr.tax) || Math.round(amount / 11),
             payer: currentUser,
-            source: '영수증스캔'
+            is_business: sr.is_business,
+            source: '영수증스캔',
+            verified: sr.items.length === 0 || sr.itemsSum === amount,
+            memo: '영수증 AI 인식',
+            items: sr.items
           }]);
-          if (ok) {
-            showToast('☁️ 영수증 내역이 등록되었습니다.');
-            setScanResult(null);
-            setActiveTab('list');
-          }
+          if (ok) showToast('☁️ 영수증 내역이 등록되었습니다.');
+        }
+        if (ok) {
+          setScanResult(null);
+          setScanPreview('');
+          setSelectedMonth(sr.date.slice(0, 7));
+          setActiveTab('list');
         }
       };
 
@@ -1698,31 +1770,147 @@
 
                 {activeTab === 'scan' && (
                   <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-4">
-                    <h3 className="font-bold text-white text-base">📷 AI 영수증 스캔 (문자·CSV·엑셀 통합 병합)</h3>
-                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-indigo-500/50 bg-indigo-950/20 rounded-2xl p-6 cursor-pointer text-center">
-                      <span className="text-2xl mb-1">📸</span>
-                      <span className="text-sm font-bold text-white">스마트폰 카메라로 영수증 촬영</span>
-                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={() => handleScan('mart')} />
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => handleScan('mart')} className="bg-slate-800 p-3 rounded-xl text-left border border-slate-700 text-xs font-bold">
-                        🛒 마트 영수증 (50,000원)
-                      </button>
-                      <button onClick={() => handleScan('cafe')} className="bg-slate-800 p-3 rounded-xl text-left border border-slate-700 text-xs font-bold">
-                        ☕ 카페 영수증 (16,500원)
-                      </button>
+                    <div>
+                      <h3 className="font-bold text-white text-base">📷 AI 영수증 인식</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        영수증을 찍으면 Gemini가 가게·날짜·금액·품목을 읽습니다. 등록 전에 내용을 확인하고 고칠 수 있어요.
+                        같은 결제의 카드 문자 내역이 있으면 거기에 품목을 합칩니다.
+                      </p>
                     </div>
-                    {scanResult && (
-                      <div className="bg-slate-950 p-3.5 rounded-xl border border-indigo-500 space-y-2.5 text-xs">
-                        <div className="flex justify-between font-bold text-indigo-300">
-                          <span>{scanResult.store} ({scanResult.date})</span>
-                          <span>{scanResult.amount.toLocaleString()}원</span>
-                        </div>
-                        <button onClick={confirmScan} className="w-full py-2 bg-indigo-600 text-white font-bold rounded-lg">
-                          클라우드 등록 (동일 날짜·금액 문자/CSV/엑셀 병합)
-                        </button>
-                      </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className={`flex flex-col items-center justify-center border-2 border-dashed border-indigo-500/50 bg-indigo-950/20 rounded-2xl p-5 text-center ${isScanning ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+                        <span className="text-2xl mb-1">📸</span>
+                        <span className="text-sm font-bold text-white">촬영하기</span>
+                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleReceiptFile} />
+                      </label>
+                      <label className={`flex flex-col items-center justify-center border-2 border-dashed border-slate-600 bg-slate-950/40 rounded-2xl p-5 text-center ${isScanning ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+                        <span className="text-2xl mb-1">🖼️</span>
+                        <span className="text-sm font-bold text-white">앨범에서 선택</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleReceiptFile} />
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-slate-500">팁: 영수증 전체가 화면에 들어오게, 밝은 곳에서 반듯하게 찍으면 정확도가 올라갑니다. (무료 사용량: 하루 약 500장)</p>
+
+                    {scanPreview && (isScanning || scanResult || scanError) && (
+                      <img src={scanPreview} alt="영수증 미리보기" className="w-24 rounded-lg border border-slate-700 mx-auto" />
                     )}
+
+                    {isScanning && (
+                      <p className="text-center text-xs text-indigo-300 py-2 animate-pulse">🤖 AI가 영수증을 읽는 중입니다… (보통 3~10초)</p>
+                    )}
+
+                    {scanError && !isScanning && (
+                      <div className="bg-rose-950/50 border border-rose-700/60 rounded-xl p-3 text-xs text-rose-200">⚠️ {scanError}</div>
+                    )}
+
+                    {scanResult && !isScanning && (() => {
+                      const amountNum = Number(scanResult.amount) || 0;
+                      const sumOk = scanResult.items.length === 0 || scanResult.itemsSum === amountNum;
+                      const target = findScanMergeTarget({ ...scanResult, amount: amountNum });
+                      const cat = categories.find(c => c.name === scanResult.category);
+                      return (
+                        <div className="bg-slate-950 p-3.5 rounded-xl border border-indigo-500 space-y-3 text-xs">
+                          <p className="font-bold text-indigo-300">✏️ 읽은 내용 확인 (틀린 곳은 고친 뒤 등록)</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[11px] text-slate-400">가게 이름</label>
+                              <input
+                                type="text"
+                                value={scanResult.store}
+                                onChange={e => setScanResult({ ...scanResult, store: e.target.value })}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-bold mt-0.5"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-slate-400">결제 금액(원)</label>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                value={scanResult.amount}
+                                onChange={e => setScanResult({ ...scanResult, amount: e.target.value })}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-bold mt-0.5"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2">
+                            <div>
+                              <label className="text-[11px] text-slate-400">결제 일시</label>
+                              <input
+                                type="datetime-local"
+                                value={(scanResult.date || '').replace(' ', 'T').slice(0, 16)}
+                                onChange={e => setScanResult({ ...scanResult, date: e.target.value.replace('T', ' ') })}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 mt-0.5"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-slate-400">분류</label>
+                              <div className="flex gap-1 mt-0.5">
+                                <select
+                                  value={scanResult.category}
+                                  onChange={e => {
+                                    const c = categories.find(x => x.name === e.target.value);
+                                    setScanResult({ ...scanResult, category: e.target.value, sub_category: c?.subs?.[0] || '미분류' });
+                                  }}
+                                  className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-1 py-1.5 text-slate-200"
+                                >
+                                  {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                </select>
+                                <select
+                                  value={scanResult.sub_category}
+                                  onChange={e => setScanResult({ ...scanResult, sub_category: e.target.value })}
+                                  className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-1 py-1.5 text-slate-200"
+                                >
+                                  {(cat?.subs || [scanResult.sub_category]).map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          {scanResult.items.length > 0 && (
+                            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1 max-h-48 overflow-y-auto">
+                              {scanResult.items.map((it, i) => (
+                                <div key={i} className="flex justify-between text-slate-300 gap-2">
+                                  <span className="truncate">• {it.name}</span>
+                                  <span className="shrink-0">{Number(it.price).toLocaleString()}원</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <p className={sumOk ? 'text-emerald-400' : 'text-amber-300'}>
+                            {scanResult.items.length === 0
+                              ? 'ℹ️ 품목은 읽지 못했습니다. 금액만 등록됩니다.'
+                              : sumOk
+                                ? `✓ 품목 합계 ${scanResult.itemsSum.toLocaleString()}원 = 결제 금액`
+                                : `⚠️ 품목 합계 ${scanResult.itemsSum.toLocaleString()}원 ≠ 결제 금액 ${amountNum.toLocaleString()}원 — 금액을 확인해주세요`}
+                          </p>
+                          <label className="flex items-center gap-2 text-slate-300">
+                            <input
+                              type="checkbox"
+                              checked={scanResult.is_business}
+                              onChange={e => setScanResult({ ...scanResult, is_business: e.target.checked })}
+                            />
+                            💼 업무 경비로 등록
+                          </label>
+                          {target && (
+                            <p className="text-indigo-200 bg-indigo-950/60 border border-indigo-800 rounded-lg p-2">
+                              🔗 같은 결제로 보이는 내역이 있어 품목을 합칩니다: {target.date} · {target.store} · {target.amount.toLocaleString()}원
+                            </p>
+                          )}
+                          <div className="flex gap-2">
+                            <button onClick={confirmScan} className="flex-1 py-2 bg-indigo-600 text-white font-bold rounded-lg">
+                              {target ? '품목 합치기' : `등록하기 (${currentUser})`}
+                            </button>
+                            <button
+                              onClick={() => { setScanResult(null); setScanPreview(''); }}
+                              className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
