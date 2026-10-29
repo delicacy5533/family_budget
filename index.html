@@ -1,0 +1,2036 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>부부 AI 가계부 v1.2</title>
+  <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="부부가계부" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- 라이브러리 버전 고정: 오프라인 캐시가 엉뚱한 새 버전으로 바뀌지 않도록 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- 아이폰 노치·홈 바 영역을 피하도록 여백 (id는 파일저장 때 지워지지 않게 하는 표시) -->
+  <style id="app-style">
+    html, body { background: #020617; }
+    .safe-top { padding-top: calc(env(safe-area-inset-top) + 0.625rem) !important; }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    .safe-page { padding-bottom: calc(6rem + env(safe-area-inset-bottom)) !important; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 select-none">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
+
+    const APP_VERSION = 'v1.2';
+    // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
+    const REQUIRED_SCHEMA_VERSION = 1;
+    // ★ 가족 보안 코드 최소 길이 (DB에서도 같은 규칙으로 막음)
+    const MIN_CODE_LENGTH = 12;
+
+    // ★ 폰 저장 키는 버전 번호 없이 고정 (앞으로 버전이 올라가도 코드·캐시 유지)
+    const STORAGE_KEY_CACHE = 'COUPLE_CACHE';
+    const STORAGE_KEY_CATS = 'COUPLE_CATS';
+    const STORAGE_KEY_PASS = 'COUPLE_PASS';
+
+    const MY_DEVICE_ID = (() => {
+      try {
+        let id = localStorage.getItem('COUPLE_DEVICE_ID');
+        if (!id) {
+          id = 'dev-' + Math.random().toString(36).substring(2, 10);
+          localStorage.setItem('COUPLE_DEVICE_ID', id);
+        }
+        return id;
+      } catch (e) {
+        return 'dev-local';
+      }
+    })();
+
+    const generateSecureFamilyPass = () => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+      const arr = new Uint32Array(12);
+      window.crypto.getRandomValues(arr);
+      return Array.from(arr, n => chars[n % chars.length]).join('');
+    };
+
+    const createSecuredClient = (famCode) => {
+      return window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        global: {
+          headers: { 'x-family-code': famCode }
+        },
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+    };
+
+    const getKSTDateTimeString = () => {
+      const now = new Date();
+      const kstDate = new Date(now.getTime() + 9 * 3600 * 1000);
+      return kstDate.toISOString().slice(0, 16).replace('T', ' ');
+    };
+
+    const normalizeStoreName = (s) => {
+      return String(s || '')
+        .replace(/\(\s*주\s*\)|\(\s*유\s*\)|주식회사|유한회사|지점|점$|\s+|[^가-힣a-zA-Z0-9]/g, '')
+        .toLowerCase();
+    };
+
+    const isSimilarStoreName = (a, b) => {
+      const na = normalizeStoreName(a);
+      const nb = normalizeStoreName(b);
+      if (!na || !nb) return false;
+      if (na === nb) return true;
+      // 한쪽이 다른 쪽을 포함하면 같은 가게로 봄 ('이마트연수' ⊂ '주이마트연수').
+      // 짧은 쪽이 3글자 미만이면 우연히 겹칠 수 있어 같은 가게로 보지 않음 (예: 'gs' vs 'gs칼텍스')
+      const [shorter, longer] = na.length <= nb.length ? [na, nb] : [nb, na];
+      return shorter.length >= 3 && longer.includes(shorter);
+    };
+
+    const normalizeDateString = (raw) => {
+      const nowKstStr = getKSTDateTimeString();
+      const todayYmd = nowKstStr.slice(0, 10);
+      const currentYear = parseInt(todayYmd.slice(0, 4), 10);
+
+      if (!raw && raw !== 0) return nowKstStr;
+
+      if (typeof raw === 'number' && raw > 35000 && raw < 60000) {
+        const utcDays = Math.floor(raw - 25569);
+        const dateObj = new Date(utcDays * 86400 * 1000);
+        return `${dateObj.toISOString().slice(0, 10)} 00:00`;
+      }
+
+      const str = String(raw)
+        .trim()
+        .replace('T', ' ')
+        .replace(/\s*([\.\-\/])\s*/g, '$1')
+        .replace(/\s+/g, ' ');
+
+      const m4 = str.match(/^(\d{4})[\-\.\/](\d{1,2})[\-\.\/](\d{1,2})\.?(\s+(\d{1,2}):(\d{1,2}))?/);
+      if (m4) {
+        return `${m4[1]}-${m4[2].padStart(2, '0')}-${m4[3].padStart(2, '0')} ${(m4[5] || '00').padStart(2, '0')}:${(m4[6] || '00').padStart(2, '0')}`;
+      }
+
+      const m2 = str.match(/^(\d{2})[\-\.\/](\d{1,2})[\-\.\/](\d{1,2})\.?(\s+(\d{1,2}):(\d{1,2}))?/);
+      if (m2 && parseInt(m2[2], 10) <= 12) {
+        return `20${m2[1]}-${m2[2].padStart(2, '0')}-${m2[3].padStart(2, '0')} ${(m2[5] || '00').padStart(2, '0')}:${(m2[6] || '00').padStart(2, '0')}`;
+      }
+
+      const m8 = str.match(/^(20\d{2})(\d{2})(\d{2})(?:\s*(\d{2}):?(\d{2}))?/);
+      if (m8) {
+        return `${m8[1]}-${m8[2]}-${m8[3]} ${m8[4] || '00'}:${m8[5] || '00'}`;
+      }
+
+      const m6 = str.match(/^(\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/);
+      if (m6) {
+        return `20${m6[1]}-${m6[2]}-${m6[3]} 00:00`;
+      }
+
+      const mShort = str.match(/^(\d{1,2})[\-\.\/](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+      if (mShort) {
+        const m = mShort[1].padStart(2, '0');
+        const d = mShort[2].padStart(2, '0');
+        const hh = (mShort[3] || '00').padStart(2, '0');
+        const mm = (mShort[4] || '00').padStart(2, '0');
+        let y = currentYear;
+        if (`${y}-${m}-${d}` > todayYmd) y -= 1;
+        return `${y}-${m}-${d} ${hh}:${mm}`;
+      }
+
+      return nowKstStr;
+    };
+
+    const DEFAULT_CATEGORIES = [
+      { id: 'c1', name: '식비', subs: ['외식/회식', '카페/간식', '배달음식', '식재료'] },
+      { id: 'c2', name: '마트/장보기', subs: ['대형마트', '편의점', '온라인쇼핑', '생필품'] },
+      { id: 'c3', name: '육아/병원', subs: ['분유/기저귀', '아기용품', '소아과/병원', '약국'] },
+      { id: 'c4', name: '교통/차량', subs: ['주유비', '차량정비/부품', '대중교통', '주차/톨게이트'] },
+      { id: 'c5', name: '업무/경비', subs: ['부품/소모품', '회의/접대비', '도서/교육', '기타경비'] },
+      { id: 'c6', name: '기타/미분류', subs: ['미분류', '통신/공과금', '구독/보험', '기타'] }
+    ];
+
+    // =====================================================================
+    // ★ 가맹점 분류 규칙 — 위에서부터 먼저 맞는 규칙 하나만 적용
+    //   Supabase 설정 SQL의 store_category() 함수와 같은 순서·같은 규칙이어야 합니다.
+    //   (규칙을 바꾸면 SQL 쪽도 같이 바꾸세요)
+    // =====================================================================
+    const CLASSIFY_RULES = [
+      { test: s => /주차|하이패스|톨게이트/i.test(s), cat: '교통/차량', sub: '주차/톨게이트' },
+      { test: s => /택시|카카오T|코레일|KTX|SRT|철도|승차권|버스|지하철|티머니/i.test(s), cat: '교통/차량', sub: '대중교통' },
+      { test: s => /주유|칼텍스|SK에너지|SK엔크린|S-OIL|오일뱅크/i.test(s), cat: '교통/차량', sub: '주유비' },
+      { test: s => /편의점|GS25|(^|[^A-Z])CU([^A-Z]|$)|세븐일레븐|이마트24|미니스톱/i.test(s), cat: '마트/장보기', sub: '편의점' },
+      { test: s => /배달의민족|배민|요기요|쿠팡이츠/i.test(s), cat: '식비', sub: '배달음식' },
+      { test: s => /쿠팡|네이버페이|스마트스토어|11번가|G마켓|지마켓|옥션|컬리|SSG|무신사/i.test(s), cat: '마트/장보기', sub: '온라인쇼핑' },
+      { test: s => /이마트|홈플러스|롯데마트|하나로|코스트코|트레이더스|다이소/i.test(s) || (/마트/.test(s) && !/스마트/.test(s)), cat: '마트/장보기', sub: '대형마트' },
+      { test: s => /약국/i.test(s), cat: '육아/병원', sub: '약국' },
+      { test: s => /병원|의원|소아과|치과|산부인과|내과|이비인후과|피부과|안과/i.test(s), cat: '육아/병원', sub: '소아과/병원' },
+      { test: s => /스타벅스|투썸|카페|커피|베이커리|파리바게|뚜레쥬르|성심당|메가MGC|빽다방|이디야|컴포즈/i.test(s), cat: '식비', sub: '카페/간식' },
+      { test: s => /한우|갈비|식당|회관|김밥|분식|국밥|돈까스|피자|치킨|버거|맥도날드|롯데리아|명가/i.test(s), cat: '식비', sub: '외식/회식' },
+      { test: s => /SK브로드밴드|SK텔레콤|SKT|케이티|LG유플러스|LGU\+|통신요금|도시가스|한전|관리비/i.test(s) || /(^|[^A-Z])KT([^A-Z]|$)/i.test(s), cat: '기타/미분류', sub: '통신/공과금' }
+    ];
+
+    // 가맹점 이름으로 분류. 사용자가 그 분류를 지웠으면 '기타/미분류'(없으면 첫 분류)로
+    function classifyStoreAndText(store, categories) {
+      const rule = CLASSIFY_RULES.find(r => r.test(String(store || '')));
+      const fallback = categories.find(c => c.name === '기타/미분류') || categories.find(c => /미분류|기타/.test(c.name)) || categories[0];
+      if (rule) {
+        const cat = categories.find(c => c.name === rule.cat);
+        if (cat) return { category: cat.name, sub_category: cat.subs.includes(rule.sub) ? rule.sub : (cat.subs[0] || '미분류') };
+      }
+      return { category: fallback?.name || '기타/미분류', sub_category: fallback?.subs?.[0] || '미분류' };
+    }
+
+    // =====================================================================
+    // ★ 카드 문자 파서 — Supabase 설정 SQL의 receive_sms()와 같은 규칙
+    //   ① 광고·설문 문구가 없고 ② '승인/취소'가 있고 ③ 결제 일시(10/29 14:20)가 있어야 등록
+    // =====================================================================
+    const SMS_AD_PATTERN = /\(광고\)|무료\s*수신\s*거부|수신거부|설문|실태조사|당첨|경품|추첨/;
+    const SMS_DATETIME_PATTERN = /\d{1,2}\s*[\/.\-]\s*\d{1,2}\s+\d{1,2}:\d{2}/;
+    const SMS_CANCEL_PATTERN = /(승인|결제|매출|체크|할부|카드(\(\d+\))?)\s*취소|취소\s*(승인|완료|접수)/;
+
+    function isCardApprovalSms(text) {
+      return !SMS_AD_PATTERN.test(text) && /승인|취소/.test(text) && SMS_DATETIME_PATTERN.test(text);
+    }
+
+    function parseSingleSmsBlock(blockText, categories, currentUser) {
+      const body = String(blockText || '');
+      if (!isCardApprovalSms(body)) return null;
+
+      const isCancel = SMS_CANCEL_PATTERN.test(body);
+
+      const amtMatch = body.match(/([0-9][0-9,]*)\s*원/);
+      if (!amtMatch) return null;
+      let amount = parseInt(amtMatch[1].replace(/,/g, ''), 10);
+      if (!amount || amount <= 0) return null;
+      if (isCancel) amount = -amount;
+
+      // 결제 일시: 연도가 없으면 올해, 오늘보다 미래면 작년
+      let dateStr = getKSTDateTimeString();
+      const dm = body.match(/(?:(20\d{2})\s*[\/.\-]\s*)?(\d{1,2})\s*[\/.\-]\s*(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+      if (dm) {
+        const m = parseInt(dm[2], 10), d = parseInt(dm[3], 10);
+        const today = getKSTDateTimeString().slice(0, 10);
+        let y = dm[1] ? parseInt(dm[1], 10) : parseInt(today.slice(0, 4), 10);
+        const ymd = (yy) => `${yy}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const valid = m >= 1 && m <= 12 && d >= 1 && d <= new Date(y, m, 0).getDate();
+        if (valid) {
+          if (!dm[1] && ymd(y) > today) y -= 1;
+          dateStr = `${ymd(y)} ${dm[4].padStart(2, '0')}:${dm[5]}`;
+        }
+      }
+
+      // 가맹점: 안내 줄을 걸러낸 마지막 줄, 없으면 금액 뒤 텍스트
+      let store = '';
+      for (const raw of body.split(/\r?\n/)) {
+        const line = raw.trim().replace(/\s*(승인|취소)$/, '').trim();   // 'KTX 승차권 승인' → 'KTX 승차권'
+        if (
+          !line ||
+          /카드|체크\s*\(|https?:\/\/|www\./.test(line) ||
+          /Web발신|승인|취소|누적|일시불|할부|보낸\s*사람|발신|수신|잔액|적립|안내|문의/.test(line) ||
+          /[0-9][0-9,]*\s*원/.test(line) ||
+          /^[0-9+\-\s:\/.]+$/.test(line) ||
+          /^[*■▶•\-]/.test(line) ||
+          /^\[.*\]$/.test(line) ||
+          /^[가-힣A-Za-z]{1,3}\*[가-힣A-Za-z]{0,3}님?$/.test(line) ||
+          /(01[016789]|02|0[3-8][0-9]|15[0-9]{2}|16[0-9]{2}|18[0-9]{2})[-\s]?[0-9]{3,4}[-\s]?[0-9]{4}/.test(line)
+        ) continue;
+        store = line;
+      }
+      if (!store) {
+        const tailMatch = body.match(/[0-9][0-9,]*\s*원([^\n]*)/);
+        if (tailMatch) {
+          store = tailMatch[1]
+            .replace(/^\s*\(?(일시불|할부|[0-9]+개월)\)?\s*/, '')
+            .replace(/^\s*(?:20\d{2}\s*[\/.\-]\s*)?\d{1,2}\s*[\/.\-]\s*\d{1,2}\s+\d{1,2}:\d{2}\s*/, '')
+            .replace(/^\s*\(?(일시불|할부|[0-9]+개월)\)?\s*/, '')
+            .replace(/\s*(누적|잔액|보낸\s*사람).*$/, '')
+            .trim();
+        }
+      }
+      if (!store) store = '카드결제가맹점';
+
+      const { category, sub_category } = classifyStoreAndText(store, categories);
+
+      return {
+        id: 'sms-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+        date: dateStr,
+        store,
+        category,
+        sub_category,
+        amount,
+        tax: Math.round(amount / 11),
+        payer: currentUser,
+        is_business: false,
+        source: isCancel ? '승인취소문자' : '카드문자',
+        verified: true,
+        memo: isCancel ? '승인취소 자동반영' : '문자 붙여넣기',
+        items: []
+      };
+    }
+
+    function splitCsvLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') inQuotes = !inQuotes;
+        else if (ch === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else current += ch;
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    const DOWNLOAD_CLEAN_HTML_FILE = () => {
+      const clone = document.documentElement.cloneNode(true);
+      const rootDiv = clone.querySelector('#root');
+      if (rootDiv) rootDiv.innerHTML = '';
+      // 실행 중에 브라우저가 덧붙인 것 제거: Babel이 변환해 넣은 스크립트(남겨두면 다시 열 때 앱이 두 번 실행됨),
+      // Tailwind가 만든 스타일(다시 열면 자동으로 새로 만듦)
+      clone.querySelectorAll('script:not([src]):not([type="text/babel"]):not(#sw-register)').forEach(el => el.remove());
+      clone.querySelectorAll('style:not(#app-style)').forEach(el => el.remove());
+      const cleanHtml = '<!DOCTYPE html>\n' + clone.outerHTML;
+      const blob = new Blob([cleanHtml], { type: 'text/html;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `부부가계부_${APP_VERSION}.html`;
+      link.click();
+    };
+
+    // =====================================================================
+    // ▼▼▼ [내장 SQL 스크립트 붙여넣는 공간 시작] ▼▼▼
+    // =====================================================================
+    const EMBEDDED_SQL_SCRIPT = "-- =====================================================================\n--  부부 AI 가계부 — 설정 SQL (스키마 버전 1)\n--  Supabase SQL Editor에 붙여넣고 [Run]. 여러 번 실행해도 안전합니다.\n--  처음 설치할 때는 먼저 부부가계부_v1.1_reset.sql을 한 번 실행하세요.\n--\n--  [앞으로의 업데이트 규칙]\n--  · 이 파일은 스키마 버전 1의 기준입니다. 다음 버전은 바뀐 부분만 담은\n--    별도 업데이트 SQL로 만들고, 마지막에 schema_version 값을 올립니다.\n--  · 열(column)은 추가만 하고 삭제·이름 변경은 하지 않습니다.\n--  · receive_sms(sms_text, payer_name, fam_code) 형식은 바꾸지 않습니다.\n--  · 분류 규칙(store_category)은 앱의 CLASSIFY_RULES와 같아야 합니다.\n-- =====================================================================\n\n-- 1. 스키마 버전 -------------------------------------------------------\ncreate table if not exists public.schema_meta (\n  key   text primary key,\n  value text not null\n);\ninsert into public.schema_meta (key, value) values ('schema_version', '1')\non conflict (key) do update set value = excluded.value;\n\n-- 2. 가족 설정 ---------------------------------------------------------\n--    family_code = 'fam_' + 12자 이상 보안 코드\n--    signal_id   = 문자 도착 알림용 무작위 ID (가족 코드를 노출하지 않기 위함)\n--    allowed_senders = 받을 카드사 발신번호 목록 (비어 있으면 번호 검사 안 함)\ncreate table if not exists public.family_config (\n  family_code     text primary key check (char_length(family_code) >= 16),\n  categories      jsonb not null default '[]'::jsonb,\n  allowed_senders jsonb not null default '[]'::jsonb,\n  signal_id       text not null default replace(gen_random_uuid()::text, '-', ''),\n  updated_by      text,\n  updated_at      timestamptz not null default now()\n);\n\n-- 3. 지출 내역 (1건 = 1행) ---------------------------------------------\ncreate table if not exists public.expenses (\n  id           text primary key,\n  family_code  text not null references public.family_config(family_code)\n                 on update cascade on delete cascade,\n  date         text not null,                     -- 'YYYY-MM-DD HH:mm' (KST)\n  store        text not null,\n  category     text not null default '기타/미분류',\n  sub_category text not null default '미분류',\n  amount       integer not null,                  -- 취소는 음수\n  tax          integer not null default 0,\n  payer        text not null default '남편',\n  is_business  boolean not null default false,\n  source       text not null default '직접입력',\n  verified     boolean not null default true,\n  memo         text not null default '',\n  items        jsonb not null default '[]'::jsonb,\n  updated_by   text,\n  created_at   timestamptz not null default now()\n);\ncreate index if not exists expenses_family_date_idx on public.expenses (family_code, date desc);\n\n-- 4. 문자 도착 신호 (앱 실시간 갱신용) ---------------------------------\ncreate table if not exists public.sync_signals (\n  signal_id  text primary key,\n  updated_at timestamptz not null default now()\n);\n\n-- 5. 보안 정책: 요청 헤더 x-family-code와 같은 가족 데이터만 접근 ---------\nalter table public.schema_meta   enable row level security;\nalter table public.family_config enable row level security;\nalter table public.expenses      enable row level security;\nalter table public.sync_signals  enable row level security;\n\ndrop policy if exists \"schema_meta read\"   on public.schema_meta;\ndrop policy if exists \"family_config own\"  on public.family_config;\ndrop policy if exists \"expenses own\"       on public.expenses;\ndrop policy if exists \"sync_signals read\"  on public.sync_signals;\n\ncreate policy \"schema_meta read\" on public.schema_meta for select using (true);\n\ncreate policy \"family_config own\" on public.family_config for all\n  using      (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''))\n  with check (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''));\n\ncreate policy \"expenses own\" on public.expenses for all\n  using      (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''))\n  with check (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''));\n\n-- 신호 테이블은 읽기만 허용 (쓰기는 receive_sms 함수만)\ncreate policy \"sync_signals read\" on public.sync_signals for select using (true);\n\ndo $$\nbegin\n  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')\n     and not exists (select 1 from pg_publication_tables\n                     where pubname = 'supabase_realtime' and tablename = 'sync_signals') then\n    alter publication supabase_realtime add table public.sync_signals;\n  end if;\nend $$;\n\n-- 6. 가맹점 분류 규칙 (앱의 CLASSIFY_RULES와 같은 순서·같은 규칙) ---------\ncreate or replace function public.store_category(p_store text)\nreturns text[]\nlanguage sql immutable\nas $$\n  select case\n    when p_store ~* '주차|하이패스|톨게이트'                                        then array['교통/차량','주차/톨게이트']\n    when p_store ~* '택시|카카오T|코레일|KTX|SRT|철도|승차권|버스|지하철|티머니'      then array['교통/차량','대중교통']\n    when p_store ~* '주유|칼텍스|SK에너지|SK엔크린|S-OIL|오일뱅크'                  then array['교통/차량','주유비']\n    when p_store ~* '편의점|GS25|(^|[^A-Z])CU([^A-Z]|$)|세븐일레븐|이마트24|미니스톱' then array['마트/장보기','편의점']\n    when p_store ~* '배달의민족|배민|요기요|쿠팡이츠'                               then array['식비','배달음식']\n    when p_store ~* '쿠팡|네이버페이|스마트스토어|11번가|G마켓|지마켓|옥션|컬리|SSG|무신사' then array['마트/장보기','온라인쇼핑']\n    when p_store ~* '이마트|홈플러스|롯데마트|하나로|코스트코|트레이더스|다이소'\n      or (p_store ~ '마트' and p_store !~ '스마트')                                then array['마트/장보기','대형마트']\n    when p_store ~* '약국'                                                         then array['육아/병원','약국']\n    when p_store ~* '병원|의원|소아과|치과|산부인과|내과|이비인후과|피부과|안과'      then array['육아/병원','소아과/병원']\n    when p_store ~* '스타벅스|투썸|카페|커피|베이커리|파리바게|뚜레쥬르|성심당|메가MGC|빽다방|이디야|컴포즈' then array['식비','카페/간식']\n    when p_store ~* '한우|갈비|식당|회관|김밥|분식|국밥|돈까스|피자|치킨|버거|맥도날드|롯데리아|명가' then array['식비','외식/회식']\n    when p_store ~* 'SK브로드밴드|SK텔레콤|SKT|케이티|LG유플러스|LGU\\+|통신요금|도시가스|한전|관리비'\n      or p_store ~* '(^|[^A-Z])KT([^A-Z]|$)'                                       then array['기타/미분류','통신/공과금']\n    else array['기타/미분류','미분류']\n  end\n$$;\n\n-- 7. 문자 자동 등록 (SMS 포워더·아이폰 단축어가 호출) --------------------\n--    sms_text에 '보낸사람 : 번호' 줄이 있으면 발신번호 목록과 대조합니다.\ncreate or replace function public.receive_sms(\n  sms_text   text,\n  payer_name text default '남편',\n  fam_code   text default ''\n)\nreturns json\nlanguage plpgsql\nsecurity definer\nset search_path = public\nas $$\ndeclare\n  cfg       public.family_config%rowtype;\n  body      text := coalesce(sms_text, '');\n  sender    text;\n  is_cancel boolean;\n  amt       integer;\n  dm        text[];\n  y int; m int; d int;\n  kst_now   timestamp := now() at time zone 'Asia/Seoul';\n  d_str     text;\n  v_store   text := '';\n  ln        text;\n  tail      text;\n  cat       text[];\n  new_id    text;\nbegin\n  select * into cfg from public.family_config where family_code = coalesce(fam_code, '');\n  if not found then\n    return json_build_object('status', 'error', 'reason', '등록되지 않은 가족 코드');\n  end if;\n\n  -- (1) 발신번호 검사\n  sender := regexp_replace(coalesce((regexp_match(body, '보낸\\s*사람\\s*[:：]?\\s*([0-9][0-9\\- ]{6,})'))[1], ''), '[^0-9]', '', 'g');\n  if jsonb_array_length(cfg.allowed_senders) > 0 and sender <> ''\n     and not exists (select 1 from jsonb_array_elements_text(cfg.allowed_senders) s\n                     where regexp_replace(s, '[^0-9]', '', 'g') = sender) then\n    return json_build_object('status', 'ignored', 'reason', '등록되지 않은 발신번호', 'sender', sender);\n  end if;\n\n  -- (2) 카드 승인/취소 문자인지 검사: 광고 문구 없음 + '승인/취소' + 결제 일시\n  if body ~ '\\(광고\\)|무료\\s*수신\\s*거부|수신거부|설문|실태조사|당첨|경품|추첨'\n     or body !~ '승인|취소'\n     or body !~ '\\d{1,2}\\s*[/.\\-]\\s*\\d{1,2}\\s+\\d{1,2}:\\d{2}' then\n    return json_build_object('status', 'ignored', 'reason', '카드 승인 문자 아님');\n  end if;\n\n  is_cancel := body ~ '(승인|결제|매출|체크|할부|카드(\\(\\d+\\))?)\\s*취소|취소\\s*(승인|완료|접수)';\n\n  -- (3) 금액\n  amt := nullif(replace((regexp_match(body, '([0-9][0-9,]*)\\s*원'))[1], ',', ''), '')::integer;\n  if amt is null or amt <= 0 then\n    return json_build_object('status', 'ignored', 'reason', '금액 없음');\n  end if;\n  if is_cancel then amt := -amt; end if;\n\n  -- (4) 결제 일시 (연도 없으면 올해, 오늘보다 미래면 작년)\n  dm := regexp_match(body, '(?:(20\\d{2})\\s*[/.\\-]\\s*)?(\\d{1,2})\\s*[/.\\-]\\s*(\\d{1,2})\\s+(\\d{1,2}):(\\d{2})');\n  begin\n    m := dm[2]::int; d := dm[3]::int;\n    y := coalesce(dm[1]::int, extract(year from kst_now)::int);\n    if dm[1] is null and make_date(y, m, d) > kst_now::date then y := y - 1; end if;\n    d_str := to_char(make_date(y, m, d), 'YYYY-MM-DD') || ' ' || lpad(dm[4], 2, '0') || ':' || dm[5];\n  exception when others then\n    d_str := to_char(kst_now, 'YYYY-MM-DD HH24:MI');\n  end;\n\n  -- (5) 가맹점: 안내 줄을 걸러낸 마지막 줄, 없으면 금액 뒤 텍스트\n  foreach ln in array string_to_array(replace(body, chr(13), ''), chr(10)) loop\n    ln := btrim(regexp_replace(btrim(ln), '\\s*(승인|취소)$', ''));   -- 'KTX 승차권 승인' → 'KTX 승차권'\n    continue when ln = ''\n      or ln ~ '카드|체크\\s*\\(|https?://|www\\.'\n      or ln ~ 'Web발신|승인|취소|누적|일시불|할부|보낸\\s*사람|발신|수신|잔액|적립|안내|문의'\n      or ln ~ '[0-9][0-9,]*\\s*원'\n      or ln ~ '^[0-9+\\-\\s:/.]+$'\n      or ln ~ '^[*■▶•\\-]'\n      or ln ~ '^\\[.*\\]$'\n      or ln ~ '^[가-힣A-Za-z]{1,3}\\*[가-힣A-Za-z]{0,3}님?$'\n      or ln ~ '(01[016789]|02|0[3-8][0-9]|15[0-9]{2}|16[0-9]{2}|18[0-9]{2})[-\\s]?[0-9]{3,4}[-\\s]?[0-9]{4}';\n    v_store := ln;\n  end loop;\n\n  if v_store = '' then\n    tail := (regexp_match(body, '[0-9][0-9,]*\\s*원([^\\n]*)'))[1];\n    if tail is not null then\n      tail := regexp_replace(tail, '^\\s*\\(?(일시불|할부|[0-9]+개월)\\)?\\s*', '');\n      tail := regexp_replace(tail, '^\\s*(?:20\\d{2}\\s*[/.\\-]\\s*)?\\d{1,2}\\s*[/.\\-]\\s*\\d{1,2}\\s+\\d{1,2}:\\d{2}\\s*', '');\n      tail := regexp_replace(tail, '^\\s*\\(?(일시불|할부|[0-9]+개월)\\)?\\s*', '');\n      tail := regexp_replace(tail, '\\s*(누적|잔액|보낸\\s*사람).*$', '');\n      v_store := btrim(tail);\n    end if;\n  end if;\n  if v_store = '' then v_store := '카드결제가맹점'; end if;\n\n  -- (6) 재전송 중복 방지\n  if exists (select 1 from public.expenses\n             where family_code = cfg.family_code and date = d_str and amount = amt and expenses.store = v_store) then\n    return json_build_object('status', 'duplicate_ignored', 'store', v_store, 'amount', amt, 'date', d_str);\n  end if;\n\n  -- (7) 저장 + 알림 신호\n  cat := public.store_category(v_store);\n  new_id := 'auto-' || replace(gen_random_uuid()::text, '-', '');\n  insert into public.expenses (id, family_code, date, store, category, sub_category,\n                               amount, tax, payer, source, memo, updated_by)\n  values (new_id, cfg.family_code, d_str, v_store, cat[1], cat[2],\n          amt, round(amt / 11.0), coalesce(nullif(payer_name, ''), '남편'),\n          case when is_cancel then '승인취소문자' else '자동문자수신' end,\n          '문자 자동등록' || case when sender <> '' then ' · ' || sender else '' end,\n          'AUTO_WEBHOOK');\n\n  insert into public.sync_signals (signal_id, updated_at) values (cfg.signal_id, now())\n  on conflict (signal_id) do update set updated_at = now();\n\n  return json_build_object('status', 'success', 'store', v_store, 'amount', amt, 'date', d_str,\n                           'category', cat[1], 'sub_category', cat[2]);\nend;\n$$;\n\n-- 8. 가족 코드 변경 (내역은 외래키 cascade로 함께 이동) --------------------\ncreate or replace function public.migrate_family_code(\n  old_code  text,\n  new_code  text,\n  device_id text default 'APP'\n)\nreturns json\nlanguage plpgsql\nsecurity definer\nset search_path = public\nas $$\ndeclare\n  moved int;\nbegin\n  if coalesce(current_setting('request.headers', true)::json->>'x-family-code', '') <> old_code then\n    return json_build_object('status', 'error', 'reason', '현재 가족 코드로 접속한 상태에서만 바꿀 수 있습니다.');\n  end if;\n  if new_code is null or new_code !~ '^fam_.{12,}$' then\n    return json_build_object('status', 'error', 'reason', '새 코드는 12자 이상이어야 합니다.');\n  end if;\n  if exists (select 1 from public.family_config where family_code = new_code) then\n    return json_build_object('status', 'error', 'reason', '이미 사용 중인 코드입니다. 다른 코드를 만들어 주세요.');\n  end if;\n  if not exists (select 1 from public.family_config where family_code = old_code) then\n    return json_build_object('status', 'error', 'reason', '현재 가족 정보를 찾을 수 없습니다.');\n  end if;\n\n  select count(*) into moved from public.expenses where family_code = old_code;\n\n  update public.family_config\n     set family_code = new_code,\n         signal_id   = replace(gen_random_uuid()::text, '-', ''),\n         updated_by  = device_id,\n         updated_at  = now()\n   where family_code = old_code;\n\n  return json_build_object('status', 'success', 'moved_count', moved);\nend;\n$$;\n\nrevoke all on function public.receive_sms(text, text, text) from public;\nrevoke all on function public.migrate_family_code(text, text, text) from public;\ngrant execute on function public.receive_sms(text, text, text) to anon, authenticated;\ngrant execute on function public.migrate_family_code(text, text, text) to anon, authenticated;\ngrant execute on function public.store_category(text) to anon, authenticated;\n";
+    // =====================================================================
+    // ▲▲▲ [내장 SQL 스크립트 붙여넣는 공간 끝] ▲▲▲
+    // =====================================================================
+
+
+    // =====================================================================
+    // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
+    // =====================================================================
+    const VERSION_HISTORY = [
+      {
+        version: 'v1.2',
+        date: '2026-10-29',
+        title: 'PWA 전환 — 홈 화면에 설치하는 앱',
+        changes: [
+          '[설치] 안드로이드·아이폰 홈 화면에 추가하면 주소창 없는 앱으로 실행 (manifest, 아이콘)',
+          '[오프라인] 서비스 워커가 앱 화면과 라이브러리를 저장해 인터넷이 약해도 실행, 최신 버전은 온라인일 때 자동 반영',
+          '[안드로이드] 설치 가능하면 상단에 [📲앱 설치] 버튼 표시',
+          '[아이폰] 노치·홈 바 영역에 화면이 가리지 않도록 여백 처리',
+          '[안정성] 외부 라이브러리 버전 고정 (React 18.3.1, Supabase 2.45.4 등)',
+          '[DB] 변경 없음 (스키마 1 그대로)'
+        ]
+      },
+      {
+        version: 'v1.1',
+        date: '2026-10-29',
+        title: '이전 버전 호환 종료 · 새 기준(스키마 1) 출발',
+        changes: [
+          '[기준정리] v1.0 이전 데이터 이관·자동청소·1004 기본코드 등 호환 코드 전부 제거. 초기화 SQL + 설정 SQL로 새로 시작',
+          '[업데이트구조] DB 스키마 버전(schema_meta) 확인, 폰 저장 키 고정, receive_sms 형식 고정 → 앞으로의 버전업은 데이터 유지',
+          '[보안] 가족 코드 12자 이상을 DB에서 강제, 없는 코드로 접속하면 새 가계부를 자동으로 만들지 않고 확인을 받음',
+          '[코드변경] 이미 쓰이는 코드로는 이사 거부, 실패 시 앱이 대신 옮기던 예비 동작 제거, 문자 알림 ID도 새로 발급',
+          '[문자필터] 광고 문구 없음 + 승인/취소 + 결제 일시가 있어야 등록. 링크 있는 승인 문자 허용, 쇼핑몰 결제 알림 차단',
+          '[발신번호] 카드사 발신번호 목록을 앱에서 등록하면 그 번호의 문자만 자동 등록',
+          '[문자알림] 가족 코드 대신 무작위 신호 ID로 우리 가족 문자만 실시간 반영',
+          '[취소상계] 카드사 파일의 취소 건은 60일 안의 짝 승인 건을 찾아 한 번만 상계',
+          '[중복판정] 가게 이름 앞 두 글자 비교 제거 (GS25 ≠ GS칼텍스, 스타벅스 ≠ 스타필드)',
+          '[분류] 쿠팡이츠는 배달음식, 링크·카드명 줄은 가맹점에서 제외, 분류는 가맹점 이름 기준'
+        ]
+      },
+      {
+        version: 'v1.0',
+        date: '2026-10-29',
+        title: '이전 개발 버전 (v0.1 ~ v1.0)',
+        changes: ['v1.1부터 호환되지 않음. 기록은 이전 파일 참고']
+      }
+    ];
+    // =====================================================================
+    // ▲▲▲ [버전 히스토리 붙여넣는 공간 끝] ▲▲▲
+    // =====================================================================
+
+    function App() {
+      const [familyPass, setFamilyPass] = useState(() => {
+        try { return localStorage.getItem(STORAGE_KEY_PASS) || ''; } catch (e) { return ''; }
+      });
+      const [isUnlocked, setIsUnlocked] = useState(() => {
+        try { return (localStorage.getItem(STORAGE_KEY_PASS) || '').length >= MIN_CODE_LENGTH; } catch (e) { return false; }
+      });
+      const [passInput, setPassInput] = useState('');
+
+      const [showCodeMigrateModal, setShowCodeMigrateModal] = useState(false);
+      const [newPassTarget, setNewPassTarget] = useState('');
+      const [isMigrating, setIsMigrating] = useState(false);
+
+      const [expenses, setExpenses] = useState([]);
+      const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+      const [activeTab, setActiveTab] = useState('list');
+      const [currentUser, setCurrentUser] = useState('남편');
+      const [filterUser, setFilterUser] = useState('전체');
+      const [selectedMonth, setSelectedMonth] = useState(() => getKSTDateTimeString().slice(0, 7));
+
+      const [syncStatus, setSyncStatus] = useState('connecting');
+      const [lastSyncTime, setLastSyncTime] = useState('');
+      const [errorDetail, setErrorDetail] = useState('');
+
+      const [showVersionModal, setShowVersionModal] = useState(false);
+      const [showWebhookModal, setShowWebhookModal] = useState(false);
+      const [toastMsg, setToastMsg] = useState('');
+
+      const [editingId, setEditingId] = useState(null);
+      const [editForm, setEditForm] = useState({ store: '', amount: 0, date: '', memo: '', payer: '남편' });
+
+      const [isScanning, setIsScanning] = useState(false);
+      const [scanResult, setScanResult] = useState(null);
+      const [smsText, setSmsText] = useState('');
+
+      const [newCatName, setNewCatName] = useState('');
+      const [selectedCatId, setSelectedCatId] = useState('c1');
+      const [newSubName, setNewSubName] = useState('');
+
+      // 문자 알림 ID(가족 코드 대신 쓰는 무작위 값)와 카드사 발신번호 목록
+      const [signalId, setSignalId] = useState('');
+      const [allowedSenders, setAllowedSenders] = useState([]);
+      const [senderInput, setSenderInput] = useState('');
+      const [dbSchemaVersion, setDbSchemaVersion] = useState(null);
+
+      // 안드로이드 크롬: 설치 가능하면 이벤트를 받아 두었다가 [📲앱 설치] 버튼으로 띄움
+      const [installPrompt, setInstallPrompt] = useState(null);
+      useEffect(() => {
+        const onPrompt = (e) => { e.preventDefault(); setInstallPrompt(e); };
+        const onInstalled = () => setInstallPrompt(null);
+        window.addEventListener('beforeinstallprompt', onPrompt);
+        window.addEventListener('appinstalled', onInstalled);
+        return () => {
+          window.removeEventListener('beforeinstallprompt', onPrompt);
+          window.removeEventListener('appinstalled', onInstalled);
+        };
+      }, []);
+      const handleInstall = async () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        await installPrompt.userChoice.catch(() => null);
+        setInstallPrompt(null);
+      };
+
+      const familyCode = `fam_${familyPass}`;
+      const supabaseClient = useMemo(() => createSecuredClient(familyCode), [familyCode]);
+      const syncTimerRef = useRef(null);
+      const broadcastChannelRef = useRef(null);
+
+      // 이전 알림의 타이머가 새 알림을 일찍 지우지 않도록 타이머를 하나만 유지
+      const toastTimerRef = useRef(null);
+      const showToast = (msg) => {
+        setToastMsg(msg);
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setToastMsg(''), 3800);
+      };
+
+      // ★ content:// (로컬 파일) 환경에서도 100% 작동하는 클립보드 복사 함수 (폴백 지원)
+      const copyToClipboard = (text, label) => {
+        const fallbackCopy = (str) => {
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = str;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast(`📋 [${label}] 복사 완료!`);
+          } catch (err) {
+            showToast('⚠️ 복사에 실패했습니다. 직접 선택해 복사해주세요.');
+          }
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text)
+            .then(() => showToast(`📋 [${label}] 복사 완료!`))
+            .catch(() => fallbackCopy(text));
+        } else {
+          fallbackCopy(text);
+        }
+      };
+
+      const moveMonth = (delta) => {
+        if (selectedMonth === 'ALL') {
+          setSelectedMonth(getKSTDateTimeString().slice(0, 7));
+          return;
+        }
+        const [y, m] = selectedMonth.split('-').map(Number);
+        const d = new Date(y, m - 1 + delta, 1);
+        setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+      };
+
+      const notifyPartner = () => {
+        if (broadcastChannelRef.current) {
+          broadcastChannelRef.current.send({
+            type: 'broadcast',
+            event: 'family_sync',
+            payload: { sender: MY_DEVICE_ID, time: Date.now() }
+          });
+        }
+      };
+
+      // 1. 클라우드 데이터 불러오기
+      //    순서: DB 스키마 버전 확인 → 가족 설정 확인(없으면 자동 생성하지 않고 확인 요청) → 내역 전부(1,000건씩)
+      const fetchFromCloud = async (options = { showSpinner: false, showSuccessToast: false }) => {
+        try {
+          if (options.showSpinner) setSyncStatus('connecting');
+
+          const { data: meta, error: metaErr } = await supabaseClient
+            .from('schema_meta').select('value').eq('key', 'schema_version').maybeSingle();
+          if (metaErr) throw metaErr;
+          const ver = parseInt(meta?.value || '0', 10);
+          setDbSchemaVersion(ver);
+          if (ver < REQUIRED_SCHEMA_VERSION) {
+            setSyncStatus('schema_old');
+            setErrorDetail(`DB 스키마 버전 ${ver} → 앱은 ${REQUIRED_SCHEMA_VERSION} 필요. [⚡자동연동/SQL]의 설정 SQL을 실행해주세요.`);
+            return;
+          }
+
+          const { data: cfgData, error: cfgErr } = await supabaseClient
+            .from('family_config').select('*').eq('family_code', familyCode).maybeSingle();
+          if (cfgErr) throw cfgErr;
+          if (!cfgData) {
+            // 코드 오타로 빈 가계부가 따로 생기지 않도록, 새로 만들지 사용자에게 묻는다
+            setExpenses([]);
+            setSyncStatus('no_family');
+            setErrorDetail('');
+            return;
+          }
+
+          let allExpenses = [];
+          const pageSize = 1000;
+          for (let from = 0; ; from += pageSize) {
+            const { data: batch, error: expErr } = await supabaseClient
+              .from('expenses').select('*').eq('family_code', familyCode)
+              .order('date', { ascending: false }).order('id', { ascending: true })
+              .range(from, from + pageSize - 1);
+            if (expErr) throw expErr;
+            allExpenses = allExpenses.concat(batch || []);
+            if (!batch || batch.length < pageSize) break;
+          }
+
+          setExpenses(allExpenses);
+          try { localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(allExpenses)); } catch (e) {}
+
+          const cats = Array.isArray(cfgData.categories) && cfgData.categories.length > 0 ? cfgData.categories : DEFAULT_CATEGORIES;
+          setCategories(cats);
+          try { localStorage.setItem(STORAGE_KEY_CATS, JSON.stringify(cats)); } catch (e) {}
+          setAllowedSenders(Array.isArray(cfgData.allowed_senders) ? cfgData.allowed_senders : []);
+          setSignalId(cfgData.signal_id || '');
+
+          setSyncStatus('connected');
+          setErrorDetail('');
+          setLastSyncTime(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+          if (options.showSuccessToast) showToast(`☁️ 총 ${allExpenses.length}건 동기화 완료!`);
+        } catch (err) {
+          const msg = err.message || '';
+          if (err.code === '42P01' || err.code === 'PGRST205' || /relation|does not exist|schema cache/i.test(msg)) {
+            setSyncStatus('table_missing');
+            setErrorDetail('Supabase에 테이블이 없습니다. [⚡자동연동/SQL]의 초기화·설정 SQL을 실행해주세요.');
+          } else {
+            setSyncStatus('network_error');
+            setErrorDetail(msg || '네트워크 연결을 확인해주세요.');
+          }
+          try {
+            const cached = localStorage.getItem(STORAGE_KEY_CACHE);
+            if (cached) setExpenses(JSON.parse(cached));
+          } catch (e) {}
+        }
+      };
+
+      // 이 코드로 새 가계부 만들기 (no_family 상태에서 사용자가 확인했을 때만)
+      const createFamily = async () => {
+        if (familyPass.length < MIN_CODE_LENGTH) return showToast(`⚠️ 가족 코드는 ${MIN_CODE_LENGTH}자 이상이어야 합니다.`);
+        const { error } = await supabaseClient.from('family_config').insert({
+          family_code: familyCode,
+          categories: DEFAULT_CATEGORIES,
+          updated_by: MY_DEVICE_ID
+        });
+        if (error) return showToast('⚠️ 가계부 생성 실패: ' + error.message);
+        showToast('🎉 새 가계부를 만들었습니다. 배우자 폰에도 같은 코드를 입력하세요.');
+        fetchFromCloud({ showSpinner: true });
+      };
+
+      // 2. 실시간 구독
+      //    A. 부부 앱끼리: Broadcast 신호 (RLS 영향 없음)
+      //    B. 문자 자동 등록: sync_signals에서 우리 가족 signal_id 행만 구독
+      useEffect(() => {
+        if (!isUnlocked) return;
+        fetchFromCloud({ showSpinner: true, showSuccessToast: false });
+
+        const onVisible = () => { if (document.visibilityState === 'visible') fetchFromCloud(); };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+      }, [isUnlocked, familyCode]);
+
+      useEffect(() => {
+        if (!isUnlocked) return;
+
+        const triggerDebouncedSync = (msg) => {
+          if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+          syncTimerRef.current = setTimeout(() => {
+            fetchFromCloud({ showSpinner: false, showSuccessToast: false });
+            if (msg) showToast(msg);
+          }, 250);
+        };
+
+        let channel = supabaseClient
+          .channel(`room:${familyCode}`)
+          .on('broadcast', { event: 'family_sync' }, (payload) => {
+            if (payload.payload?.sender !== MY_DEVICE_ID) {
+              triggerDebouncedSync('🔄 상대방 스마트폰에서 변경한 내역이 실시간 반영되었습니다!');
+            }
+          });
+        if (signalId) {
+          channel = channel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'sync_signals', filter: `signal_id=eq.${signalId}` },
+            () => triggerDebouncedSync('📩 새 카드 승인 문자가 자동 등록되었습니다!')
+          );
+        }
+        channel.subscribe();
+        broadcastChannelRef.current = channel;
+
+        return () => {
+          if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+          supabaseClient.removeChannel(channel);
+        };
+      }, [isUnlocked, familyCode, signalId]);
+
+      const ensureConnected = () => {
+        if (syncStatus !== 'connected') {
+          showToast('⚠️ 클라우드 미연결 상태입니다.');
+          return false;
+        }
+        return true;
+      };
+
+      // 3. 가족 코드 변경: 서버 함수(migrate_family_code)로만 처리. 실패하면 아무것도 옮기지 않음
+      const handleMigrateFamilyCode = async () => {
+        const cleanNewPass = newPassTarget.trim();
+        if (cleanNewPass.length < MIN_CODE_LENGTH) {
+          return showToast(`⚠️ 새 보안 코드는 ${MIN_CODE_LENGTH}자 이상이어야 합니다.`);
+        }
+        if (cleanNewPass === familyPass) return showToast('ℹ️ 현재 사용 중인 코드와 같습니다.');
+        if (!ensureConnected()) return;
+
+        setIsMigrating(true);
+        const newFamCode = `fam_${cleanNewPass}`;
+        try {
+          const { data: res, error } = await supabaseClient.rpc('migrate_family_code', {
+            old_code: familyCode,
+            new_code: newFamCode,
+            device_id: MY_DEVICE_ID
+          });
+          if (error) throw error;
+          if (!res || res.status !== 'success') {
+            return showToast('⚠️ 코드 변경 실패: ' + (res?.reason || '알 수 없는 오류'));
+          }
+          try { localStorage.setItem(STORAGE_KEY_PASS, cleanNewPass); } catch (e) {}
+          setFamilyPass(cleanNewPass);
+          setShowCodeMigrateModal(false);
+          window.alert(
+            `✅ ${res.moved_count}건의 내역을 새 코드로 옮겼습니다.\n\n` +
+            `⚠️ 꼭 해주세요\n` +
+            `1. 배우자 폰: [🔒코드변경] → [다른 코드로 접속]에서 새 코드 입력\n` +
+            `2. 문자 포워더·아이폰 단축어의 fam_code를 "${newFamCode}"로 변경\n` +
+            `   (이전 코드로 오는 문자는 이제 등록되지 않습니다)`
+          );
+        } catch (err) {
+          showToast('⚠️ 코드 변경 실패: ' + (err.message || err));
+        } finally {
+          setIsMigrating(false);
+        }
+      };
+
+      const isDuplicateExpense = (candidate, existingList) => {
+        const candNorm = normalizeDateString(candidate.date);
+        const candDay = candNorm.slice(0, 10);
+        const candTime = candNorm.slice(11, 16);
+
+        return existingList.some(ex => {
+          if (ex.amount !== candidate.amount) return false;
+
+          const exNorm = normalizeDateString(ex.date);
+          const exDay = exNorm.slice(0, 10);
+          const exTime = exNorm.slice(11, 16);
+          if (exDay !== candDay) return false;
+
+          // 둘 다 결제 시각이 있으면: 같은 날·같은 금액·같은 분이면 가게 이름 표기가 달라도 중복
+          // (문자 'KTX 승차권' vs 카드사 파일 '코레일(KTX)' 같은 경우)
+          if (candTime !== '00:00' && exTime !== '00:00') return candTime === exTime;
+
+          // 한쪽이라도 시각이 없으면(카드사 파일 등) 가게 이름이 비슷할 때만 중복
+          return isSimilarStoreName(candidate.store, ex.store);
+        });
+      };
+
+      const insertExpenseRows = async (rowsArray) => {
+        if (!ensureConnected()) return false;
+        const rowsWithMeta = rowsArray.map(r => ({
+          ...r,
+          date: normalizeDateString(r.date),
+          family_code: familyCode,
+          updated_by: MY_DEVICE_ID
+        }));
+
+        const chunkSize = 500;
+        for (let i = 0; i < rowsWithMeta.length; i += chunkSize) {
+          const chunk = rowsWithMeta.slice(i, i + chunkSize);
+          const { error } = await supabaseClient.from('expenses').insert(chunk);
+          if (error) {
+            showToast('⚠️ 저장 실패: ' + error.message);
+            return false;
+          }
+        }
+
+        setExpenses(prev => [...rowsWithMeta, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
+        notifyPartner();
+        return true;
+      };
+
+      const updateExpenseRow = async (id, patch) => {
+        if (!ensureConnected()) return false;
+        const patchWithMeta = { ...patch, updated_by: MY_DEVICE_ID };
+        if (patchWithMeta.date) patchWithMeta.date = normalizeDateString(patchWithMeta.date);
+
+        const { error } = await supabaseClient
+          .from('expenses')
+          .update(patchWithMeta)
+          .eq('id', id)
+          .eq('family_code', familyCode);
+
+        if (error) {
+          showToast('⚠️ 수정 실패: ' + error.message);
+          return false;
+        }
+        setExpenses(prev => prev.map(e => e.id === id ? { ...e, ...patchWithMeta } : e));
+        notifyPartner();
+        return true;
+      };
+
+      const deleteExpenseRow = async (item) => {
+        if (!ensureConnected()) return false;
+        if (!window.confirm(`[${item.store} - ${item.amount.toLocaleString()}원]\n정말 삭제하시겠습니까?`)) return false;
+
+        const { error } = await supabaseClient
+          .from('expenses')
+          .delete()
+          .eq('id', item.id)
+          .eq('family_code', familyCode);
+
+        if (error) {
+          showToast('⚠️ 삭제 실패: ' + error.message);
+          return false;
+        }
+        setExpenses(prev => prev.filter(e => e.id !== item.id));
+        notifyPartner();
+        showToast('🗑️ 삭제되었습니다.');
+        return true;
+      };
+
+      const saveEditForm = async (id) => {
+        const amt = Number(editForm.amount) || 0;
+        const ok = await updateExpenseRow(id, {
+          store: editForm.store.trim() || '미상가맹점',
+          amount: amt,
+          tax: Math.round(amt / 11),
+          date: normalizeDateString(editForm.date),
+          memo: editForm.memo.trim(),
+          payer: editForm.payer
+        });
+        if (ok) {
+          setEditingId(null);
+          showToast('✏️ 내역이 수정되었습니다!');
+        }
+      };
+
+      const saveCategories = async (newCats) => {
+        if (!ensureConnected()) return false;
+        const { error } = await supabaseClient.from('family_config').update({
+          categories: newCats,
+          updated_by: MY_DEVICE_ID,
+          updated_at: new Date().toISOString()
+        }).eq('family_code', familyCode);
+        if (error) {
+          showToast('⚠️ 카테고리 저장 실패: ' + error.message);
+          return false;
+        }
+        setCategories(newCats);
+        try { localStorage.setItem(STORAGE_KEY_CATS, JSON.stringify(newCats)); } catch (e) {}
+        notifyPartner();
+        return true;
+      };
+
+      // 카드사 발신번호 목록 저장 (비어 있으면 receive_sms가 번호 검사를 하지 않음)
+      const saveAllowedSenders = async (list) => {
+        if (!ensureConnected()) return false;
+        const { error } = await supabaseClient.from('family_config').update({
+          allowed_senders: list,
+          updated_by: MY_DEVICE_ID,
+          updated_at: new Date().toISOString()
+        }).eq('family_code', familyCode);
+        if (error) {
+          showToast('⚠️ 발신번호 저장 실패: ' + error.message);
+          return false;
+        }
+        setAllowedSenders(list);
+        notifyPartner();
+        return true;
+      };
+
+      const handleAddSender = async () => {
+        const digits = senderInput.replace(/[^0-9]/g, '');
+        if (digits.length < 7) return showToast('⚠️ 발신번호를 숫자로 입력해주세요 (예: 1544-7000).');
+        if (allowedSenders.some(x => String(x).replace(/[^0-9]/g, '') === digits)) return showToast('ℹ️ 이미 등록된 번호입니다.');
+        if (await saveAllowedSenders([...allowedSenders, senderInput.trim()])) {
+          setSenderInput('');
+          showToast('✅ 발신번호가 등록되었습니다.');
+        }
+      };
+
+      const handleAddCategory = async () => {
+        if (!newCatName.trim()) return;
+        const newCat = { id: 'c-' + Date.now(), name: newCatName.trim(), subs: ['기타'] };
+        const updated = [...categories, newCat];
+        const ok = await saveCategories(updated);
+        if (ok) {
+          setSelectedCatId(newCat.id);
+          setNewCatName('');
+          showToast(`✅ [${newCat.name}] 대분류 추가됨`);
+        }
+      };
+
+      const handleDeleteCategory = async (id, name) => {
+        if (categories.length <= 1) return showToast('⚠️ 최소 1개는 유지해야 합니다.');
+        if (!window.confirm(`[${name}] 대분류를 삭제하시겠습니까?`)) return;
+        const updated = categories.filter(c => c.id !== id);
+        const ok = await saveCategories(updated);
+        if (ok) setSelectedCatId(updated[0].id);
+      };
+
+      const handleAddSubCategory = async () => {
+        if (!newSubName.trim()) return;
+        const updated = categories.map(c => {
+          if (c.id === selectedCatId && !c.subs.includes(newSubName.trim())) {
+            return { ...c, subs: [...c.subs, newSubName.trim()] };
+          }
+          return c;
+        });
+        const ok = await saveCategories(updated);
+        if (ok) setNewSubName('');
+      };
+
+      const handleDeleteSubCategory = async (catId, subName) => {
+        if (!window.confirm(`[${subName}] 세부 카테고리를 삭제하시겠습니까?`)) return;
+        const updated = categories.map(c => {
+          if (c.id === catId) return { ...c, subs: c.subs.filter(s => s !== subName) };
+          return c;
+        });
+        await saveCategories(updated);
+      };
+
+      const handleScan = (type) => {
+        setIsScanning(true);
+        setScanResult(null);
+        setTimeout(() => {
+          setIsScanning(false);
+          const todayKST = getKSTDateTimeString().slice(0, 10);
+          let mock;
+          if (type === 'mart') {
+            mock = {
+              date: `${todayKST} 14:20`,
+              store: '이마트 연수점',
+              category: '마트/장보기',
+              sub_category: '대형마트',
+              amount: 50000,
+              tax: 4545,
+              is_business: false,
+              memo: '주말 장보기',
+              items: [
+                { name: '유기농 우유 900ml', price: 4500 },
+                { name: '한돈 삼겹살 600g', price: 18500 },
+                { name: '아기 물티슈 기획팩', price: 15000 },
+                { name: '제주 감귤 1박스', price: 12000 }
+              ]
+            };
+          } else {
+            mock = {
+              date: getKSTDateTimeString(),
+              store: '투썸플레이스 송도점',
+              category: '식비',
+              sub_category: '카페/간식',
+              amount: 16500,
+              tax: 1500,
+              is_business: true,
+              memo: '미팅 다과비',
+              items: [
+                { name: '아메리카노 2잔', price: 9000 },
+                { name: '생크림 케이크', price: 7500 }
+              ]
+            };
+          }
+          mock.verified = true;
+          setScanResult(mock);
+        }, 500);
+      };
+
+      const confirmScan = async () => {
+        if (!scanResult) return;
+        const scanDay = scanResult.date.slice(0, 10);
+        const dupItem = expenses.find(
+          e => e.amount === scanResult.amount &&
+               ['카드문자', '자동문자수신', 'CSV일괄등록', '엑셀일괄등록'].includes(e.source) &&
+               (!e.items || e.items.length === 0) &&
+               (e.date || '').slice(0, 10) === scanDay
+        );
+
+        if (dupItem) {
+          const ok = await updateExpenseRow(dupItem.id, {
+            store: scanResult.store,
+            category: scanResult.category,
+            sub_category: scanResult.sub_category,
+            items: scanResult.items,
+            source: '영수증+내역병합',
+            memo: (dupItem.memo || '') + ' (영수증 품목 병합)'
+          });
+          if (ok) {
+            showToast('✨ 동일 날짜·금액의 기존 내역에 영수증 품목이 병합되었습니다!');
+            setScanResult(null);
+            setActiveTab('list');
+          }
+        } else {
+          const ok = await insertExpenseRows([{
+            id: 'exp-' + Date.now(),
+            ...scanResult,
+            payer: currentUser,
+            source: '영수증스캔'
+          }]);
+          if (ok) {
+            showToast('☁️ 영수증 내역이 등록되었습니다.');
+            setScanResult(null);
+            setActiveTab('list');
+          }
+        }
+      };
+
+      const handleBulkParseSMS = async () => {
+        if (!smsText.trim()) return;
+        const rawBlocks = smsText
+          .split(/(?=\[Web발신\])|\n\s*\n/)
+          .map(b => b.trim())
+          .filter(Boolean);
+
+        const parsedRows = [];
+        let duplicateCount = 0;
+        let spamIgnoredCount = 0;
+
+        for (const block of rawBlocks) {
+          const parsed = parseSingleSmsBlock(block, categories, currentUser);
+          if (parsed) {
+            if (isDuplicateExpense(parsed, [...expenses, ...parsedRows])) {
+              duplicateCount++;
+            } else {
+              parsedRows.push(parsed);
+            }
+          } else {
+            spamIgnoredCount++;
+          }
+        }
+
+        if (parsedRows.length === 0) {
+          if (duplicateCount > 0) return showToast(`ℹ️ 이미 등록된 중복 내역(${duplicateCount}건)입니다.`);
+          return showToast('⚠️ 카드 결제 승인 문자가 없습니다 (광고/설문/비결제 문자 자동 무시됨).');
+        }
+
+        const ok = await insertExpenseRows(parsedRows);
+        if (ok) {
+          setSmsText('');
+          const extra = [
+            duplicateCount > 0 ? `중복 ${duplicateCount}건 제외` : '',
+            spamIgnoredCount > 0 ? `광고/설문 ${spamIgnoredCount}건 차단` : ''
+          ].filter(Boolean).join(', ');
+          showToast(`🎉 총 ${parsedRows.length}건 등록 완료!${extra ? ` (${extra})` : ''}`);
+          setActiveTab('list');
+        }
+      };
+
+      const handleFileUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const fileName = file.name.toLowerCase();
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          const buffer = evt.target.result;
+          let rows2D = [];
+
+          try {
+            if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) {
+              const uint8 = new Uint8Array(buffer);
+              const sampleText = new TextDecoder('utf-8').decode(uint8.slice(0, 500));
+              if (/<html|<table/i.test(sampleText)) {
+                let htmlStr = new TextDecoder('utf-8').decode(uint8);
+                if (htmlStr.includes('\uFFFD')) htmlStr = new TextDecoder('euc-kr').decode(uint8);
+                const wb = window.XLSX.read(htmlStr, { type: 'string' });
+                const firstSheet = wb.Sheets[wb.SheetNames[0]];
+                rows2D = window.XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: '' });
+              } else {
+                const wb = window.XLSX.read(uint8, { type: 'array', codepage: 949 });
+                const firstSheet = wb.Sheets[wb.SheetNames[0]];
+                rows2D = window.XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: '' });
+              }
+            } else {
+              let text = new TextDecoder('utf-8').decode(buffer);
+              if (text.includes('\uFFFD')) text = new TextDecoder('euc-kr').decode(buffer);
+              rows2D = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(splitCsvLine);
+            }
+          } catch (parseErr) {
+            return showToast('⚠️ 파일을 읽는 중 오류가 발생했습니다.');
+          }
+
+          if (!rows2D || rows2D.length < 2) {
+            return showToast('⚠️ 파일에서 유효한 표 데이터를 찾지 못했습니다.');
+          }
+
+          let headerIdx = 0;
+          let dateCol = -1, timeCol = -1, storeCol = -1, amountCol = -1;
+
+          for (let i = 0; i < Math.min(20, rows2D.length); i++) {
+            const row = rows2D[i];
+            if (!Array.isArray(row) || row.length < 2) continue;
+
+            let hitCount = 0;
+            let tmpDate = -1, tmpTime = -1, tmpStore = -1, tmpAmt = -1;
+
+            row.forEach((cell, idx) => {
+              const cClean = String(cell || '').replace(/\s+/g, '');
+              if (cClean.length > 15 || cClean.includes(':')) return;
+
+              if (/이용일|승인일|결제일|거래일|매출일|일자|날짜|일시/.test(cClean) && tmpDate === -1) {
+                tmpDate = idx; hitCount++;
+              } else if (/시간|시각/.test(cClean) && tmpTime === -1) {
+                tmpTime = idx;
+              } else if (/가맹점|상호|이용처|내역|내용/.test(cClean) && tmpStore === -1) {
+                tmpStore = idx; hitCount++;
+              } else if (/이용금액|승인금액|결제금액|매출금액|거래금액|원금|^금액$/.test(cClean) && !/취소|할인|포인트|잔액|혜택/.test(cClean) && tmpAmt === -1) {
+                tmpAmt = idx; hitCount++;
+              }
+            });
+
+            if (hitCount >= 2) {
+              headerIdx = i;
+              dateCol = tmpDate;
+              timeCol = tmpTime;
+              storeCol = tmpStore;
+              amountCol = tmpAmt;
+              break;
+            }
+          }
+
+          const headerCols = rows2D[headerIdx] || [];
+          const rawExtracted = [];
+
+          for (let i = headerIdx + 1; i < rows2D.length; i++) {
+            const cols = rows2D[i].map(c => String(c ?? '').trim());
+            if (cols.length < 2) continue;
+            if (cols.some(c => /^합계$|^총계$|^소계$/.test(c))) continue;
+
+            const isCancelRow = cols.some(c => /취소/.test(c));
+            let dateVal = '';
+            let storeVal = '';
+            let amountVal = 0;
+
+            if (dateCol !== -1 && cols[dateCol]) {
+              const rawDatePart = timeCol !== -1 && cols[timeCol] ? `${cols[dateCol]} ${cols[timeCol]}` : cols[dateCol];
+              dateVal = normalizeDateString(rawDatePart);
+            }
+            if (storeCol !== -1 && cols[storeCol]) {
+              storeVal = cols[storeCol];
+            }
+            if (amountCol !== -1 && cols[amountCol]) {
+              const cleanedAmt = cols[amountCol].replace(/[^0-9\-]/g, '');
+              if (cleanedAmt) amountVal = parseInt(cleanedAmt, 10);
+            }
+
+            if (amountVal === 0 || !storeVal || !dateVal) {
+              cols.forEach((col, idx) => {
+                const hName = String(headerCols[idx] || '');
+                if (/승인번호|카드번호|사업자|연락처|전화|할부|번호/.test(hName)) return;
+
+                if (!dateVal && /^(?:20\d{2}|\d{2})\s*[\-\.\/]?\s*\d{1,2}\s*[\-\.\/]?\s*\d{1,2}/.test(col) && col.replace(/[^0-9]/g, '').length >= 6) {
+                  dateVal = normalizeDateString(col);
+                } else if (amountVal === 0 && /^-?[0-9,]+원?$/.test(col)) {
+                  const rawDigits = col.replace(/[^0-9]/g, '');
+                  if (!col.includes(',') && rawDigits.length === 8) return;
+                  const num = parseInt(col.replace(/[^0-9\-]/g, ''), 10);
+                  if (Math.abs(num) >= 100) amountVal = num;
+                } else if (
+                  !storeVal &&
+                  col.length >= 2 &&
+                  !/승인|일시불|할부|정상|본인|가족|체크|신용|취소|국내|해외/.test(col) &&
+                  isNaN(Number(col.replace(/[,.\-\/:\s]/g, '')))
+                ) {
+                  storeVal = col;
+                }
+              });
+            }
+
+            if (amountVal !== 0 && !isNaN(amountVal)) {
+              rawExtracted.push({
+                rowIdx: i,
+                isCancelRow: isCancelRow || amountVal < 0,
+                absAmount: Math.abs(amountVal),
+                date: dateVal || getKSTDateTimeString(),
+                store: storeVal || '카드사가맹점'
+              });
+            }
+          }
+
+          const normalItems = rawExtracted.filter(r => !r.isCancelRow);
+          const cancelItems = rawExtracted.filter(r => r.isCancelRow);
+
+          const newRows = [];
+          let dupCount = 0;
+          let autoIgnoredCancelCount = 0;
+
+          for (const item of normalItems) {
+            const { category, sub_category } = classifyStoreAndText(item.store, categories);
+            const candidate = {
+              id: 'xls-' + Date.now() + '-' + item.rowIdx,
+              date: item.date,
+              store: item.store,
+              category,
+              sub_category,
+              amount: item.absAmount,
+              tax: Math.round(item.absAmount / 11),
+              payer: currentUser,
+              is_business: false,
+              source: fileName.endsWith('.csv') ? 'CSV일괄등록' : '엑셀일괄등록',
+              verified: true,
+              memo: '파일 일괄등록',
+              items: []
+            };
+
+            if (isDuplicateExpense(candidate, [...expenses, ...newRows])) {
+              dupCount++;
+            } else {
+              newRows.push(candidate);
+            }
+          }
+
+          // ★ 취소 상계: 취소일 기준 60일 안(취소일 포함 이전)의 짝 승인 건을 찾아 한 번만 상계.
+          //   짝 승인 건이 없으면(카드사가 원래 승인 행을 '취소'로 표시만 한 경우) 등록하지 않음
+          const CANCEL_LOOKBACK_DAYS = 60;
+          const dayNum = (ymd) => Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10)) / 86400000;
+          const pairedApprovalIds = new Set();
+          // 이미 등록된 취소(음수) 건이 상계한 승인 건은 다시 쓰지 않도록 먼저 표시
+          const markPaired = (cancelRow, pool) => {
+            const cDay = dayNum(normalizeDateString(cancelRow.date).slice(0, 10));
+            const match = pool
+              .filter(ex => ex.amount === Math.abs(cancelRow.amount) && !pairedApprovalIds.has(ex.id))
+              .filter(ex => {
+                const diff = cDay - dayNum(normalizeDateString(ex.date).slice(0, 10));
+                return diff >= 0 && diff <= CANCEL_LOOKBACK_DAYS && isSimilarStoreName(cancelRow.store, ex.store);
+              })
+              .sort((x, y) => normalizeDateString(y.date).localeCompare(normalizeDateString(x.date)))[0];
+            if (match) pairedApprovalIds.add(match.id);
+            return match;
+          };
+          const approvalsPool = () => [...expenses, ...newRows].filter(ex => ex.amount > 0);
+          expenses.filter(ex => ex.amount < 0).forEach(ex => markPaired(ex, approvalsPool()));
+
+          for (const cItem of cancelItems) {
+            const { category, sub_category } = classifyStoreAndText(cItem.store, categories);
+            const cancelCandidate = {
+              id: 'xls-cancel-' + Date.now() + '-' + cItem.rowIdx,
+              date: cItem.date,
+              store: cItem.store,
+              category,
+              sub_category,
+              amount: -cItem.absAmount,
+              tax: -Math.round(cItem.absAmount / 11),
+              payer: currentUser,
+              is_business: false,
+              source: fileName.endsWith('.csv') ? 'CSV일괄등록' : '엑셀일괄등록',
+              verified: true,
+              memo: '승인취소 상계',
+              items: []
+            };
+
+            // 같은 취소가 이미 등록돼 있으면(예: 취소 문자) 건너뜀
+            if (isDuplicateExpense(cancelCandidate, [...expenses, ...newRows])) {
+              dupCount++;
+              continue;
+            }
+            if (!markPaired(cancelCandidate, approvalsPool())) {
+              autoIgnoredCancelCount++;
+              continue;
+            }
+            newRows.push(cancelCandidate);
+          }
+
+          e.target.value = '';
+          if (newRows.length === 0) {
+            if (dupCount > 0 || autoIgnoredCancelCount > 0) {
+              return showToast(`ℹ️ 신규 내역 없음 (중복 ${dupCount}건, 단독취소 ${autoIgnoredCancelCount}건 제외)`);
+            }
+            return showToast('⚠️ 파일에서 등록할 결제 내역을 찾지 못했습니다.');
+          }
+
+          const ok = await insertExpenseRows(newRows);
+          if (ok) {
+            const extraMsg = [
+              dupCount > 0 ? `중복 ${dupCount}건 제외` : '',
+              autoIgnoredCancelCount > 0 ? `단독취소 ${autoIgnoredCancelCount}건 자동제외` : ''
+            ].filter(Boolean).join(', ');
+            showToast(`📥 총 ${newRows.length}건 등록 완료!${extraMsg ? ` (${extraMsg})` : ''}`);
+            setActiveTab('list');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      };
+
+      const exportCSV = (onlyBiz) => {
+        const list = onlyBiz ? monthFiltered.filter(e => e.is_business) : monthFiltered;
+        const headers = ['결제일시(KST)', '결제자', '상호명', '대분류', '세부카테고리', '공급가액', '부가세', '총금액', '구분', '품목', '메모'];
+        const rows = list.map(e => [
+          e.date, e.payer, `"${e.store}"`, e.category, e.sub_category || '-',
+          e.amount - (e.tax || 0), e.tax || 0, e.amount,
+          e.is_business ? '업무경비' : '개인',
+          `"${(e.items || []).map(i => i.name).join('/')}"`,
+          `"${e.memo || ''}"`
+        ].join(','));
+        const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `부부가계부_${selectedMonth}_${APP_VERSION}.csv`;
+        link.click();
+      };
+
+      const monthFiltered = expenses.filter(e => {
+        if (selectedMonth !== 'ALL' && !(e.date || '').startsWith(selectedMonth)) return false;
+        if (filterUser === '남편') return e.payer === '남편';
+        if (filterUser === '아내') return e.payer === '아내';
+        if (filterUser === '업무용') return e.is_business;
+        return true;
+      });
+
+      const totalAmount = monthFiltered.reduce((s, e) => s + e.amount, 0);
+      const knownCatNames = categories.map(c => c.name);
+      const uncategorizedSum = monthFiltered.filter(e => !knownCatNames.includes(e.category)).reduce((s, e) => s + e.amount, 0);
+
+      return (
+        <div className="min-h-screen pb-24 safe-page max-w-xl mx-auto bg-slate-950">
+          {toastMsg && (
+            <div style={{ marginBottom: 'env(safe-area-inset-bottom)' }} className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-xl whitespace-nowrap">
+              {toastMsg}
+            </div>
+          )}
+
+          {!isUnlocked ? (
+            <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full space-y-4 text-center">
+                <div className="text-3xl">🛡️</div>
+                <h2 className="text-lg font-bold text-white">부부 전용 가계부 보안 잠금 ({APP_VERSION})</h2>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  부부가 함께 쓰는 <b>가족 보안 코드({MIN_CODE_LENGTH}자 이상)</b>를 입력하세요. 처음이면 아래 버튼으로 코드를 만들고, 배우자 폰에도 같은 코드를 입력하면 됩니다.
+                </p>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={passInput}
+                    onChange={e => setPassInput(e.target.value)}
+                    placeholder="가족 보안 코드 입력"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-center text-white font-bold tracking-wider text-sm"
+                  />
+                  <button
+                    onClick={() => {
+                      const code = generateSecureFamilyPass();
+                      setPassInput(code);
+                      copyToClipboard(code, '12자리 보안 코드');
+                    }}
+                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold rounded-xl text-xs border border-slate-700"
+                  >
+                    🎲 12자리 고강도 보안 코드 자동 생성 & 복사
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    if (passInput.trim().length < MIN_CODE_LENGTH) {
+                      showToast(`⚠️ 가족 보안 코드는 ${MIN_CODE_LENGTH}자 이상이어야 합니다.`);
+                      return;
+                    }
+                    try { localStorage.setItem(STORAGE_KEY_PASS, passInput.trim()); } catch (e) {}
+                    setFamilyPass(passInput.trim());
+                    setIsUnlocked(true);
+                  }}
+                  className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-sm"
+                >
+                  잠금 해제 및 실시간 연결
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 px-3 py-2.5 safe-top space-y-2">
+                <div className="flex justify-between items-center gap-1">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-2 py-0.5 rounded-full whitespace-nowrap">
+                      {APP_VERSION}
+                    </span>
+                    <h1 className="font-bold text-sm sm:text-base text-white whitespace-nowrap">
+                      부부 AI 가계부
+                    </h1>
+                  </div>
+
+                  {/* 버튼이 많아 좁은 화면에서 잘리지 않도록 가로 스크롤 */}
+                  <div className="flex items-center gap-1 min-w-0 overflow-x-auto">
+                    {installPrompt && (
+                      <button
+                        onClick={handleInstall}
+                        className="text-[11px] bg-amber-500 text-slate-950 px-2 py-1 rounded-lg font-bold whitespace-nowrap"
+                      >
+                        📲앱 설치
+                      </button>
+                    )}
+                    <button
+                      onClick={DOWNLOAD_CLEAN_HTML_FILE}
+                      className="text-[11px] bg-emerald-950 text-emerald-300 px-2 py-1 rounded-lg border border-emerald-700 font-bold whitespace-nowrap"
+                    >
+                      💾파일저장
+                    </button>
+                    <button
+                      onClick={() => setShowWebhookModal(true)}
+                      className="text-[11px] bg-indigo-950 text-indigo-300 px-2 py-1 rounded-lg border border-indigo-700/70 whitespace-nowrap font-bold"
+                    >
+                      ⚡자동연동/SQL
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNewPassTarget('');
+                        setShowCodeMigrateModal(true);
+                      }}
+                      className="text-[11px] bg-slate-800 text-slate-200 px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap"
+                    >
+                      🔒코드변경
+                    </button>
+                    <button
+                      onClick={() => fetchFromCloud({ showSpinner: true, showSuccessToast: true })}
+                      className="text-[11px] bg-slate-800 text-slate-200 px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap"
+                    >
+                      🔄
+                    </button>
+                    <button
+                      onClick={() => setShowVersionModal(true)}
+                      className="text-[11px] bg-slate-800 text-slate-200 px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap"
+                    >
+                      🕓버전
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 text-[11px] gap-2">
+                  <div className="truncate">
+                    {syncStatus === 'connected' && (
+                      <span className="text-emerald-400 font-bold whitespace-nowrap">
+                        🛡️ 연결됨 {lastSyncTime && `(${lastSyncTime})`}
+                      </span>
+                    )}
+                    {syncStatus === 'connecting' && <span className="text-amber-400 font-bold">⏳ 동기화 확인 중...</span>}
+                    {syncStatus === 'table_missing' && <span className="text-rose-400 font-bold">⚠️ DB 설정 SQL 실행 필요</span>}
+                    {syncStatus === 'schema_old' && <span className="text-rose-400 font-bold">⚠️ DB 업데이트 필요</span>}
+                    {syncStatus === 'no_family' && <span className="text-amber-400 font-bold">ℹ️ 처음 쓰는 코드</span>}
+                    {syncStatus === 'network_error' && <span className="text-amber-400 font-bold">⚠️ 오프라인 보호모드</span>}
+                  </div>
+
+                  <div className="flex gap-1 bg-slate-800 p-0.5 rounded-lg shrink-0">
+                    <button
+                      onClick={() => setCurrentUser('남편')}
+                      className={`px-2.5 py-1 rounded-md font-bold whitespace-nowrap transition ${
+                        currentUser === '남편' ? 'bg-blue-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      👨 남편
+                    </button>
+                    <button
+                      onClick={() => setCurrentUser('아내')}
+                      className={`px-2.5 py-1 rounded-md font-bold whitespace-nowrap transition ${
+                        currentUser === '아내' ? 'bg-pink-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      👩 아내
+                    </button>
+                  </div>
+                </div>
+              </header>
+
+              <main className="p-3.5 space-y-3.5">
+                {/* 처음 쓰는 코드: 오타로 빈 가계부가 생기지 않도록 확인 */}
+                {syncStatus === 'no_family' && (
+                  <div className="bg-amber-950/40 border border-amber-700/60 rounded-2xl p-4 space-y-3 text-xs">
+                    <p className="font-bold text-amber-200 text-sm">이 코드로 만든 가계부가 아직 없습니다</p>
+                    <p className="text-amber-100/90 leading-relaxed">
+                      처음 시작하는 거라면 <b>새 가계부 만들기</b>를 누르세요. 배우자가 이미 만든 가계부에 들어가려던 거라면 코드를 잘못 입력했을 수 있으니 <b>코드 다시 입력</b>을 누르세요.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={createFamily} className="py-2 bg-indigo-600 text-white font-bold rounded-lg">새 가계부 만들기</button>
+                      <button
+                        onClick={() => { setPassInput(familyPass); setIsUnlocked(false); }}
+                        className="py-2 bg-slate-800 text-slate-200 font-bold rounded-lg border border-slate-700"
+                      >
+                        코드 다시 입력
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {['table_missing', 'schema_old', 'network_error'].includes(syncStatus) && errorDetail && (
+                  <div className="bg-rose-950/50 border border-rose-700/60 rounded-xl p-3 text-[11px] text-rose-200 leading-relaxed">
+                    ⚠️ {errorDetail}
+                  </div>
+                )}
+
+                <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-700 space-y-3">
+                  <div className="flex justify-between items-center bg-slate-950/70 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <button onClick={() => moveMonth(-1)} className="text-xs font-bold text-slate-300 px-2 py-0.5 hover:text-white">
+                      ◀ 이전달
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-extrabold text-indigo-300">
+                        {selectedMonth === 'ALL' ? '📅 전체 기간' : `📅 ${selectedMonth.split('-')[0]}년 ${selectedMonth.split('-')[1]}월`}
+                      </span>
+                      <button
+                        onClick={() => setSelectedMonth(selectedMonth === 'ALL' ? getKSTDateTimeString().slice(0, 7) : 'ALL')}
+                        className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700"
+                      >
+                        {selectedMonth === 'ALL' ? '월별보기' : '전체기간'}
+                      </button>
+                    </div>
+                    <button onClick={() => moveMonth(1)} className="text-xs font-bold text-slate-300 px-2 py-0.5 hover:text-white">
+                      다음달 ▶
+                    </button>
+                  </div>
+
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <p className="text-xs text-slate-400">지출 합계 ({filterUser})</p>
+                      <h2 className="text-2xl font-extrabold text-white mt-0.5">{totalAmount.toLocaleString()}원</h2>
+                    </div>
+                    <span className="text-[11px] text-indigo-300 bg-indigo-950/80 px-2.5 py-1 rounded-lg border border-indigo-700/50">
+                      총 {monthFiltered.length}건 (전체 {expenses.length}건)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-slate-700/60 text-xs">
+                    {['전체', '남편', '아내', '업무용'].map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setFilterUser(f)}
+                        className={`py-1.5 rounded-lg font-bold whitespace-nowrap ${
+                          filterUser === f ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {activeTab === 'list' && (
+                  <div className="space-y-2.5">
+                    {monthFiltered.length === 0 && (
+                      <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 text-center space-y-2">
+                        <p className="text-xs text-slate-400">해당 기간에 등록된 지출 내역이 없습니다.</p>
+                      </div>
+                    )}
+
+                    {monthFiltered.map(item => {
+                      const matchedCat = categories.find(c => c.name === item.category) || categories[0];
+                      const isEditing = editingId === item.id;
+
+                      return (
+                        <div key={item.id} className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+                          {isEditing ? (
+                            <div className="bg-slate-950 p-3 rounded-xl border border-indigo-500/60 space-y-2.5 text-xs">
+                              <div className="flex justify-between items-center">
+                                <span className="font-bold text-indigo-400">✏️ 내역 직접 수정</span>
+                                <div className="flex gap-1">
+                                  {['남편', '아내'].map(p => (
+                                    <button
+                                      key={p}
+                                      onClick={() => setEditForm({ ...editForm, payer: p })}
+                                      className={`px-2 py-0.5 rounded font-bold ${editForm.payer === p ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+                                    >
+                                      {p}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-[11px] text-slate-400">상호명(가맹점)</label>
+                                  <input
+                                    type="text"
+                                    value={editForm.store}
+                                    onChange={e => setEditForm({ ...editForm, store: e.target.value })}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-bold mt-0.5"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[11px] text-slate-400">결제 금액(원)</label>
+                                  <input
+                                    type="number"
+                                    value={editForm.amount}
+                                    onChange={e => setEditForm({ ...editForm, amount: e.target.value })}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-bold mt-0.5"
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-[11px] text-slate-400">결제일시 (달력 선택)</label>
+                                  <input
+                                    type="datetime-local"
+                                    value={(editForm.date || '').replace(' ', 'T').slice(0, 16)}
+                                    onChange={e => setEditForm({ ...editForm, date: e.target.value.replace('T', ' ') })}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 mt-0.5"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[11px] text-slate-400">메모</label>
+                                  <input
+                                    type="text"
+                                    value={editForm.memo}
+                                    onChange={e => setEditForm({ ...editForm, memo: e.target.value })}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 mt-0.5"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-2 pt-1">
+                                <button onClick={() => saveEditForm(item.id)} className="flex-1 py-1.5 bg-indigo-600 text-white font-bold rounded-lg">
+                                  💾 수정 저장
+                                </button>
+                                <button onClick={() => setEditingId(null)} className="px-4 py-1.5 bg-slate-800 text-slate-300 rounded-lg">
+                                  취소
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${item.payer === '남편' ? 'bg-blue-500/20 text-blue-300' : 'bg-pink-500/20 text-pink-300'}`}>
+                                    {item.payer}
+                                  </span>
+                                  <select
+                                    value={item.category}
+                                    onChange={(e) => {
+                                      const newCatObj = categories.find(c => c.name === e.target.value) || categories[0];
+                                      updateExpenseRow(item.id, { category: newCatObj.name, sub_category: newCatObj.subs[0] || '기타' });
+                                    }}
+                                    className="bg-slate-800 text-slate-200 text-xs px-1.5 py-0.5 rounded border border-slate-700"
+                                  >
+                                    {!knownCatNames.includes(item.category) && (
+                                      <option value={item.category}>{item.category}</option>
+                                    )}
+                                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                  </select>
+                                  <select
+                                    value={item.sub_category || ''}
+                                    onChange={(e) => updateExpenseRow(item.id, { sub_category: e.target.value })}
+                                    className="bg-indigo-950/80 text-indigo-300 text-xs px-1.5 py-0.5 rounded border border-indigo-700/50"
+                                  >
+                                    {(matchedCat?.subs || ['미분류']).map(s => <option key={s} value={s}>{s}</option>)}
+                                  </select>
+                                </div>
+                                <h4 className="font-bold text-white text-base pt-0.5 truncate">{item.store}</h4>
+                                <p className="text-[11px] text-slate-400 truncate">
+                                  {item.date} · {item.source} {item.memo ? `· ${item.memo}` : ''}
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className={`font-extrabold text-base whitespace-nowrap ${item.amount < 0 ? 'text-emerald-400' : 'text-white'}`}>
+                                  {item.amount.toLocaleString()}원
+                                </p>
+                                <p className="text-[11px] text-slate-500 whitespace-nowrap">세액 {(item.tax || 0).toLocaleString()}원</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {item.items && item.items.length > 0 && (
+                            <div className="bg-slate-950 p-2.5 rounded-lg text-xs space-y-1 border border-slate-800">
+                              {item.items.map((sub, i) => (
+                                <div key={i} className="flex justify-between text-slate-300">
+                                  <span>• {sub.name}</span>
+                                  <span>{sub.price.toLocaleString()}원</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex justify-between items-center pt-2 border-t border-slate-800/70 text-xs">
+                            <button
+                              onClick={() => updateExpenseRow(item.id, { is_business: !item.is_business })}
+                              className={`px-2.5 py-1 rounded border whitespace-nowrap ${
+                                item.is_business ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 font-bold' : 'bg-slate-800 border-slate-700 text-slate-400'
+                              }`}
+                            >
+                              {item.is_business ? '💼 업무경비 ON' : '개인 지출 (경비전환)'}
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditingId(item.id);
+                                  setEditForm({
+                                    store: item.store,
+                                    amount: item.amount,
+                                    date: item.date,
+                                    memo: item.memo || '',
+                                    payer: item.payer
+                                  });
+                                }}
+                                className="text-indigo-400 hover:text-indigo-300 font-bold px-1.5 py-1 whitespace-nowrap"
+                              >
+                                ✏️ 수정
+                              </button>
+                              <button
+                                onClick={() => deleteExpenseRow(item)}
+                                className="text-slate-400 hover:text-rose-400 px-1.5 py-1 whitespace-nowrap"
+                              >
+                                🗑️ 삭제
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activeTab === 'cats' && (
+                  <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-4">
+                    <h3 className="font-bold text-white text-base">⚙️ 부부 공용 카테고리 편집</h3>
+                    <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newCatName}
+                          onChange={e => setNewCatName(e.target.value)}
+                          placeholder="새 대분류 이름"
+                          className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
+                        />
+                        <button onClick={handleAddCategory} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap">
+                          + 추가
+                        </button>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap pt-2">
+                        {categories.map(c => (
+                          <div
+                            key={c.id}
+                            onClick={() => setSelectedCatId(c.id)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer border ${
+                              selectedCatId === c.id ? 'bg-indigo-600 border-indigo-400 text-white font-bold' : 'bg-slate-800 border-slate-700 text-slate-300'
+                            }`}
+                          >
+                            <span>{c.name}</span>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(c.id, c.name); }} className="text-[10px] ml-1">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const targetCat = categories.find(c => c.id === selectedCatId) || categories[0];
+                      return (
+                        <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                          <p className="text-xs font-bold text-emerald-400">[{targetCat?.name}] 세부 카테고리</p>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newSubName}
+                              onChange={e => setNewSubName(e.target.value)}
+                              placeholder="새 세부항목 입력"
+                              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
+                            />
+                            <button onClick={handleAddSubCategory} className="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap">
+                              + 세부 추가
+                            </button>
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap pt-2">
+                            {(targetCat?.subs || []).map(sub => (
+                              <span key={sub} className="flex items-center gap-1.5 bg-slate-800 text-slate-200 text-xs px-2.5 py-1 rounded-md border border-slate-700">
+                                🏷️ {sub}
+                                <button onClick={() => handleDeleteSubCategory(targetCat.id, sub)} className="text-rose-400 font-bold ml-1">✕</button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {activeTab === 'scan' && (
+                  <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-4">
+                    <h3 className="font-bold text-white text-base">📷 AI 영수증 스캔 (문자·CSV·엑셀 통합 병합)</h3>
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-indigo-500/50 bg-indigo-950/20 rounded-2xl p-6 cursor-pointer text-center">
+                      <span className="text-2xl mb-1">📸</span>
+                      <span className="text-sm font-bold text-white">스마트폰 카메라로 영수증 촬영</span>
+                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={() => handleScan('mart')} />
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => handleScan('mart')} className="bg-slate-800 p-3 rounded-xl text-left border border-slate-700 text-xs font-bold">
+                        🛒 마트 영수증 (50,000원)
+                      </button>
+                      <button onClick={() => handleScan('cafe')} className="bg-slate-800 p-3 rounded-xl text-left border border-slate-700 text-xs font-bold">
+                        ☕ 카페 영수증 (16,500원)
+                      </button>
+                    </div>
+                    {scanResult && (
+                      <div className="bg-slate-950 p-3.5 rounded-xl border border-indigo-500 space-y-2.5 text-xs">
+                        <div className="flex justify-between font-bold text-indigo-300">
+                          <span>{scanResult.store} ({scanResult.date})</span>
+                          <span>{scanResult.amount.toLocaleString()}원</span>
+                        </div>
+                        <button onClick={confirmScan} className="w-full py-2 bg-indigo-600 text-white font-bold rounded-lg">
+                          클라우드 등록 (동일 날짜·금액 문자/CSV/엑셀 병합)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'sms' && (
+                  <div className="space-y-3.5">
+                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
+                      <div>
+                        <h3 className="font-bold text-white text-base">📩 카드 문자 여러 건 붙여넣기</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          광고 문구가 없고, '승인/취소'와 결제 일시(예: 10/29 14:20)가 있는 카드 문자만 등록합니다. 이미 있는 내역은 자동으로 건너뜁니다.
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        <button
+                          onClick={() =>
+                            setSmsText(
+                              '[Web발신]신한카드(1234)승인 이*재 59,800원(일시불)10/29 08:30 KTX 승차권 누적850,000원\n\n[Web발신](광고) 쿠팡_16,000원 쿠폰이 도착했어요! *쿠폰은 주문 취소 또는 반품 시...\n\n[Web발신]\n[네이버페이] 결제 완료 안내\n23,000원 결제되었습니다.\n\n[Web발신]\n국민카드 승인\n38,000원 일시불\n10/28 9:15\n연세소아과의원'
+                            )
+                          }
+                          className="text-xs bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 whitespace-nowrap"
+                        >
+                          📚 테스트 샘플 (카드 승인 2건 + 광고·쇼핑몰 알림 2건)
+                        </button>
+                      </div>
+
+                      <textarea
+                        rows={5}
+                        value={smsText}
+                        onChange={e => setSmsText(e.target.value)}
+                        placeholder="여러 건의 문자를 붙여넣으세요. 광고/쿠폰/설문 문자는 자동 차단됩니다."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white"
+                      />
+                      <button
+                        onClick={handleBulkParseSMS}
+                        className="w-full py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs"
+                      >
+                        ⚡ 문자 일괄 분석 및 등록 ({currentUser} 명의)
+                      </button>
+                    </div>
+
+                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
+                      <div>
+                        <h4 className="font-bold text-white text-sm">📂 카드사 이용내역 파일(.xls, .xlsx, .csv) 일괄 업로드</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          취소 내역은 취소일 기준 60일 안에 짝이 되는 승인 건(같은 금액·비슷한 상호)이 있을 때만 <code>-금액</code>으로 상계합니다. 짝이 없는 취소 표시 행은 등록하지 않습니다.
+                        </p>
+                      </div>
+
+                      <label className="block w-full py-2.5 bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-700/60 rounded-xl text-center text-xs font-bold text-indigo-300 cursor-pointer">
+                        📥 카드사 엑셀(.xls/.xlsx) 또는 CSV 파일 선택하기
+                        <input type="file" accept=".xls,.xlsx,.csv,.txt" className="hidden" onChange={handleFileUpload} />
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'stats' && (
+                  <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
+                    <h3 className="font-bold text-white text-base">📊 카테고리별 통계 ({selectedMonth === 'ALL' ? '전체' : selectedMonth})</h3>
+                    {categories.map(c => {
+                      const sum = monthFiltered.filter(e => e.category === c.name).reduce((s, e) => s + e.amount, 0);
+                      const pct = totalAmount > 0 ? Math.max(0, Math.round((sum / totalAmount) * 100)) : 0;
+                      return (
+                        <div key={c.id} className="text-xs space-y-1">
+                          <div className="flex justify-between">
+                            <span>{c.name}</span>
+                            <span className="font-bold">{sum.toLocaleString()}원 ({pct}%)</span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, pct)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {uncategorizedSum !== 0 && (
+                      <div className="text-xs space-y-1 pt-1 border-t border-slate-800">
+                        <div className="flex justify-between text-amber-300">
+                          <span>삭제된 구 카테고리 내역</span>
+                          <span className="font-bold">{uncategorizedSum.toLocaleString()}원</span>
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2 pt-3">
+                      <button onClick={() => exportCSV(true)} className="py-2.5 bg-amber-600 text-white font-bold rounded-xl text-xs">
+                        💼 업무경비만 엑셀 저장
+                      </button>
+                      <button onClick={() => exportCSV(false)} className="py-2.5 bg-slate-800 text-white font-bold rounded-xl text-xs border border-slate-700">
+                        📥 현재 월 엑셀 저장
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </main>
+
+              {showCodeMigrateModal && (
+                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                  <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-4 space-y-3.5 text-xs">
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <h3 className="font-bold text-white text-sm">🔒 가족 보안 코드 변경</h3>
+                      <button onClick={() => setShowCodeMigrateModal(false)} className="text-slate-400">✕</button>
+                    </div>
+
+                    <div className="bg-amber-950/40 border border-amber-700/50 rounded-xl p-2.5 text-[11px] text-amber-200 space-y-1">
+                      <p className="font-bold">⚠️ 코드 이전 시 자동 보호 안내</p>
+                      <p>• 전체 내역({expenses.length}건)을 서버에서 새 코드로 옮기고, 이전 코드는 바로 사용할 수 없게 됩니다.</p>
+                      <p>• 이미 다른 가계부가 쓰는 코드로는 바꿀 수 없습니다.</p>
+                      <p>• 이전 완료 후 <b>배우자 스마트폰</b>과 <b>자동 문자 포워더(fam_code)</b>도 반드시 새 코드로 변경해주세요!</p>
+                    </div>
+
+                    <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                      <label className="text-slate-400 font-bold">새로 사용할 가족 보안 코드</label>
+                      <input
+                        type="text"
+                        value={newPassTarget}
+                        onChange={e => setNewPassTarget(e.target.value)}
+                        placeholder={`새 보안 코드 (${MIN_CODE_LENGTH}자 이상)`}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-bold text-center tracking-wider"
+                      />
+                      <button
+                        onClick={() => {
+                          const generated = generateSecureFamilyPass();
+                          setNewPassTarget(generated);
+                          copyToClipboard(generated, '새 12자리 보안 코드');
+                        }}
+                        className="w-full py-1.5 bg-slate-800 text-emerald-300 font-bold rounded-lg border border-slate-700"
+                      >
+                        🎲 새 12자리 보안 코드 자동 생성 & 복사
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 pt-1">
+                      <button
+                        disabled={isMigrating}
+                        onClick={handleMigrateFamilyCode}
+                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl"
+                      >
+                        {isMigrating ? '⏳ 서버에서 데이터 이전 중...' : `🔄 기존 데이터(${expenses.length}건)를 새 코드로 모두 옮기기`}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCodeMigrateModal(false);
+                          setPassInput('');
+                          setIsUnlocked(false);
+                        }}
+                        className="w-full py-2 bg-slate-800 text-slate-300 rounded-xl border border-slate-700"
+                      >
+                        다른 코드로 접속 (배우자가 만든 가계부에 들어갈 때)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showWebhookModal && (
+                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                  <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-4 space-y-3 max-h-[85vh] overflow-y-auto text-xs">
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <h3 className="font-bold text-white text-sm">⚡ 문자 자동연동 & DB 설정</h3>
+                      <button onClick={() => setShowWebhookModal(false)} className="text-slate-400">✕</button>
+                    </div>
+
+                    <div className="bg-slate-950 p-3 rounded-xl border border-amber-500/40 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-amber-300">🛠️ DB 설정 SQL (스키마 {REQUIRED_SCHEMA_VERSION})</span>
+                        <button
+                          onClick={() => copyToClipboard(EMBEDDED_SQL_SCRIPT, '설정 SQL')}
+                          className="bg-amber-600 text-white px-2.5 py-1 rounded font-bold"
+                        >
+                          SQL 복사
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Supabase SQL Editor에 붙여넣고 Run. 여러 번 실행해도 안전합니다. 현재 DB 스키마: {dbSchemaVersion ?? '확인 전'}.
+                        처음 설치할 때는 함께 받은 <b>초기화 SQL</b>을 먼저 한 번 실행하세요.
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/40 space-y-2">
+                      <span className="font-bold text-emerald-300">📞 받을 카드사 발신번호</span>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        등록하면 이 번호에서 온 문자만 자동 등록합니다. 비워 두면 번호는 검사하지 않고 문자 내용만 검사합니다.
+                        포워더가 문자 앞에 <code>보낸사람 : 번호</code> 줄을 붙여 보내야 번호 검사가 됩니다.
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="tel"
+                          value={senderInput}
+                          onChange={e => setSenderInput(e.target.value)}
+                          placeholder="예: 1544-7000"
+                          className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white"
+                        />
+                        <button onClick={handleAddSender} className="bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-lg whitespace-nowrap">+ 추가</button>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {allowedSenders.length === 0 && <span className="text-slate-500">등록된 번호 없음 (번호 검사 안 함)</span>}
+                        {allowedSenders.map(num => (
+                          <span key={num} className="flex items-center gap-1.5 bg-slate-800 text-slate-200 px-2.5 py-1 rounded-md border border-slate-700">
+                            {num}
+                            <button
+                              onClick={() => saveAllowedSenders(allowedSenders.filter(x => x !== num))}
+                              className="text-rose-400 font-bold"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-indigo-300">1. 요청 URL (POST)</span>
+                        <button
+                          onClick={() => copyToClipboard(`${SUPABASE_URL}/rest/v1/rpc/receive_sms`, '요청 URL')}
+                          className="bg-indigo-600 text-white px-2.5 py-1 rounded font-bold"
+                        >
+                          복사
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-400 break-all">{SUPABASE_URL}/rest/v1/rpc/receive_sms</p>
+                    </div>
+
+                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-emerald-300">2. 헤더: apikey</span>
+                        <button
+                          onClick={() => copyToClipboard(SUPABASE_KEY, 'apikey 값')}
+                          className="bg-emerald-600 text-white px-2.5 py-1 rounded font-bold"
+                        >
+                          복사
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-400">헤더 <code>Content-Type: application/json</code>도 함께 넣어주세요.</p>
+                    </div>
+
+                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                      <span className="font-bold text-blue-300">3. 요청 본문(JSON)</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {['남편', '아내'].map(p => (
+                          <button
+                            key={p}
+                            onClick={() =>
+                              copyToClipboard(
+                                JSON.stringify({ sms_text: '보낸사람 : {발신번호}\n{문자내용}', payer_name: p, fam_code: familyCode }, null, 2),
+                                `${p}용 JSON`
+                              )
+                            }
+                            className={`${p === '남편' ? 'bg-blue-600' : 'bg-pink-600'} text-white px-2.5 py-1.5 rounded font-bold`}
+                          >
+                            {p}용 복사
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        <code>{'{발신번호}'}</code>, <code>{'{문자내용}'}</code>은 포워더 앱이나 단축어에서 쓰는 자리표시자로 바꿔 넣으세요(앱마다 이름이 다릅니다).
+                        코드를 바꾸면 <code>fam_code</code>도 꼭 새 값으로 바꿔야 합니다.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showVersionModal && (
+                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                  <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-4 space-y-3 max-h-[80vh] overflow-y-auto">
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <h3 className="font-bold text-white text-sm">🕓 버전 히스토리 ({APP_VERSION})</h3>
+                      <button onClick={() => setShowVersionModal(false)} className="text-slate-400">✕</button>
+                    </div>
+                    {VERSION_HISTORY.map(v => (
+                      <div key={v.version} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs space-y-1">
+                        <div className="flex justify-between font-bold text-emerald-400">
+                          <span>{v.version} - {v.title}</span>
+                          <span>{v.date}</span>
+                        </div>
+                        <ul className="list-disc pl-4 text-slate-300 space-y-1 pt-1">
+                          {v.changes.map((ch, i) => <li key={i}>{ch}</li>)}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-30 safe-bottom">
+                <div className="max-w-xl mx-auto grid grid-cols-5 py-2 text-[11px] font-bold">
+                  <button onClick={() => setActiveTab('list')} className={activeTab === 'list' ? 'text-indigo-400' : 'text-slate-400'}>📋 내역</button>
+                  <button onClick={() => setActiveTab('cats')} className={activeTab === 'cats' ? 'text-indigo-400' : 'text-slate-400'}>⚙️ 카테고리</button>
+                  <button onClick={() => setActiveTab('scan')} className={activeTab === 'scan' ? 'text-indigo-400' : 'text-slate-400'}>📷 영수증스캔</button>
+                  <button onClick={() => setActiveTab('sms')} className={activeTab === 'sms' ? 'text-indigo-400' : 'text-slate-400'}>📩 문자/엑셀</button>
+                  <button onClick={() => setActiveTab('stats')} className={activeTab === 'stats' ? 'text-indigo-400' : 'text-slate-400'}>📊 통계/엑셀</button>
+                </div>
+              </nav>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+  <script id="sw-register">
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.warn('서비스 워커 등록 실패:', err));
+      });
+    }
+  </script>
+</body>
+</html>
