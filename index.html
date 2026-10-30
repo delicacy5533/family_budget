@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.4</title>
+  <title>부부 AI 가계부 v1.5</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,9 +37,9 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.4';
+    const APP_VERSION = 'v1.5';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
-    const REQUIRED_SCHEMA_VERSION = 1;
+    const REQUIRED_SCHEMA_VERSION = 2;
     // ★ 가족 보안 코드 최소 길이 (DB에서도 같은 규칙으로 막음)
     const MIN_CODE_LENGTH = 12;
 
@@ -171,6 +171,7 @@
       { test: s => /주차|하이패스|톨게이트/i.test(s), cat: '교통/차량', sub: '주차/톨게이트' },
       { test: s => /택시|카카오T|코레일|KTX|SRT|철도|승차권|버스|지하철|티머니/i.test(s), cat: '교통/차량', sub: '대중교통' },
       { test: s => /주유|칼텍스|에너지|엔크린|S-OIL|오일뱅크|휘발유|경유|LPG|충전소/i.test(s), cat: '교통/차량', sub: '주유비' },
+      { test: s => /현대자동차|기아자동차|오토큐|블루핸즈|카센터|정비|공업사|타이어|스피드메이트|오토오아시스|카포스|자동차부품/i.test(s), cat: '교통/차량', sub: '차량정비/부품' },
       { test: s => /편의점|GS25|(^|[^A-Z])CU([^A-Z]|$)|세븐일레븐|이마트24|미니스톱/i.test(s), cat: '마트/장보기', sub: '편의점' },
       { test: s => /배달의민족|배민|요기요|쿠팡이츠/i.test(s), cat: '식비', sub: '배달음식' },
       { test: s => /쿠팡|네이버페이|스마트스토어|11번가|G마켓|지마켓|옥션|컬리|SSG|무신사/i.test(s), cat: '마트/장보기', sub: '온라인쇼핑' },
@@ -194,6 +195,117 @@
     }
 
     // =====================================================================
+    // ★ 카드 구분 — 설정 SQL의 card_issuer_norm / parse_card_ref / card_num_match / card_owner와 같은 규칙
+    //   카드번호는 뒤 4자리만 다루고, 가려진 자리는 '*'로 둡니다 (예: 롯데 1*3*)
+    // =====================================================================
+    const CARD_ISSUER_SRC = 'KB국민|국민|KB|신한|삼성|현대|롯데|하나|외환|우리|NH농협|농협|NH|IBK기업|IBK|기업|비씨|BC|씨티|시티|카카오뱅크|카카오|토스뱅크|토스|케이뱅크|K뱅크|수협|광주|전북|제주|부산|경남|DGB|대구|BNK|SC제일|SC|우체국|저축은행|새마을|MG|신협';
+    const CARD_ISSUER_RE = new RegExp(CARD_ISSUER_SRC);
+    const CARD_ID_LINE_RE = new RegExp(`^(${CARD_ISSUER_SRC})\\S{0,6}\\s*[(\\[]?[0-9*]{4}[)\\]]?$`);
+    const ISSUER_NORM_RULES = [
+      [/KB|국민/i, 'KB국민'], [/NH|농협/i, 'NH농협'], [/IBK|기업/i, 'IBK기업'], [/BC|비씨/i, 'BC'],
+      [/씨티|시티/, '씨티'], [/하나|외환/, '하나'], [/카카오/, '카카오뱅크'], [/토스/, '토스뱅크'],
+      [/케이뱅크|K뱅크/i, '케이뱅크'], [/SC/i, 'SC제일'], [/DGB|대구/i, 'DGB대구'], [/MG|새마을/i, 'MG새마을'],
+      [/신한/, '신한'], [/삼성/, '삼성'], [/현대/, '현대'], [/롯데/, '롯데'], [/우리/, '우리'], [/수협/, '수협'],
+      [/광주/, '광주'], [/전북/, '전북'], [/제주/, '제주'], [/부산/, '부산'], [/경남/, '경남'], [/BNK/i, 'BNK'],
+      [/우체국/, '우체국'], [/저축은행/, '저축은행'], [/신협/, '신협']
+    ];
+    // 카드사 이름 통일: '하나(구외한)', '하나카드' → '하나', '비씨카드사' → 'BC', '저축은행체크' → '저축은행'
+    function normalizeCardIssuer(raw) {
+      const p = String(raw || '');
+      if (!p.trim()) return '';
+      const rule = ISSUER_NORM_RULES.find(([re]) => re.test(p));
+      if (rule) return rule[1];
+      return p.replace(/\(.*?\)|(신용|체크)?카드(사)?|체크|신용|\s+/g, '').trim().slice(0, 12);
+    }
+    // 영수증·파일의 카드번호 → 뒤 4자리 ('5181-85**-****-0625' → '0625', '1*3*' 그대로). 숫자가 없으면 ''
+    function normalizeCardNum(raw) {
+      const t = String(raw || '').replace(/[＊xX#•●]/g, '*').replace(/[^0-9*]/g, '');
+      const last4 = t.slice(-4);
+      return last4.length === 4 && /[0-9]/.test(last4) ? last4 : '';
+    }
+    // 문자에서 카드사·번호: 금액(…원) 앞부분의 첫 카드사 이름과, 숫자가 섞인 4자리
+    function extractCardFromSms(body) {
+      let head = String(body || '').replace(/＊/g, '*').replace(/보낸\s*사람[^\n]*/g, '');
+      head = head.split(/[0-9][0-9,]*\s*원/)[0];
+      const im = head.match(CARD_ISSUER_RE);
+      let num = '';
+      for (const m of head.matchAll(/(^|[^0-9*,.\/:\-])([0-9*]{4})($|[^0-9*,.\/:\-])/g)) {
+        if (/[0-9]/.test(m[2])) { num = m[2]; break; }
+      }
+      return { issuer: normalizeCardIssuer(im ? im[0] : ''), num };
+    }
+    // 뒤 4자리 비교 (*는 아무 숫자)
+    function cardNumMatch(a, b) {
+      if (!a || !b || a.length !== 4 || b.length !== 4) return false;
+      for (let i = 0; i < 4; i++) if (a[i] !== b[i] && a[i] !== '*' && b[i] !== '*') return false;
+      return true;
+    }
+    const cardKey = (issuer, num) => `${issuer || ''}|${num || ''}`;
+    // 같은 카드로 연결된 대표 카드까지 따라감 (최대 5단계)
+    function cardRoot(cards, entry) {
+      let cur = entry;
+      for (let i = 0; i < 5 && cur && cur.link_to; i++) {
+        const next = cards.find(c => c.id === cur.link_to);
+        if (!next) break;
+        cur = next;
+      }
+      return cur;
+    }
+    // ① 카드사·번호가 똑같은 카드 ② 없으면 번호가 맞는 같은 카드사 카드들이 모두 한 대표 카드일 때 → 대표 카드
+    function resolveCard(cards, issuer, num) {
+      if (!num || !Array.isArray(cards)) return null;
+      const exact = cards.find(c => c.issuer === issuer && c.num === num);
+      if (exact) return cardRoot(cards, exact);
+      const roots = [...new Set(cards.filter(c => c.issuer === issuer && cardNumMatch(c.num, num)).map(c => cardRoot(cards, c).id))];
+      return roots.length === 1 ? cards.find(c => c.id === roots[0]) : null;
+    }
+    const cardOwner = (cards, issuer, num) => {
+      const root = resolveCard(cards, issuer, num);
+      return root && ['남편', '아내'].includes(root.owner) ? root.owner : null;
+    };
+    const cardDisplayName = (c) => c ? (c.name || `${c.issuer || '카드'} ${c.num}`.trim()) : '';
+    // 내역 한 줄의 결제 수단 이름
+    function payLabel(cards, e) {
+      if (e.pay_method === '현금') return '💵 현금';
+      if (!e.card_issuer && !e.card_num) return e.pay_method === '카드' ? '💳 카드' : '';
+      const root = resolveCard(cards, e.card_issuer, e.card_num);
+      return '💳 ' + (root ? cardDisplayName(root) : `${e.card_issuer || '카드'} ${e.card_num}`.trim());
+    }
+    // 처음 보는 카드번호를 카드 목록에 자동 등록. 바뀐 게 없으면 null
+    //   번호가 맞는(* 포함) 같은 카드사 카드가 한 대표 카드로만 모이면 '같은 카드'로 자동 연결
+    function registerNewCards(cards, refs) {
+      let next = Array.isArray(cards) ? [...cards] : [];
+      let changed = false;
+      for (const r of refs) {
+        if (!r || !r.num || !/[0-9]/.test(r.num)) continue;
+        const id = cardKey(r.issuer, r.num);
+        if (next.some(c => c.id === id || (c.issuer === r.issuer && c.num === r.num))) continue;
+        // 후보 대표 카드: 번호가 맞는 카드가 있고, 그 묶음 안의 전체 번호(별표 없는)와도 모두 맞아야 함
+        //   (예: 1*3*·1234 묶음에 1534는 넣지 않음)
+        const roots = [...new Set(next.filter(c => c.issuer === r.issuer && cardNumMatch(c.num, r.num)).map(c => cardRoot(next, c).id))]
+          .filter(rootId => next.filter(c => cardRoot(next, c).id === rootId && !c.num.includes('*')).every(c => cardNumMatch(c.num, r.num)));
+        next.push({
+          id, issuer: r.issuer || '', num: r.num, name: '', owner: '',
+          link_to: roots.length === 1 ? roots[0] : null,
+          auto_linked: roots.length === 1,
+          first_seen: String(r.date || '').slice(0, 10)
+        });
+        changed = true;
+      }
+      return changed ? next : null;
+    }
+    // 결제 수단 선택값 ↔ 내역 필드: 'card:하나|0625', 'cash', 'none'
+    const payValueOf = (e) => e.pay_method === '현금' ? 'cash' : (e.card_issuer || e.card_num) ? `card:${e.card_issuer || ''}|${e.card_num || ''}` : (e.pay_method === '카드' ? 'card:|' : 'none');
+    function payFieldsOf(value) {
+      if (value === 'cash') return { pay_method: '현금', card_issuer: '', card_num: '' };
+      if (value && value.startsWith('card:')) {
+        const [issuer, num] = value.slice(5).split('|');
+        return { pay_method: '카드', card_issuer: issuer || '', card_num: num || '' };
+      }
+      return { pay_method: '', card_issuer: '', card_num: '' };
+    }
+
+    // =====================================================================
     // ★ 카드 문자 파서 — Supabase 설정 SQL의 receive_sms()와 같은 규칙
     //   ① 광고·설문 문구가 없고 ② '승인/취소'가 있고 ③ 결제 일시(10/29 14:20)가 있어야 등록
     // =====================================================================
@@ -205,7 +317,7 @@
       return !SMS_AD_PATTERN.test(text) && /승인|취소/.test(text) && SMS_DATETIME_PATTERN.test(text);
     }
 
-    function parseSingleSmsBlock(blockText, categories, currentUser) {
+    function parseSingleSmsBlock(blockText, categories, currentUser, cards = []) {
       const body = String(blockText || '');
       if (!isCardApprovalSms(body)) return null;
 
@@ -245,6 +357,7 @@
           /^[*■▶•\-]/.test(line) ||
           /^\[.*\]$/.test(line) ||
           /^[가-힣A-Za-z]{1,3}\*[가-힣A-Za-z]{0,3}님?$/.test(line) ||
+          CARD_ID_LINE_RE.test(line) ||
           /(01[016789]|02|0[3-8][0-9]|15[0-9]{2}|16[0-9]{2}|18[0-9]{2})[-\s]?[0-9]{3,4}[-\s]?[0-9]{4}/.test(line)
         ) continue;
         store = line;
@@ -263,6 +376,7 @@
       if (!store) store = '카드결제가맹점';
 
       const { category, sub_category } = classifyStoreAndText(store, categories);
+      const card = extractCardFromSms(body);
 
       return {
         id: 'sms-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
@@ -272,7 +386,10 @@
         sub_category,
         amount,
         tax: Math.round(amount / 11),
-        payer: currentUser,
+        payer: cardOwner(cards, card.issuer, card.num) || currentUser,
+        card_issuer: card.issuer,
+        card_num: card.num,
+        pay_method: '카드',
         is_business: false,
         source: isCancel ? '승인취소문자' : '카드문자',
         verified: true,
@@ -316,7 +433,7 @@
     // =====================================================================
     // ▼▼▼ [내장 SQL 스크립트 붙여넣는 공간 시작] ▼▼▼
     // =====================================================================
-    const EMBEDDED_SQL_SCRIPT = "-- =====================================================================\n--  부부 AI 가계부 — 설정 SQL (스키마 버전 1)\n--  Supabase SQL Editor에 붙여넣고 [Run]. 여러 번 실행해도 안전합니다.\n--  처음 설치할 때는 먼저 부부가계부_v1.1_reset.sql을 한 번 실행하세요.\n--\n--  [앞으로의 업데이트 규칙]\n--  · 이 파일은 스키마 버전 1의 기준입니다. 다음 버전은 바뀐 부분만 담은\n--    별도 업데이트 SQL로 만들고, 마지막에 schema_version 값을 올립니다.\n--  · 열(column)은 추가만 하고 삭제·이름 변경은 하지 않습니다.\n--  · receive_sms(sms_text, payer_name, fam_code) 형식은 바꾸지 않습니다.\n--  · 분류 규칙(store_category)은 앱의 CLASSIFY_RULES와 같아야 합니다.\n-- =====================================================================\n\n-- 1. 스키마 버전 -------------------------------------------------------\ncreate table if not exists public.schema_meta (\n  key   text primary key,\n  value text not null\n);\ninsert into public.schema_meta (key, value) values ('schema_version', '1')\non conflict (key) do update set value = excluded.value;\n\n-- 2. 가족 설정 ---------------------------------------------------------\n--    family_code = 'fam_' + 12자 이상 보안 코드\n--    signal_id   = 문자 도착 알림용 무작위 ID (가족 코드를 노출하지 않기 위함)\n--    allowed_senders = 받을 카드사 발신번호 목록 (비어 있으면 번호 검사 안 함)\ncreate table if not exists public.family_config (\n  family_code     text primary key check (char_length(family_code) >= 16),\n  categories      jsonb not null default '[]'::jsonb,\n  allowed_senders jsonb not null default '[]'::jsonb,\n  signal_id       text not null default replace(gen_random_uuid()::text, '-', ''),\n  updated_by      text,\n  updated_at      timestamptz not null default now()\n);\n\n-- 3. 지출 내역 (1건 = 1행) ---------------------------------------------\ncreate table if not exists public.expenses (\n  id           text primary key,\n  family_code  text not null references public.family_config(family_code)\n                 on update cascade on delete cascade,\n  date         text not null,                     -- 'YYYY-MM-DD HH:mm' (KST)\n  store        text not null,\n  category     text not null default '기타/미분류',\n  sub_category text not null default '미분류',\n  amount       integer not null,                  -- 취소는 음수\n  tax          integer not null default 0,\n  payer        text not null default '남편',\n  is_business  boolean not null default false,\n  source       text not null default '직접입력',\n  verified     boolean not null default true,\n  memo         text not null default '',\n  items        jsonb not null default '[]'::jsonb,\n  updated_by   text,\n  created_at   timestamptz not null default now()\n);\ncreate index if not exists expenses_family_date_idx on public.expenses (family_code, date desc);\n\n-- 4. 문자 도착 신호 (앱 실시간 갱신용) ---------------------------------\ncreate table if not exists public.sync_signals (\n  signal_id  text primary key,\n  updated_at timestamptz not null default now()\n);\n\n-- 5. 보안 정책: 요청 헤더 x-family-code와 같은 가족 데이터만 접근 ---------\nalter table public.schema_meta   enable row level security;\nalter table public.family_config enable row level security;\nalter table public.expenses      enable row level security;\nalter table public.sync_signals  enable row level security;\n\ndrop policy if exists \"schema_meta read\"   on public.schema_meta;\ndrop policy if exists \"family_config own\"  on public.family_config;\ndrop policy if exists \"expenses own\"       on public.expenses;\ndrop policy if exists \"sync_signals read\"  on public.sync_signals;\n\ncreate policy \"schema_meta read\" on public.schema_meta for select using (true);\n\ncreate policy \"family_config own\" on public.family_config for all\n  using      (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''))\n  with check (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''));\n\ncreate policy \"expenses own\" on public.expenses for all\n  using      (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''))\n  with check (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''));\n\n-- 신호 테이블은 읽기만 허용 (쓰기는 receive_sms 함수만)\ncreate policy \"sync_signals read\" on public.sync_signals for select using (true);\n\ndo $$\nbegin\n  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')\n     and not exists (select 1 from pg_publication_tables\n                     where pubname = 'supabase_realtime' and tablename = 'sync_signals') then\n    alter publication supabase_realtime add table public.sync_signals;\n  end if;\nend $$;\n\n-- 6. 가맹점 분류 규칙 (앱의 CLASSIFY_RULES와 같은 순서·같은 규칙) ---------\ncreate or replace function public.store_category(p_store text)\nreturns text[]\nlanguage sql immutable\nas $$\n  select case\n    when p_store ~* '주차|하이패스|톨게이트'                                        then array['교통/차량','주차/톨게이트']\n    when p_store ~* '택시|카카오T|코레일|KTX|SRT|철도|승차권|버스|지하철|티머니'      then array['교통/차량','대중교통']\n    when p_store ~* '주유|칼텍스|에너지|엔크린|S-OIL|오일뱅크|휘발유|경유|LPG|충전소' then array['교통/차량','주유비']\n    when p_store ~* '편의점|GS25|(^|[^A-Z])CU([^A-Z]|$)|세븐일레븐|이마트24|미니스톱' then array['마트/장보기','편의점']\n    when p_store ~* '배달의민족|배민|요기요|쿠팡이츠'                               then array['식비','배달음식']\n    when p_store ~* '쿠팡|네이버페이|스마트스토어|11번가|G마켓|지마켓|옥션|컬리|SSG|무신사' then array['마트/장보기','온라인쇼핑']\n    when p_store ~* '이마트|홈플러스|롯데마트|하나로|코스트코|트레이더스|다이소'\n      or (p_store ~ '마트' and p_store !~ '스마트')                                then array['마트/장보기','대형마트']\n    when p_store ~* '약국'                                                         then array['육아/병원','약국']\n    when p_store ~* '병원|의원|소아과|치과|산부인과|내과|이비인후과|피부과|안과'      then array['육아/병원','소아과/병원']\n    when p_store ~* '스타벅스|투썸|카페|커피|베이커리|파리바게|뚜레쥬르|성심당|메가MGC|빽다방|이디야|컴포즈' then array['식비','카페/간식']\n    when p_store ~* '한우|갈비|식당|회관|김밥|분식|국밥|돈까스|피자|치킨|버거|맥도날드|롯데리아|명가' then array['식비','외식/회식']\n    when p_store ~* 'SK브로드밴드|SK텔레콤|SKT|케이티|LG유플러스|LGU\\+|통신요금|도시가스|한전|관리비'\n      or p_store ~* '(^|[^A-Z])KT([^A-Z]|$)'                                       then array['기타/미분류','통신/공과금']\n    else array['기타/미분류','미분류']\n  end\n$$;\n\n-- 7. 문자 자동 등록 (SMS 포워더·아이폰 단축어가 호출) --------------------\n--    sms_text에 '보낸사람 : 번호' 줄이 있으면 발신번호 목록과 대조합니다.\ncreate or replace function public.receive_sms(\n  sms_text   text,\n  payer_name text default '남편',\n  fam_code   text default ''\n)\nreturns json\nlanguage plpgsql\nsecurity definer\nset search_path = public\nas $$\ndeclare\n  cfg       public.family_config%rowtype;\n  body      text := coalesce(sms_text, '');\n  sender    text;\n  is_cancel boolean;\n  amt       integer;\n  dm        text[];\n  y int; m int; d int;\n  kst_now   timestamp := now() at time zone 'Asia/Seoul';\n  d_str     text;\n  v_store   text := '';\n  ln        text;\n  tail      text;\n  cat       text[];\n  new_id    text;\nbegin\n  select * into cfg from public.family_config where family_code = coalesce(fam_code, '');\n  if not found then\n    return json_build_object('status', 'error', 'reason', '등록되지 않은 가족 코드');\n  end if;\n\n  -- (1) 발신번호 검사\n  sender := regexp_replace(coalesce((regexp_match(body, '보낸\\s*사람\\s*[:：]?\\s*([0-9][0-9\\- ]{6,})'))[1], ''), '[^0-9]', '', 'g');\n  if jsonb_array_length(cfg.allowed_senders) > 0 and sender <> ''\n     and not exists (select 1 from jsonb_array_elements_text(cfg.allowed_senders) s\n                     where regexp_replace(s, '[^0-9]', '', 'g') = sender) then\n    return json_build_object('status', 'ignored', 'reason', '등록되지 않은 발신번호', 'sender', sender);\n  end if;\n\n  -- (2) 카드 승인/취소 문자인지 검사: 광고 문구 없음 + '승인/취소' + 결제 일시\n  if body ~ '\\(광고\\)|무료\\s*수신\\s*거부|수신거부|설문|실태조사|당첨|경품|추첨'\n     or body !~ '승인|취소'\n     or body !~ '\\d{1,2}\\s*[/.\\-]\\s*\\d{1,2}\\s+\\d{1,2}:\\d{2}' then\n    return json_build_object('status', 'ignored', 'reason', '카드 승인 문자 아님');\n  end if;\n\n  is_cancel := body ~ '(승인|결제|매출|체크|할부|카드(\\(\\d+\\))?)\\s*취소|취소\\s*(승인|완료|접수)';\n\n  -- (3) 금액\n  amt := nullif(replace((regexp_match(body, '([0-9][0-9,]*)\\s*원'))[1], ',', ''), '')::integer;\n  if amt is null or amt <= 0 then\n    return json_build_object('status', 'ignored', 'reason', '금액 없음');\n  end if;\n  if is_cancel then amt := -amt; end if;\n\n  -- (4) 결제 일시 (연도 없으면 올해, 오늘보다 미래면 작년)\n  dm := regexp_match(body, '(?:(20\\d{2})\\s*[/.\\-]\\s*)?(\\d{1,2})\\s*[/.\\-]\\s*(\\d{1,2})\\s+(\\d{1,2}):(\\d{2})');\n  begin\n    m := dm[2]::int; d := dm[3]::int;\n    y := coalesce(dm[1]::int, extract(year from kst_now)::int);\n    if dm[1] is null and make_date(y, m, d) > kst_now::date then y := y - 1; end if;\n    d_str := to_char(make_date(y, m, d), 'YYYY-MM-DD') || ' ' || lpad(dm[4], 2, '0') || ':' || dm[5];\n  exception when others then\n    d_str := to_char(kst_now, 'YYYY-MM-DD HH24:MI');\n  end;\n\n  -- (5) 가맹점: 안내 줄을 걸러낸 마지막 줄, 없으면 금액 뒤 텍스트\n  foreach ln in array string_to_array(replace(body, chr(13), ''), chr(10)) loop\n    ln := btrim(regexp_replace(btrim(ln), '\\s*(승인|취소)$', ''));   -- 'KTX 승차권 승인' → 'KTX 승차권'\n    continue when ln = ''\n      or ln ~ '카드|체크\\s*\\(|https?://|www\\.'\n      or ln ~ 'Web발신|승인|취소|누적|일시불|할부|보낸\\s*사람|발신|수신|잔액|적립|안내|문의'\n      or ln ~ '[0-9][0-9,]*\\s*원'\n      or ln ~ '^[0-9+\\-\\s:/.]+$'\n      or ln ~ '^[*■▶•\\-]'\n      or ln ~ '^\\[.*\\]$'\n      or ln ~ '^[가-힣A-Za-z]{1,3}\\*[가-힣A-Za-z]{0,3}님?$'\n      or ln ~ '(01[016789]|02|0[3-8][0-9]|15[0-9]{2}|16[0-9]{2}|18[0-9]{2})[-\\s]?[0-9]{3,4}[-\\s]?[0-9]{4}';\n    v_store := ln;\n  end loop;\n\n  if v_store = '' then\n    tail := (regexp_match(body, '[0-9][0-9,]*\\s*원([^\\n]*)'))[1];\n    if tail is not null then\n      tail := regexp_replace(tail, '^\\s*\\(?(일시불|할부|[0-9]+개월)\\)?\\s*', '');\n      tail := regexp_replace(tail, '^\\s*(?:20\\d{2}\\s*[/.\\-]\\s*)?\\d{1,2}\\s*[/.\\-]\\s*\\d{1,2}\\s+\\d{1,2}:\\d{2}\\s*', '');\n      tail := regexp_replace(tail, '^\\s*\\(?(일시불|할부|[0-9]+개월)\\)?\\s*', '');\n      tail := regexp_replace(tail, '\\s*(누적|잔액|보낸\\s*사람).*$', '');\n      v_store := btrim(tail);\n    end if;\n  end if;\n  if v_store = '' then v_store := '카드결제가맹점'; end if;\n\n  -- (6) 재전송 중복 방지\n  if exists (select 1 from public.expenses\n             where family_code = cfg.family_code and date = d_str and amount = amt and expenses.store = v_store) then\n    return json_build_object('status', 'duplicate_ignored', 'store', v_store, 'amount', amt, 'date', d_str);\n  end if;\n\n  -- (7) 저장 + 알림 신호\n  cat := public.store_category(v_store);\n  new_id := 'auto-' || replace(gen_random_uuid()::text, '-', '');\n  insert into public.expenses (id, family_code, date, store, category, sub_category,\n                               amount, tax, payer, source, memo, updated_by)\n  values (new_id, cfg.family_code, d_str, v_store, cat[1], cat[2],\n          amt, round(amt / 11.0), coalesce(nullif(payer_name, ''), '남편'),\n          case when is_cancel then '승인취소문자' else '자동문자수신' end,\n          '문자 자동등록' || case when sender <> '' then ' · ' || sender else '' end,\n          'AUTO_WEBHOOK');\n\n  insert into public.sync_signals (signal_id, updated_at) values (cfg.signal_id, now())\n  on conflict (signal_id) do update set updated_at = now();\n\n  return json_build_object('status', 'success', 'store', v_store, 'amount', amt, 'date', d_str,\n                           'category', cat[1], 'sub_category', cat[2]);\nend;\n$$;\n\n-- 8. 가족 코드 변경 (내역은 외래키 cascade로 함께 이동) --------------------\ncreate or replace function public.migrate_family_code(\n  old_code  text,\n  new_code  text,\n  device_id text default 'APP'\n)\nreturns json\nlanguage plpgsql\nsecurity definer\nset search_path = public\nas $$\ndeclare\n  moved int;\nbegin\n  if coalesce(current_setting('request.headers', true)::json->>'x-family-code', '') <> old_code then\n    return json_build_object('status', 'error', 'reason', '현재 가족 코드로 접속한 상태에서만 바꿀 수 있습니다.');\n  end if;\n  if new_code is null or new_code !~ '^fam_.{12,}$' then\n    return json_build_object('status', 'error', 'reason', '새 코드는 12자 이상이어야 합니다.');\n  end if;\n  if exists (select 1 from public.family_config where family_code = new_code) then\n    return json_build_object('status', 'error', 'reason', '이미 사용 중인 코드입니다. 다른 코드를 만들어 주세요.');\n  end if;\n  if not exists (select 1 from public.family_config where family_code = old_code) then\n    return json_build_object('status', 'error', 'reason', '현재 가족 정보를 찾을 수 없습니다.');\n  end if;\n\n  select count(*) into moved from public.expenses where family_code = old_code;\n\n  update public.family_config\n     set family_code = new_code,\n         signal_id   = replace(gen_random_uuid()::text, '-', ''),\n         updated_by  = device_id,\n         updated_at  = now()\n   where family_code = old_code;\n\n  return json_build_object('status', 'success', 'moved_count', moved);\nend;\n$$;\n\nrevoke all on function public.receive_sms(text, text, text) from public;\nrevoke all on function public.migrate_family_code(text, text, text) from public;\ngrant execute on function public.receive_sms(text, text, text) to anon, authenticated;\ngrant execute on function public.migrate_family_code(text, text, text) to anon, authenticated;\ngrant execute on function public.store_category(text) to anon, authenticated;\n";
+    const EMBEDDED_SQL_SCRIPT = "-- =====================================================================\n--  부부 AI 가계부 — 설정 SQL (스키마 버전 2, 앱 v1.5)\n--  Supabase SQL Editor에 붙여넣고 [Run]. 여러 번 실행해도 안전합니다.\n--  · 새로 설치할 때: 이 파일만 실행 (처음 한 번은 초기화 SQL을 먼저 실행해도 됨)\n--  · 스키마 1(앱 v1.1~v1.4)에서 올릴 때: 이 파일만 실행 → 기존 내역은 그대로 유지\n--\n--  [업데이트 규칙]\n--  · 열(column)은 추가만 하고 삭제·이름 변경은 하지 않습니다 (add column if not exists).\n--  · 스키마가 바뀌면 schema_version 값을 올리고, 앱의 REQUIRED_SCHEMA_VERSION도 같이 올립니다.\n--  · receive_sms(sms_text, payer_name, fam_code) 형식은 바꾸지 않습니다.\n--  · 분류 규칙(store_category)은 앱의 CLASSIFY_RULES와 같아야 합니다.\n-- =====================================================================\n\n-- 1. 스키마 버전 -------------------------------------------------------\ncreate table if not exists public.schema_meta (\n  key   text primary key,\n  value text not null\n);\ninsert into public.schema_meta (key, value) values ('schema_version', '2')\non conflict (key) do update set value = excluded.value;\n\n-- 2. 가족 설정 ---------------------------------------------------------\n--    family_code = 'fam_' + 12자 이상 보안 코드\n--    signal_id   = 문자 도착 알림용 무작위 ID (가족 코드를 노출하지 않기 위함)\n--    allowed_senders = 받을 카드사 발신번호 목록 (비어 있으면 번호 검사 안 함)\ncreate table if not exists public.family_config (\n  family_code     text primary key check (char_length(family_code) >= 16),\n  categories      jsonb not null default '[]'::jsonb,\n  allowed_senders jsonb not null default '[]'::jsonb,\n  signal_id       text not null default replace(gen_random_uuid()::text, '-', ''),\n  updated_by      text,\n  updated_at      timestamptz not null default now()\n);\n-- [스키마 2] 카드 목록: [{id, issuer, num, name, owner, link_to, auto_linked, first_seen}]\n--   num은 카드번호 뒤 4자리(가려진 자리는 *), link_to는 '같은 카드'로 연결한 대표 카드 id\nalter table public.family_config add column if not exists cards jsonb not null default '[]'::jsonb;\n\n-- 3. 지출 내역 (1건 = 1행) ---------------------------------------------\ncreate table if not exists public.expenses (\n  id           text primary key,\n  family_code  text not null references public.family_config(family_code)\n                 on update cascade on delete cascade,\n  date         text not null,                     -- 'YYYY-MM-DD HH:mm' (KST)\n  store        text not null,\n  category     text not null default '기타/미분류',\n  sub_category text not null default '미분류',\n  amount       integer not null,                  -- 취소는 음수\n  tax          integer not null default 0,\n  payer        text not null default '남편',\n  is_business  boolean not null default false,\n  source       text not null default '직접입력',\n  verified     boolean not null default true,\n  memo         text not null default '',\n  items        jsonb not null default '[]'::jsonb,\n  updated_by   text,\n  created_at   timestamptz not null default now()\n);\ncreate index if not exists expenses_family_date_idx on public.expenses (family_code, date desc);\n-- [스키마 2] 결제 수단: 카드사(통일된 이름), 카드번호 뒤 4자리(별표 그대로), '카드'/'현금'/''\nalter table public.expenses add column if not exists card_issuer text not null default '';\nalter table public.expenses add column if not exists card_num    text not null default '';\nalter table public.expenses add column if not exists pay_method  text not null default '';\n\n-- 4. 문자 도착 신호 (앱 실시간 갱신용) ---------------------------------\ncreate table if not exists public.sync_signals (\n  signal_id  text primary key,\n  updated_at timestamptz not null default now()\n);\n\n-- 5. 보안 정책: 요청 헤더 x-family-code와 같은 가족 데이터만 접근 ---------\nalter table public.schema_meta   enable row level security;\nalter table public.family_config enable row level security;\nalter table public.expenses      enable row level security;\nalter table public.sync_signals  enable row level security;\n\ndrop policy if exists \"schema_meta read\"   on public.schema_meta;\ndrop policy if exists \"family_config own\"  on public.family_config;\ndrop policy if exists \"expenses own\"       on public.expenses;\ndrop policy if exists \"sync_signals read\"  on public.sync_signals;\n\ncreate policy \"schema_meta read\" on public.schema_meta for select using (true);\n\ncreate policy \"family_config own\" on public.family_config for all\n  using      (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''))\n  with check (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''));\n\ncreate policy \"expenses own\" on public.expenses for all\n  using      (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''))\n  with check (family_code = coalesce(current_setting('request.headers', true)::json->>'x-family-code', ''));\n\n-- 신호 테이블은 읽기만 허용 (쓰기는 receive_sms 함수만)\ncreate policy \"sync_signals read\" on public.sync_signals for select using (true);\n\ndo $$\nbegin\n  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')\n     and not exists (select 1 from pg_publication_tables\n                     where pubname = 'supabase_realtime' and tablename = 'sync_signals') then\n    alter publication supabase_realtime add table public.sync_signals;\n  end if;\nend $$;\n\n-- 6. 가맹점 분류 규칙 (앱의 CLASSIFY_RULES와 같은 순서·같은 규칙) ---------\ncreate or replace function public.store_category(p_store text)\nreturns text[]\nlanguage sql immutable\nas $$\n  select case\n    when p_store ~* '주차|하이패스|톨게이트'                                        then array['교통/차량','주차/톨게이트']\n    when p_store ~* '택시|카카오T|코레일|KTX|SRT|철도|승차권|버스|지하철|티머니'      then array['교통/차량','대중교통']\n    when p_store ~* '주유|칼텍스|에너지|엔크린|S-OIL|오일뱅크|휘발유|경유|LPG|충전소' then array['교통/차량','주유비']\n    when p_store ~* '현대자동차|기아자동차|오토큐|블루핸즈|카센터|정비|공업사|타이어|스피드메이트|오토오아시스|카포스|자동차부품' then array['교통/차량','차량정비/부품']\n    when p_store ~* '편의점|GS25|(^|[^A-Z])CU([^A-Z]|$)|세븐일레븐|이마트24|미니스톱' then array['마트/장보기','편의점']\n    when p_store ~* '배달의민족|배민|요기요|쿠팡이츠'                               then array['식비','배달음식']\n    when p_store ~* '쿠팡|네이버페이|스마트스토어|11번가|G마켓|지마켓|옥션|컬리|SSG|무신사' then array['마트/장보기','온라인쇼핑']\n    when p_store ~* '이마트|홈플러스|롯데마트|하나로|코스트코|트레이더스|다이소'\n      or (p_store ~ '마트' and p_store !~ '스마트')                                then array['마트/장보기','대형마트']\n    when p_store ~* '약국'                                                         then array['육아/병원','약국']\n    when p_store ~* '병원|의원|소아과|치과|산부인과|내과|이비인후과|피부과|안과'      then array['육아/병원','소아과/병원']\n    when p_store ~* '스타벅스|투썸|카페|커피|베이커리|파리바게|뚜레쥬르|성심당|메가MGC|빽다방|이디야|컴포즈' then array['식비','카페/간식']\n    when p_store ~* '한우|갈비|식당|회관|김밥|분식|국밥|돈까스|피자|치킨|버거|맥도날드|롯데리아|명가' then array['식비','외식/회식']\n    when p_store ~* 'SK브로드밴드|SK텔레콤|SKT|케이티|LG유플러스|LGU\\+|통신요금|도시가스|한전|관리비'\n      or p_store ~* '(^|[^A-Z])KT([^A-Z]|$)'                                       then array['기타/미분류','통신/공과금']\n    else array['기타/미분류','미분류']\n  end\n$$;\n\n-- 6-1. 카드 구분 (앱의 normalizeCardIssuer / extractCardFromSms / resolveCard와 같은 규칙) ----\n-- 카드사 이름 통일: '하나(구외한)', '하나카드' → '하나', '비씨카드사' → 'BC'\ncreate or replace function public.card_issuer_norm(p text)\nreturns text\nlanguage sql immutable\nas $$\n  select case\n    when p is null or btrim(p) = ''         then ''\n    when p ~* 'KB|국민'                     then 'KB국민'\n    when p ~* 'NH|농협'                     then 'NH농협'\n    when p ~* 'IBK|기업'                    then 'IBK기업'\n    when p ~* 'BC|비씨'                     then 'BC'\n    when p ~  '씨티|시티'                   then '씨티'\n    when p ~  '하나|외환'                   then '하나'\n    when p ~  '카카오'                      then '카카오뱅크'\n    when p ~  '토스'                        then '토스뱅크'\n    when p ~* '케이뱅크|K뱅크'              then '케이뱅크'\n    when p ~* 'SC'                          then 'SC제일'\n    when p ~* 'DGB|대구'                    then 'DGB대구'\n    when p ~* 'MG|새마을'                   then 'MG새마을'\n    when p ~  '신한'   then '신한'    when p ~ '삼성'   then '삼성'\n    when p ~  '현대'   then '현대'    when p ~ '롯데'   then '롯데'\n    when p ~  '우리'   then '우리'    when p ~ '수협'   then '수협'\n    when p ~  '광주'   then '광주'    when p ~ '전북'   then '전북'\n    when p ~  '제주'   then '제주'    when p ~ '부산'   then '부산'\n    when p ~  '경남'   then '경남'    when p ~* 'BNK'   then 'BNK'\n    when p ~  '우체국' then '우체국'  when p ~ '저축은행' then '저축은행'\n    when p ~  '신협'   then '신협'\n    else left(btrim(regexp_replace(p, '\\(.*?\\)|(신용|체크)?카드(사)?|체크|신용|\\s+', '', 'g')), 12)\n  end\n$$;\n\n-- 카드번호 뒤 4자리 비교 (*는 아무 숫자): '1*3*' ↔ '1234' 같음\ncreate or replace function public.card_num_match(a text, b text)\nreturns boolean\nlanguage sql immutable\nas $$\n  select coalesce(char_length(a) = 4 and char_length(b) = 4\n    and (substr(a,1,1) = substr(b,1,1) or substr(a,1,1) = '*' or substr(b,1,1) = '*')\n    and (substr(a,2,1) = substr(b,2,1) or substr(a,2,1) = '*' or substr(b,2,1) = '*')\n    and (substr(a,3,1) = substr(b,3,1) or substr(a,3,1) = '*' or substr(b,3,1) = '*')\n    and (substr(a,4,1) = substr(b,4,1) or substr(a,4,1) = '*' or substr(b,4,1) = '*'), false)\n$$;\n\n-- 문자에서 카드사·번호 찾기: 금액(…원) 앞부분에서 첫 카드사 이름과, 숫자가 섞인 4자리([0-9*])\n--   '신한카드(1234)승인', 'KB국민카드1*3*승인', '하나(0625) 승인', '삼성1234승인' → {신한,1234} …\ncreate or replace function public.parse_card_ref(p_body text)\nreturns text[]\nlanguage plpgsql immutable\nas $$\ndeclare\n  head text;\n  mm   text[];\n  iss  text := '';\n  num  text := '';\nbegin\n  head := replace(coalesce(p_body, ''), '＊', '*');\n  head := regexp_replace(head, '보낸\\s*사람[^\\n]*', '', 'g');\n  head := (regexp_split_to_array(head, '[0-9][0-9,]*\\s*원'))[1];\n  iss := public.card_issuer_norm((regexp_match(head,\n    'KB국민|국민|KB|신한|삼성|현대|롯데|하나|외환|우리|NH농협|농협|NH|IBK기업|IBK|기업|비씨|BC|씨티|시티|카카오뱅크|카카오|토스뱅크|토스|케이뱅크|K뱅크|수협|광주|전북|제주|부산|경남|DGB|대구|BNK|SC제일|SC|우체국|저축은행|새마을|MG|신협'))[1]);\n  for mm in select regexp_matches(head, '(^|[^0-9*,./:\\-])([0-9*]{4})($|[^0-9*,./:\\-])', 'g') loop\n    if mm[2] ~ '[0-9]' then num := mm[2]; exit; end if;\n  end loop;\n  return array[coalesce(iss, ''), num];\nend;\n$$;\n\n-- 카드 목록에서 그 카드의 대표 카드 찾기 → 주인(남편/아내) 반환\n--   ① 카드사·번호가 똑같은 카드 ② 없으면 번호가 맞는(* 포함) 같은 카드사 카드들이 모두 한 대표 카드일 때\ncreate or replace function public.card_owner(p_cards jsonb, p_issuer text, p_num text)\nreturns text\nlanguage plpgsql immutable\nas $$\ndeclare\n  hit   jsonb;\n  roots text[];\n  cur   jsonb;\n  i     int;\nbegin\n  if coalesce(p_num, '') = '' or p_cards is null or jsonb_typeof(p_cards) <> 'array' then return null; end if;\n\n  select e into hit from jsonb_array_elements(p_cards) e\n   where e->>'issuer' = p_issuer and e->>'num' = p_num limit 1;\n\n  if hit is null then\n    select array_agg(distinct r) into roots from (\n      select (\n        with recursive chain(c, depth) as (\n          select e, 0\n          union all\n          select (select x from jsonb_array_elements(p_cards) x where x->>'id' = chain.c->>'link_to' limit 1), depth + 1\n            from chain where coalesce(chain.c->>'link_to', '') <> '' and depth < 5\n        )\n        select c->>'id' from chain where c is not null order by depth desc limit 1\n      ) r\n      from jsonb_array_elements(p_cards) e\n      where e->>'issuer' = p_issuer and public.card_num_match(e->>'num', p_num)\n    ) t;\n    if roots is null or array_length(roots, 1) <> 1 then return null; end if;\n    select e into hit from jsonb_array_elements(p_cards) e where e->>'id' = roots[1] limit 1;\n  end if;\n\n  cur := hit;\n  for i in 1..5 loop\n    exit when cur is null or coalesce(cur->>'link_to', '') = '';\n    hit := cur;\n    select e into cur from jsonb_array_elements(p_cards) e where e->>'id' = hit->>'link_to' limit 1;\n  end loop;\n  if cur is null then cur := hit; end if;\n\n  if cur->>'owner' in ('남편', '아내') then return cur->>'owner'; end if;\n  return null;\nend;\n$$;\n\n-- 7. 문자 자동 등록 (SMS 포워더·아이폰 단축어가 호출) --------------------\n--    sms_text에 '보낸사람 : 번호' 줄이 있으면 발신번호 목록과 대조합니다.\ncreate or replace function public.receive_sms(\n  sms_text   text,\n  payer_name text default '남편',\n  fam_code   text default ''\n)\nreturns json\nlanguage plpgsql\nsecurity definer\nset search_path = public\nas $$\ndeclare\n  cfg       public.family_config%rowtype;\n  body      text := coalesce(sms_text, '');\n  sender    text;\n  is_cancel boolean;\n  amt       integer;\n  dm        text[];\n  y int; m int; d int;\n  kst_now   timestamp := now() at time zone 'Asia/Seoul';\n  d_str     text;\n  v_store   text := '';\n  ln        text;\n  tail      text;\n  cat       text[];\n  new_id    text;\n  card      text[];\n  v_payer   text;\nbegin\n  select * into cfg from public.family_config where family_code = coalesce(fam_code, '');\n  if not found then\n    return json_build_object('status', 'error', 'reason', '등록되지 않은 가족 코드');\n  end if;\n\n  -- (1) 발신번호 검사\n  sender := regexp_replace(coalesce((regexp_match(body, '보낸\\s*사람\\s*[:：]?\\s*([0-9][0-9\\- ]{6,})'))[1], ''), '[^0-9]', '', 'g');\n  if jsonb_array_length(cfg.allowed_senders) > 0 and sender <> ''\n     and not exists (select 1 from jsonb_array_elements_text(cfg.allowed_senders) s\n                     where regexp_replace(s, '[^0-9]', '', 'g') = sender) then\n    return json_build_object('status', 'ignored', 'reason', '등록되지 않은 발신번호', 'sender', sender);\n  end if;\n\n  -- (2) 카드 승인/취소 문자인지 검사: 광고 문구 없음 + '승인/취소' + 결제 일시\n  if body ~ '\\(광고\\)|무료\\s*수신\\s*거부|수신거부|설문|실태조사|당첨|경품|추첨'\n     or body !~ '승인|취소'\n     or body !~ '\\d{1,2}\\s*[/.\\-]\\s*\\d{1,2}\\s+\\d{1,2}:\\d{2}' then\n    return json_build_object('status', 'ignored', 'reason', '카드 승인 문자 아님');\n  end if;\n\n  is_cancel := body ~ '(승인|결제|매출|체크|할부|카드(\\(\\d+\\))?)\\s*취소|취소\\s*(승인|완료|접수)';\n\n  -- (3) 금액\n  amt := nullif(replace((regexp_match(body, '([0-9][0-9,]*)\\s*원'))[1], ',', ''), '')::integer;\n  if amt is null or amt <= 0 then\n    return json_build_object('status', 'ignored', 'reason', '금액 없음');\n  end if;\n  if is_cancel then amt := -amt; end if;\n\n  -- (4) 결제 일시 (연도 없으면 올해, 오늘보다 미래면 작년)\n  dm := regexp_match(body, '(?:(20\\d{2})\\s*[/.\\-]\\s*)?(\\d{1,2})\\s*[/.\\-]\\s*(\\d{1,2})\\s+(\\d{1,2}):(\\d{2})');\n  begin\n    m := dm[2]::int; d := dm[3]::int;\n    y := coalesce(dm[1]::int, extract(year from kst_now)::int);\n    if dm[1] is null and make_date(y, m, d) > kst_now::date then y := y - 1; end if;\n    d_str := to_char(make_date(y, m, d), 'YYYY-MM-DD') || ' ' || lpad(dm[4], 2, '0') || ':' || dm[5];\n  exception when others then\n    d_str := to_char(kst_now, 'YYYY-MM-DD HH24:MI');\n  end;\n\n  -- (5) 가맹점: 안내 줄을 걸러낸 마지막 줄, 없으면 금액 뒤 텍스트\n  foreach ln in array string_to_array(replace(body, chr(13), ''), chr(10)) loop\n    ln := btrim(regexp_replace(btrim(ln), '\\s*(승인|취소)$', ''));   -- 'KTX 승차권 승인' → 'KTX 승차권'\n    continue when ln = ''\n      or ln ~ '카드|체크\\s*\\(|https?://|www\\.'\n      or ln ~ 'Web발신|승인|취소|누적|일시불|할부|보낸\\s*사람|발신|수신|잔액|적립|안내|문의'\n      or ln ~ '[0-9][0-9,]*\\s*원'\n      or ln ~ '^[0-9+\\-\\s:/.]+$'\n      or ln ~ '^[*■▶•\\-]'\n      or ln ~ '^\\[.*\\]$'\n      or ln ~ '^[가-힣A-Za-z]{1,3}\\*[가-힣A-Za-z]{0,3}님?$'\n      or ln ~ '^(KB국민|국민|KB|신한|삼성|현대|롯데|하나|외환|우리|NH농협|농협|NH|IBK기업|IBK|기업|비씨|BC|씨티|시티|카카오뱅크|카카오|토스뱅크|토스|케이뱅크|K뱅크|수협|광주|전북|제주|부산|경남|DGB|대구|BNK|SC제일|SC|우체국|저축은행|새마을|MG|신협)\\S{0,6}\\s*[(\\[]?[0-9*]{4}[)\\]]?$'\n      or ln ~ '(01[016789]|02|0[3-8][0-9]|15[0-9]{2}|16[0-9]{2}|18[0-9]{2})[-\\s]?[0-9]{3,4}[-\\s]?[0-9]{4}';\n    v_store := ln;\n  end loop;\n\n  if v_store = '' then\n    tail := (regexp_match(body, '[0-9][0-9,]*\\s*원([^\\n]*)'))[1];\n    if tail is not null then\n      tail := regexp_replace(tail, '^\\s*\\(?(일시불|할부|[0-9]+개월)\\)?\\s*', '');\n      tail := regexp_replace(tail, '^\\s*(?:20\\d{2}\\s*[/.\\-]\\s*)?\\d{1,2}\\s*[/.\\-]\\s*\\d{1,2}\\s+\\d{1,2}:\\d{2}\\s*', '');\n      tail := regexp_replace(tail, '^\\s*\\(?(일시불|할부|[0-9]+개월)\\)?\\s*', '');\n      tail := regexp_replace(tail, '\\s*(누적|잔액|보낸\\s*사람).*$', '');\n      v_store := btrim(tail);\n    end if;\n  end if;\n  if v_store = '' then v_store := '카드결제가맹점'; end if;\n\n  -- (6) 재전송 중복 방지\n  if exists (select 1 from public.expenses\n             where family_code = cfg.family_code and date = d_str and amount = amt and expenses.store = v_store) then\n    return json_build_object('status', 'duplicate_ignored', 'store', v_store, 'amount', amt, 'date', d_str);\n  end if;\n\n  -- (7) 카드 구분: 카드 목록에 주인이 정해진 카드면 결제자를 카드 주인으로\n  card := public.parse_card_ref(body);\n  v_payer := coalesce(public.card_owner(cfg.cards, card[1], card[2]), nullif(payer_name, ''), '남편');\n\n  -- (8) 저장 + 알림 신호 (새 카드는 앱을 열 때 카드 목록에 자동 등록됨)\n  cat := public.store_category(v_store);\n  new_id := 'auto-' || replace(gen_random_uuid()::text, '-', '');\n  insert into public.expenses (id, family_code, date, store, category, sub_category,\n                               amount, tax, payer, source, memo, updated_by,\n                               card_issuer, card_num, pay_method)\n  values (new_id, cfg.family_code, d_str, v_store, cat[1], cat[2],\n          amt, round(amt / 11.0), v_payer,\n          case when is_cancel then '승인취소문자' else '자동문자수신' end,\n          '문자 자동등록' || case when sender <> '' then ' · ' || sender else '' end,\n          'AUTO_WEBHOOK', card[1], card[2], '카드');\n\n  insert into public.sync_signals (signal_id, updated_at) values (cfg.signal_id, now())\n  on conflict (signal_id) do update set updated_at = now();\n\n  return json_build_object('status', 'success', 'store', v_store, 'amount', amt, 'date', d_str,\n                           'category', cat[1], 'sub_category', cat[2],\n                           'card_issuer', card[1], 'card_num', card[2], 'payer', v_payer);\nend;\n$$;\n\n-- 8. 가족 코드 변경 (내역은 외래키 cascade로 함께 이동) --------------------\ncreate or replace function public.migrate_family_code(\n  old_code  text,\n  new_code  text,\n  device_id text default 'APP'\n)\nreturns json\nlanguage plpgsql\nsecurity definer\nset search_path = public\nas $$\ndeclare\n  moved int;\nbegin\n  if coalesce(current_setting('request.headers', true)::json->>'x-family-code', '') <> old_code then\n    return json_build_object('status', 'error', 'reason', '현재 가족 코드로 접속한 상태에서만 바꿀 수 있습니다.');\n  end if;\n  if new_code is null or new_code !~ '^fam_.{12,}$' then\n    return json_build_object('status', 'error', 'reason', '새 코드는 12자 이상이어야 합니다.');\n  end if;\n  if exists (select 1 from public.family_config where family_code = new_code) then\n    return json_build_object('status', 'error', 'reason', '이미 사용 중인 코드입니다. 다른 코드를 만들어 주세요.');\n  end if;\n  if not exists (select 1 from public.family_config where family_code = old_code) then\n    return json_build_object('status', 'error', 'reason', '현재 가족 정보를 찾을 수 없습니다.');\n  end if;\n\n  select count(*) into moved from public.expenses where family_code = old_code;\n\n  update public.family_config\n     set family_code = new_code,\n         signal_id   = replace(gen_random_uuid()::text, '-', ''),\n         updated_by  = device_id,\n         updated_at  = now()\n   where family_code = old_code;\n\n  return json_build_object('status', 'success', 'moved_count', moved);\nend;\n$$;\n\nrevoke all on function public.receive_sms(text, text, text) from public;\nrevoke all on function public.migrate_family_code(text, text, text) from public;\ngrant execute on function public.receive_sms(text, text, text) to anon, authenticated;\ngrant execute on function public.migrate_family_code(text, text, text) to anon, authenticated;\ngrant execute on function public.store_category(text) to anon, authenticated;\ngrant execute on function public.card_issuer_norm(text) to anon, authenticated;\ngrant execute on function public.card_num_match(text, text) to anon, authenticated;\ngrant execute on function public.parse_card_ref(text) to anon, authenticated;\ngrant execute on function public.card_owner(jsonb, text, text) to anon, authenticated;\n";
     // =====================================================================
     // ▲▲▲ [내장 SQL 스크립트 붙여넣는 공간 끝] ▲▲▲
     // =====================================================================
@@ -326,6 +443,21 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.5',
+        date: '2026-10-30',
+        title: '결제 수단(카드·현금) 구분 + 카드 관리 + AI 모델 자동 전환',
+        changes: [
+          '[카드] 문자·영수증·카드사 파일에서 카드사와 카드번호 뒤 4자리를 읽어 내역마다 결제 수단 표시 (가려진 숫자는 *)',
+          '[카드관리] 처음 보는 카드번호는 자동 등록, 번호가 맞는 카드(롯데 1234 ↔ 롯데 1*3*)는 자동 연결, 이름·주인 지정과 합치기·연결 해제',
+          '[결제자] 카드 주인이 정해져 있으면 문자 자동등록·영수증·파일 내역의 결제자를 카드 주인으로, 기존 내역도 한 번에 맞추기',
+          '[통계] 결제 수단별 합계, 엑셀 저장에 결제수단 칸 추가',
+          '[영수증] 결제 수단·결제자 선택, 같은 날 같은 금액이면 카드번호가 맞는 문자 내역에 합침',
+          '[AI] 정확한 모델(GEMINI_MODEL)이 사용량 초과·혼잡이면 보조 모델(GEMINI_FALLBACK_MODEL)로 자동 전환, 상호는 인쇄된 글자 그대로',
+          '[분류] 차량정비/부품 규칙 추가 (현대자동차·오토큐·블루핸즈·카센터·정비·타이어 등), 품목 없는 카드 전표 안내 문구',
+          '[DB] 스키마 2 — 내역에 card_issuer·card_num·pay_method, 가족 설정에 cards 칸 추가 (기존 내역 유지, 설정 SQL 다시 실행)'
+        ]
+      },
       {
         version: 'v1.4',
         date: '2026-10-30',
@@ -421,7 +553,7 @@
       const [toastMsg, setToastMsg] = useState('');
 
       const [editingId, setEditingId] = useState(null);
-      const [editForm, setEditForm] = useState({ store: '', amount: 0, date: '', memo: '', payer: '남편' });
+      const [editForm, setEditForm] = useState({ store: '', amount: 0, date: '', memo: '', payer: '남편', pay: 'none' });
 
       const [isScanning, setIsScanning] = useState(false);
       const [scanResult, setScanResult] = useState(null);   // AI가 읽은 결과 (등록 전 확인·수정용)
@@ -438,6 +570,11 @@
       const [allowedSenders, setAllowedSenders] = useState([]);
       const [senderInput, setSenderInput] = useState('');
       const [dbSchemaVersion, setDbSchemaVersion] = useState(null);
+
+      // 카드 목록 (가족 공용): 처음 보는 카드번호는 자동 등록, 같은 카드 연결·주인 지정
+      const [cards, setCards] = useState([]);
+      const [cardNameDrafts, setCardNameDrafts] = useState({});
+      const [importPay, setImportPay] = useState('auto');   // 카드사 파일 가져올 때 이 파일의 카드
 
       // 안드로이드 크롬: 설치 가능하면 이벤트를 받아 두었다가 [📲앱 설치] 버튼으로 띄움
       const [installPrompt, setInstallPrompt] = useState(null);
@@ -567,6 +704,12 @@
           try { localStorage.setItem(STORAGE_KEY_CATS, JSON.stringify(cats)); } catch (e) {}
           setAllowedSenders(Array.isArray(cfgData.allowed_senders) ? cfgData.allowed_senders : []);
           setSignalId(cfgData.signal_id || '');
+          const cfgCards = Array.isArray(cfgData.cards) ? cfgData.cards : [];
+          setCards(cfgCards);
+          // 문자 자동등록 등으로 들어온 처음 보는 카드번호를 카드 목록에 추가
+          if (registerNewCards(cfgCards, cardRefsOf(allExpenses))) {
+            saveCards(cur => registerNewCards(cur, cardRefsOf(allExpenses)), { silent: true });
+          }
 
           setSyncStatus('connected');
           setErrorDetail('');
@@ -736,6 +879,7 @@
 
         setExpenses(prev => [...rowsWithMeta, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
         notifyPartner();
+        registerCardsFrom(rowsWithMeta);
         return true;
       };
 
@@ -756,6 +900,7 @@
         }
         setExpenses(prev => prev.map(e => e.id === id ? { ...e, ...patchWithMeta } : e));
         notifyPartner();
+        if (patchWithMeta.card_num) registerCardsFrom([{ ...patchWithMeta, date: patchWithMeta.date || '' }]);
         return true;
       };
 
@@ -787,7 +932,8 @@
           tax: Math.round(amt / 11),
           date: normalizeDateString(editForm.date),
           memo: editForm.memo.trim(),
-          payer: editForm.payer
+          payer: editForm.payer,
+          ...payFieldsOf(editForm.pay)
         });
         if (ok) {
           setEditingId(null);
@@ -810,6 +956,73 @@
         try { localStorage.setItem(STORAGE_KEY_CATS, JSON.stringify(newCats)); } catch (e) {}
         notifyPartner();
         return true;
+      };
+
+      // =====================================================================
+      // ★ 카드 목록 저장: 저장 직전에 서버의 최신 목록을 다시 읽어 그 위에 바꿈
+      //   (두 폰이 동시에 고쳐도 상대가 바꾼 이름·주인이 덮어써지지 않도록)
+      // =====================================================================
+      const cardRefsOf = (rows) => rows.filter(r => r.card_num).map(r => ({ issuer: r.card_issuer || '', num: r.card_num, date: r.date }));
+
+      const saveCards = async (mutator, opts = {}) => {
+        const { data, error: readErr } = await supabaseClient
+          .from('family_config').select('cards').eq('family_code', familyCode).maybeSingle();
+        if (readErr || !data) {
+          if (!opts.silent) showToast('⚠️ 카드 목록을 읽지 못했습니다: ' + (readErr?.message || '가족 정보 없음'));
+          return false;
+        }
+        const fresh = Array.isArray(data.cards) ? data.cards : [];
+        const next = mutator(fresh);
+        if (!next) { setCards(fresh); return true; }
+        const { error } = await supabaseClient.from('family_config').update({
+          cards: next,
+          updated_by: MY_DEVICE_ID,
+          updated_at: new Date().toISOString()
+        }).eq('family_code', familyCode);
+        if (error) {
+          if (!opts.silent) showToast('⚠️ 카드 목록 저장 실패: ' + error.message);
+          return false;
+        }
+        setCards(next);
+        notifyPartner();
+        return true;
+      };
+
+      const registerCardsFrom = (rows) => {
+        const refs = cardRefsOf(rows);
+        if (refs.length && registerNewCards(cards, refs)) saveCards(cur => registerNewCards(cur, refs), { silent: true });
+      };
+
+      const updateCard = (id, patch) => saveCards(cur => cur.map(c => c.id === id ? { ...c, ...patch } : c));
+
+      // 카드 A(묶음 전체)를 카드 B의 묶음으로 합침. 이름·주인은 B에 없을 때만 A 것을 가져감
+      const mergeCardInto = (id, targetId) => saveCards(cur => {
+        const a = cur.find(c => c.id === id), t = cur.find(c => c.id === targetId);
+        if (!a || !t) return null;
+        const rootA = cardRoot(cur, a).id, rootT = cardRoot(cur, t).id;
+        if (rootA === rootT) return null;
+        const ra = cur.find(c => c.id === rootA);
+        return cur.map(c => {
+          if (c.id === rootT) return { ...c, name: c.name || ra.name || '', owner: c.owner || ra.owner || '' };
+          if (cardRoot(cur, c).id === rootA) return { ...c, link_to: rootT, auto_linked: false };
+          return c;
+        });
+      });
+
+      const unlinkCard = (id) => saveCards(cur => cur.map(c => c.id === id ? { ...c, link_to: null, auto_linked: false } : c));
+
+      const deleteCard = (id) => saveCards(cur => cur.filter(c => c.id !== id).map(c => c.link_to === id ? { ...c, link_to: null } : c));
+
+      // 카드 주인과 결제자가 다른 내역을 한꺼번에 주인으로 맞춤
+      const alignPayers = async (ids, owner) => {
+        if (!ensureConnected() || ids.length === 0) return;
+        const { error } = await supabaseClient.from('expenses')
+          .update({ payer: owner, updated_by: MY_DEVICE_ID })
+          .in('id', ids).eq('family_code', familyCode);
+        if (error) return showToast('⚠️ 결제자 변경 실패: ' + error.message);
+        setExpenses(prev => prev.map(e => ids.includes(e.id) ? { ...e, payer: owner } : e));
+        notifyPartner();
+        showToast(`✅ ${ids.length}건의 결제자를 ${owner}(으)로 맞췄습니다.`);
       };
 
       // 카드사 발신번호 목록 저장 (비어 있으면 receive_sms가 번호 검사를 하지 않음)
@@ -885,7 +1098,7 @@
       //   Gemini가 읽은 가게·날짜·총액·품목을 확인·수정한 뒤 등록
       // =====================================================================
       const SCAN_MAX_SIDE = 1600;   // 긴 변 최대 픽셀 (글씨는 충분히 보이고 전송은 가볍게)
-      const SCAN_TIMEOUT_MS = 40000; // 이 시간 안에 답이 없으면 중단하고 다시 시도 안내
+      const SCAN_TIMEOUT_MS = 60000; // 이 시간 안에 답이 없으면 중단 (정확 모델 한도 초과 시 보조 모델로 한 번 더 읽는 시간 포함)
       const scanRequestRef = useRef(0); // 늦게 도착한 이전 요청의 답은 무시하기 위한 번호
 
       const resizeImage = (file) => new Promise((resolve, reject) => {
@@ -960,7 +1173,17 @@
           const store = r.store || '영수증가맹점';
           // 가게 이름이 잘려 있어도(예: '…열우물주') 품목 이름(보통휘발유 등)으로 분류할 수 있게 함께 봄
           const { category, sub_category } = classifyStoreAndText(`${store} ${items.map(it => it.name).join(' ')}`, categories);
+          // 결제 수단: 현금 / 카드(카드사·뒤 4자리) / 모름. 카드 주인이 정해져 있으면 결제자도 그 사람
+          const cardIssuer = normalizeCardIssuer(r.card_issuer);
+          const cardNum = normalizeCardNum(r.card_number);
+          const pay = r.pay_method === '현금' ? 'cash'
+            : (cardNum || cardIssuer || r.pay_method === '카드') ? `card:${cardIssuer}|${cardNum}` : 'none';
+          const payFields = payFieldsOf(pay);
           setScanResult({
+            pay,
+            payer: cardOwner(cards, payFields.card_issuer, payFields.card_num) || currentUser,
+            model: data.model || '',
+            fallback: !!data.fallback,
             store,
             // 시각이 없으면 00:00 (= 시각 모름, 카드사 파일과 같은 규칙)
             date: r.date ? normalizeDateString(r.date) : getKSTDateTimeString(),
@@ -995,16 +1218,22 @@
         if (!sr) return null;
         const day = normalizeDateString(sr.date).slice(0, 10);
         const time = normalizeDateString(sr.date).slice(11, 16);
-        return expenses.find(e => {
+        const srCard = payFieldsOf(sr.pay || 'none');
+        const candidates = expenses.filter(e => {
           if (e.amount !== Number(sr.amount)) return false;
           if (!['카드문자', '자동문자수신', 'CSV일괄등록', '엑셀일괄등록'].includes(e.source)) return false;
           if (e.items && e.items.length > 0) return false;
+          // 둘 다 카드번호가 있는데 서로 안 맞으면 다른 결제 (카드사 표기는 문자·영수증마다 달라 번호만 비교)
+          if (srCard.card_num && e.card_num && !cardNumMatch(srCard.card_num, e.card_num)) return false;
+          if (srCard.pay_method === '현금' && e.pay_method === '카드') return false;
           const en = normalizeDateString(e.date);
           if (en.slice(0, 10) !== day) return false;
           const et = en.slice(11, 16);
           if (time !== '00:00' && et !== '00:00') return et === time || isSimilarStoreName(sr.store, e.store);
           return true;
-        }) || null;
+        });
+        // 같은 날 같은 금액이 여러 건이면 카드번호가 맞는 내역을 먼저
+        return candidates.sort((a, b) => (cardNumMatch(srCard.card_num, b.card_num) ? 1 : 0) - (cardNumMatch(srCard.card_num, a.card_num) ? 1 : 0))[0] || null;
       };
 
       const confirmScan = async () => {
@@ -1013,13 +1242,20 @@
         if (amount <= 0) return showToast('⚠️ 결제 금액을 확인해주세요.');
         const sr = { ...scanResult, amount, date: normalizeDateString(scanResult.date) };
         const target = findScanMergeTarget(sr);
+        const payFields = payFieldsOf(sr.pay);
         let ok;
         if (target) {
+          // 카드번호는 숫자가 더 많이 보이는 쪽을 남김 (문자 '1*3*' + 영수증 '1234' → '1234')
+          const digits = (n) => (String(n || '').match(/[0-9]/g) || []).length;
+          const keepTargetCard = target.card_num && digits(target.card_num) >= digits(payFields.card_num);
           ok = await updateExpenseRow(target.id, {
             store: sr.store,
             category: sr.category,
             sub_category: sr.sub_category,
             items: sr.items,
+            payer: sr.payer,
+            is_business: sr.is_business || !!target.is_business,
+            ...(keepTargetCard || !payFields.pay_method ? {} : payFields),
             source: '영수증+내역병합',
             memo: ((target.memo || '') + ' (영수증 품목 병합)').trim()
           });
@@ -1033,7 +1269,8 @@
             sub_category: sr.sub_category,
             amount,
             tax: Number(sr.tax) || Math.round(amount / 11),
-            payer: currentUser,
+            payer: sr.payer,
+            ...payFields,
             is_business: sr.is_business,
             source: '영수증스캔',
             verified: sr.items.length === 0 || sr.itemsSum === amount,
@@ -1062,7 +1299,7 @@
         let spamIgnoredCount = 0;
 
         for (const block of rawBlocks) {
-          const parsed = parseSingleSmsBlock(block, categories, currentUser);
+          const parsed = parseSingleSmsBlock(block, categories, currentUser, cards);
           if (parsed) {
             if (isDuplicateExpense(parsed, [...expenses, ...parsedRows])) {
               duplicateCount++;
@@ -1130,14 +1367,14 @@
           }
 
           let headerIdx = 0;
-          let dateCol = -1, timeCol = -1, storeCol = -1, amountCol = -1;
+          let dateCol = -1, timeCol = -1, storeCol = -1, amountCol = -1, cardCol = -1;
 
           for (let i = 0; i < Math.min(20, rows2D.length); i++) {
             const row = rows2D[i];
             if (!Array.isArray(row) || row.length < 2) continue;
 
             let hitCount = 0;
-            let tmpDate = -1, tmpTime = -1, tmpStore = -1, tmpAmt = -1;
+            let tmpDate = -1, tmpTime = -1, tmpStore = -1, tmpAmt = -1, tmpCard = -1;
 
             row.forEach((cell, idx) => {
               const cClean = String(cell || '').replace(/\s+/g, '');
@@ -1151,6 +1388,8 @@
                 tmpStore = idx; hitCount++;
               } else if (/이용금액|승인금액|결제금액|매출금액|거래금액|원금|^금액$/.test(cClean) && !/취소|할인|포인트|잔액|혜택/.test(cClean) && tmpAmt === -1) {
                 tmpAmt = idx; hitCount++;
+              } else if (/카드번호|이용카드|카드명/.test(cClean) && tmpCard === -1) {
+                tmpCard = idx;
               }
             });
 
@@ -1160,6 +1399,7 @@
               timeCol = tmpTime;
               storeCol = tmpStore;
               amountCol = tmpAmt;
+              cardCol = tmpCard;
               break;
             }
           }
@@ -1212,13 +1452,23 @@
               });
             }
 
+            // 결제 카드: 파일의 카드번호 칸 → 없으면 화면에서 고른 '이 파일의 카드'
+            let rowPay = { pay_method: '카드', card_issuer: '', card_num: '' };
+            const chosen = importPay !== 'auto' ? payFieldsOf(importPay) : null;
+            if (cardCol !== -1 && normalizeCardNum(cols[cardCol])) {
+              rowPay = { pay_method: '카드', card_issuer: normalizeCardIssuer(cols[cardCol]) || chosen?.card_issuer || '', card_num: normalizeCardNum(cols[cardCol]) };
+            } else if (chosen) {
+              rowPay = chosen;
+            }
+
             if (amountVal !== 0 && !isNaN(amountVal)) {
               rawExtracted.push({
                 rowIdx: i,
                 isCancelRow: isCancelRow || amountVal < 0,
                 absAmount: Math.abs(amountVal),
                 date: dateVal || getKSTDateTimeString(),
-                store: storeVal || '카드사가맹점'
+                store: storeVal || '카드사가맹점',
+                pay: rowPay
               });
             }
           }
@@ -1240,7 +1490,8 @@
               sub_category,
               amount: item.absAmount,
               tax: Math.round(item.absAmount / 11),
-              payer: currentUser,
+              payer: cardOwner(cards, item.pay.card_issuer, item.pay.card_num) || currentUser,
+              ...item.pay,
               is_business: false,
               source: fileName.endsWith('.csv') ? 'CSV일괄등록' : '엑셀일괄등록',
               verified: true,
@@ -1286,7 +1537,8 @@
               sub_category,
               amount: -cItem.absAmount,
               tax: -Math.round(cItem.absAmount / 11),
-              payer: currentUser,
+              payer: cardOwner(cards, cItem.pay.card_issuer, cItem.pay.card_num) || currentUser,
+              ...cItem.pay,
               is_business: false,
               source: fileName.endsWith('.csv') ? 'CSV일괄등록' : '엑셀일괄등록',
               verified: true,
@@ -1329,9 +1581,9 @@
 
       const exportCSV = (onlyBiz) => {
         const list = onlyBiz ? monthFiltered.filter(e => e.is_business) : monthFiltered;
-        const headers = ['결제일시(KST)', '결제자', '상호명', '대분류', '세부카테고리', '공급가액', '부가세', '총금액', '구분', '품목', '메모'];
+        const headers = ['결제일시(KST)', '결제자', '결제수단', '상호명', '대분류', '세부카테고리', '공급가액', '부가세', '총금액', '구분', '품목', '메모'];
         const rows = list.map(e => [
-          e.date, e.payer, `"${e.store}"`, e.category, e.sub_category || '-',
+          e.date, e.payer, `"${payLabel(cards, e).replace(/^\S+\s/, '')}"`, `"${e.store}"`, e.category, e.sub_category || '-',
           e.amount - (e.tax || 0), e.tax || 0, e.amount,
           e.is_business ? '업무경비' : '개인',
           `"${(e.items || []).map(i => i.name).join('/')}"`,
@@ -1343,6 +1595,32 @@
         link.href = URL.createObjectURL(blob);
         link.download = `부부가계부_${selectedMonth}_${APP_VERSION}.csv`;
         link.click();
+      };
+
+      // 카드 목록 화면·결제 수단 선택용
+      const cardRootsList = cards.filter(c => cardRoot(cards, c).id === c.id);
+      const expenseRootMap = useMemo(() => {
+        const m = new Map();
+        for (const e of expenses) {
+          const r = resolveCard(cards, e.card_issuer, e.card_num);
+          if (r) m.set(e.id, r.id);
+        }
+        return m;
+      }, [cards, expenses]);
+      const payOptions = (current) => {
+        const opts = cardRootsList.map(r => ({ value: `card:${r.issuer}|${r.num}`, label: `💳 ${cardDisplayName(r)}${r.owner ? ` (${r.owner})` : ''}` }));
+        opts.push({ value: 'cash', label: '💵 현금' }, { value: 'none', label: '모름 / 기타' });
+        if (current && !opts.some(o => o.value === current)) {
+          const f = payFieldsOf(current);
+          const root = resolveCard(cards, f.card_issuer, f.card_num);
+          opts.unshift({
+            value: current,
+            label: root
+              ? `💳 ${cardDisplayName(root)}${root.owner ? ` (${root.owner})` : ''}`
+              : `💳 ${`${f.card_issuer || '카드'} ${f.card_num}`.trim()}${f.card_num ? ' · 새 카드(자동 등록)' : ''}`
+          });
+        }
+        return opts;
       };
 
       const monthFiltered = expenses.filter(e => {
@@ -1644,6 +1922,19 @@
                                   />
                                 </div>
                               </div>
+                              <div>
+                                <label className="text-[11px] text-slate-400">결제 수단</label>
+                                <select
+                                  value={editForm.pay}
+                                  onChange={e => {
+                                    const v = e.target.value, f = payFieldsOf(v);
+                                    setEditForm({ ...editForm, pay: v, payer: cardOwner(cards, f.card_issuer, f.card_num) || editForm.payer });
+                                  }}
+                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 mt-0.5"
+                                >
+                                  {payOptions(editForm.pay).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                              </div>
                               <div className="flex gap-2 pt-1">
                                 <button onClick={() => saveEditForm(item.id)} className="flex-1 py-1.5 bg-indigo-600 text-white font-bold rounded-lg">
                                   💾 수정 저장
@@ -1660,6 +1951,11 @@
                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${item.payer === '남편' ? 'bg-blue-500/20 text-blue-300' : 'bg-pink-500/20 text-pink-300'}`}>
                                     {item.payer}
                                   </span>
+                                  {payLabel(cards, item) && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap bg-slate-800 text-slate-300 border border-slate-700">
+                                      {payLabel(cards, item)}
+                                    </span>
+                                  )}
                                   <select
                                     value={item.category}
                                     onChange={(e) => {
@@ -1725,7 +2021,8 @@
                                     amount: item.amount,
                                     date: item.date,
                                     memo: item.memo || '',
-                                    payer: item.payer
+                                    payer: item.payer,
+                                    pay: payValueOf(item)
                                   });
                                 }}
                                 className="text-indigo-400 hover:text-indigo-300 font-bold px-1.5 py-1 whitespace-nowrap"
@@ -1739,6 +2036,116 @@
                                 🗑️ 삭제
                               </button>
                             </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activeTab === 'cats' && (
+                  <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
+                    <div>
+                      <h3 className="font-bold text-white text-base">💳 카드 관리</h3>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                        카드 문자·영수증·카드사 파일에서 처음 보는 카드번호(뒤 4자리)는 자동으로 등록됩니다. <b>*</b>는 카드사가 가린 숫자예요.
+                        같은 카드는 합치고 주인을 정하면, 그 카드로 결제한 내역의 결제자가 자동으로 정해집니다.
+                      </p>
+                    </div>
+                    {cardRootsList.length === 0 && (
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs text-slate-500">
+                        아직 등록된 카드가 없습니다. 카드 문자가 오거나 영수증을 찍으면 여기에 나타납니다.
+                      </div>
+                    )}
+                    {cardRootsList.map(root => {
+                      const members = cards.filter(c => cardRoot(cards, c).id === root.id);
+                      const rows = expenses.filter(e => expenseRootMap.get(e.id) === root.id);
+                      const monthSum = rows.filter(e => selectedMonth === 'ALL' || (e.date || '').startsWith(selectedMonth)).reduce((sum, e) => sum + e.amount, 0);
+                      const mismatch = root.owner ? rows.filter(e => e.payer !== root.owner) : [];
+                      const fullNums = (ms) => ms.filter(m => !m.num.includes('*'));
+                      // 같은 카드일 수 있는 다른 카드: 번호가 맞고(카드사 표기는 달라도), 별표 없는 번호끼리 충돌이 없을 때
+                      const suggestions = cardRootsList.filter(other => {
+                        if (other.id === root.id) return false;
+                        const om = cards.filter(c => cardRoot(cards, c).id === other.id);
+                        const anyMatch = members.some(a => om.some(b => cardNumMatch(a.num, b.num)));
+                        const noConflict = fullNums(members).every(a => fullNums(om).every(b => cardNumMatch(a.num, b.num)));
+                        return anyMatch && noConflict;
+                      });
+                      const draft = cardNameDrafts[root.id];
+                      return (
+                        <div key={root.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              value={draft ?? root.name ?? ''}
+                              onChange={e => setCardNameDrafts({ ...cardNameDrafts, [root.id]: e.target.value })}
+                              onBlur={async () => {
+                                if (draft === undefined) return;
+                                if (draft.trim() !== (root.name || '')) await updateCard(root.id, { name: draft.trim() });
+                                setCardNameDrafts(d => { const n = { ...d }; delete n[root.id]; return n; });
+                              }}
+                              placeholder={`${root.issuer || '카드'} ${root.num} — 이름 붙이기`}
+                              className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-bold"
+                            />
+                            <div className="flex gap-0.5 bg-slate-800 p-0.5 rounded-lg shrink-0">
+                              {[['', '미지정'], ['남편', '👨'], ['아내', '👩']].map(([v, label]) => (
+                                <button
+                                  key={v || 'none'}
+                                  onClick={() => updateCard(root.id, { owner: v })}
+                                  className={`px-2 py-1 rounded-md font-bold whitespace-nowrap ${
+                                    (root.owner || '') === v ? (v === '남편' ? 'bg-blue-600 text-white' : v === '아내' ? 'bg-pink-600 text-white' : 'bg-slate-600 text-white') : 'text-slate-400'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {members.map(m => (
+                              <span key={m.id} className="flex items-center gap-1 bg-slate-800 text-slate-200 px-2 py-1 rounded-md border border-slate-700">
+                                {m.issuer || '카드사?'} <b className="tracking-wider">{m.num}</b>
+                                {m.id !== root.id && (
+                                  <>
+                                    <span className="text-[10px] text-slate-400">{m.auto_linked ? '자동 연결' : '연결'}</span>
+                                    <button onClick={() => unlinkCard(m.id)} className="text-rose-400 font-bold ml-0.5" title="다른 카드면 연결 해제">✕</button>
+                                  </>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-slate-500">
+                            사용 {rows.length}건 · {selectedMonth === 'ALL' ? '전체' : `${selectedMonth.slice(5)}월`} {monthSum.toLocaleString()}원
+                            {root.first_seen ? ` · 처음 확인 ${root.first_seen}` : ''}
+                          </p>
+                          {mismatch.length > 0 && (
+                            <button
+                              onClick={() => alignPayers(mismatch.map(e => e.id), root.owner)}
+                              className="w-full py-1.5 bg-amber-950/60 text-amber-200 border border-amber-700/60 rounded-lg font-bold"
+                            >
+                              결제자가 {root.owner}이(가) 아닌 내역 {mismatch.length}건 → {root.owner}(으)로 맞추기
+                            </button>
+                          )}
+                          {suggestions.map(o => (
+                            <div key={o.id} className="flex items-center justify-between gap-2 bg-indigo-950/40 border border-indigo-800/60 rounded-lg px-2 py-1.5">
+                              <span className="text-indigo-200">🔎 같은 카드일 수 있음: {cardDisplayName(o)}</span>
+                              <button onClick={() => mergeCardInto(o.id, root.id)} className="bg-indigo-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">합치기</button>
+                            </div>
+                          ))}
+                          <div className="flex gap-2 items-center">
+                            <select
+                              value=""
+                              onChange={e => { if (e.target.value) mergeCardInto(root.id, e.target.value); }}
+                              className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-300"
+                            >
+                              <option value="">같은 카드로 합치기…</option>
+                              {cardRootsList.filter(o => o.id !== root.id).map(o => (
+                                <option key={o.id} value={o.id}>→ {cardDisplayName(o)}{o.owner ? ` (${o.owner})` : ''}</option>
+                              ))}
+                            </select>
+                            {rows.length === 0 && members.length === 1 && (
+                              <button onClick={() => deleteCard(root.id)} className="text-slate-400 hover:text-rose-400 px-1.5 whitespace-nowrap">🗑️ 삭제</button>
+                            )}
                           </div>
                         </div>
                       );
@@ -1831,7 +2238,7 @@
                         <input type="file" accept="image/*" className="hidden" onChange={handleReceiptFile} />
                       </label>
                     </div>
-                    <p className="text-[11px] text-slate-500">팁: 영수증 전체가 화면에 들어오게, 밝은 곳에서 반듯하게 찍으면 정확도가 올라갑니다. (무료 사용량: 하루 약 500장)</p>
+                    <p className="text-[11px] text-slate-500">팁: 영수증 전체가 화면에 들어오게, 밝은 곳에서 반듯하게 찍으면 정확도가 올라갑니다. (무료 사용량: 정확 모델 하루 약 20장, 넘으면 보조 모델로 약 500장)</p>
 
                     {scanPreview && (isScanning || scanResult || scanError) && (
                       <img src={scanPreview} alt="영수증 미리보기" className="w-24 rounded-lg border border-slate-700 mx-auto" />
@@ -1856,6 +2263,12 @@
                       return (
                         <div className="bg-slate-950 p-3.5 rounded-xl border border-indigo-500 space-y-3 text-xs">
                           <p className="font-bold text-indigo-300">✏️ 읽은 내용 확인 (틀린 곳은 고친 뒤 등록)</p>
+                          {scanResult.model && (
+                            <p className={`text-[11px] ${scanResult.fallback ? 'text-amber-300' : 'text-slate-500'}`}>
+                              🤖 {scanResult.model}로 읽음
+                              {scanResult.fallback && ' — 정확 모델 사용량을 넘어(또는 혼잡해서) 보조 모델로 읽었습니다. 가게 이름을 한 번 더 확인해주세요.'}
+                            </p>
+                          )}
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <label className="text-[11px] text-slate-400">가게 이름</label>
@@ -1909,6 +2322,32 @@
                                 </select>
                               </div>
                             </div>
+                            <div>
+                              <div className="flex justify-between items-center">
+                                <label className="text-[11px] text-slate-400">결제 수단 · 결제자</label>
+                                <div className="flex gap-1">
+                                  {['남편', '아내'].map(p => (
+                                    <button
+                                      key={p}
+                                      onClick={() => setScanResult({ ...scanResult, payer: p })}
+                                      className={`px-2 py-0.5 rounded font-bold ${scanResult.payer === p ? (p === '남편' ? 'bg-blue-600 text-white' : 'bg-pink-600 text-white') : 'bg-slate-800 text-slate-400'}`}
+                                    >
+                                      {p}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <select
+                                value={scanResult.pay}
+                                onChange={e => {
+                                  const v = e.target.value, f = payFieldsOf(v);
+                                  setScanResult({ ...scanResult, pay: v, payer: cardOwner(cards, f.card_issuer, f.card_num) || scanResult.payer });
+                                }}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-1 py-1.5 text-slate-200 mt-0.5"
+                              >
+                                {payOptions(scanResult.pay).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                            </div>
                           </div>
 
                           {scanResult.items.length > 0 && (
@@ -1923,7 +2362,7 @@
                           )}
                           <p className={sumOk ? 'text-emerald-400' : 'text-amber-300'}>
                             {scanResult.items.length === 0
-                              ? 'ℹ️ 품목은 읽지 못했습니다. 금액만 등록됩니다.'
+                              ? 'ℹ️ 품목 내역이 없는 영수증입니다(카드 전표 등). 금액만 등록됩니다.'
                               : sumOk
                                 ? `✓ 품목 합계 ${scanResult.itemsSum.toLocaleString()}원 = 결제 금액`
                                 : `⚠️ 품목 합계 ${scanResult.itemsSum.toLocaleString()}원 ≠ 결제 금액 ${amountNum.toLocaleString()}원 — 금액을 확인해주세요`}
@@ -1943,7 +2382,7 @@
                           )}
                           <div className="flex gap-2">
                             <button onClick={confirmScan} className="flex-1 py-2 bg-indigo-600 text-white font-bold rounded-lg">
-                              {target ? '품목 합치기' : `등록하기 (${currentUser})`}
+                              {target ? `품목 합치기 (${scanResult.payer})` : `등록하기 (${scanResult.payer})`}
                             </button>
                             <button
                               onClick={() => { setScanResult(null); setScanPreview(''); }}
@@ -2004,6 +2443,19 @@
                         </p>
                       </div>
 
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-slate-400 whitespace-nowrap">이 파일의 카드</span>
+                        <select
+                          value={importPay}
+                          onChange={e => setImportPay(e.target.value)}
+                          className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200"
+                        >
+                          <option value="auto">자동 (파일의 카드번호 칸 사용)</option>
+                          {cardRootsList.map(r => (
+                            <option key={r.id} value={`card:${r.issuer}|${r.num}`}>💳 {cardDisplayName(r)}{r.owner ? ` (${r.owner})` : ''}</option>
+                          ))}
+                        </select>
+                      </div>
                       <label className="block w-full py-2.5 bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-700/60 rounded-xl text-center text-xs font-bold text-indigo-300 cursor-pointer">
                         📥 카드사 엑셀(.xls/.xlsx) 또는 CSV 파일 선택하기
                         <input type="file" accept=".xls,.xlsx,.csv,.txt" className="hidden" onChange={handleFileUpload} />
@@ -2038,6 +2490,34 @@
                         </div>
                       </div>
                     )}
+                    {(() => {
+                      // 결제 수단별: 카드(같은 카드로 합친 묶음 기준) / 현금 / 확인 안 됨
+                      const groups = new Map();
+                      for (const e of monthFiltered) {
+                        const rootId = expenseRootMap.get(e.id);
+                        const key = e.pay_method === '현금' ? 'cash' : rootId || ((e.card_issuer || e.card_num) ? `raw:${e.card_issuer}|${e.card_num}` : 'none');
+                        const g = groups.get(key) || { key, sum: 0, count: 0, label: '' };
+                        g.sum += e.amount; g.count += 1;
+                        if (!g.label) {
+                          const root = rootId && cards.find(c => c.id === rootId);
+                          g.label = key === 'none' ? '❔ 결제 수단 모름' : root ? `💳 ${cardDisplayName(root)}${root.owner ? ` (${root.owner})` : ''}` : payLabel(cards, e);
+                        }
+                        groups.set(key, g);
+                      }
+                      const list = [...groups.values()].sort((a, b) => (a.key === 'none') - (b.key === 'none') || b.sum - a.sum);
+                      if (list.length === 0) return null;
+                      return (
+                        <div className="pt-3 border-t border-slate-800 space-y-1.5">
+                          <h4 className="font-bold text-white text-sm">💳 결제 수단별</h4>
+                          {list.map(g => (
+                            <div key={g.key} className="flex justify-between text-xs">
+                              <span className={g.key === 'none' ? 'text-slate-500' : 'text-slate-200'}>{g.label}</span>
+                              <span className="font-bold">{g.sum.toLocaleString()}원 <span className="text-slate-500 font-normal">({g.count}건)</span></span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <div className="grid grid-cols-2 gap-2 pt-3">
                       <button onClick={() => exportCSV(true)} className="py-2.5 bg-amber-600 text-white font-bold rounded-xl text-xs">
                         💼 업무경비만 엑셀 저장
@@ -2243,7 +2723,7 @@
               <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-30 safe-bottom">
                 <div className="max-w-xl mx-auto grid grid-cols-5 py-2 text-[11px] font-bold">
                   <button onClick={() => setActiveTab('list')} className={activeTab === 'list' ? 'text-indigo-400' : 'text-slate-400'}>📋 내역</button>
-                  <button onClick={() => setActiveTab('cats')} className={activeTab === 'cats' ? 'text-indigo-400' : 'text-slate-400'}>⚙️ 카테고리</button>
+                  <button onClick={() => setActiveTab('cats')} className={activeTab === 'cats' ? 'text-indigo-400' : 'text-slate-400'}>⚙️ 카드·분류</button>
                   <button onClick={() => setActiveTab('scan')} className={activeTab === 'scan' ? 'text-indigo-400' : 'text-slate-400'}>📷 영수증스캔</button>
                   <button onClick={() => setActiveTab('sms')} className={activeTab === 'sms' ? 'text-indigo-400' : 'text-slate-400'}>📩 문자/엑셀</button>
                   <button onClick={() => setActiveTab('stats')} className={activeTab === 'stats' ? 'text-indigo-400' : 'text-slate-400'}>📊 통계/엑셀</button>
