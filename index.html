@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.19</title>
+  <title>부부 AI 가계부 v1.21</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.19';
+    const APP_VERSION = 'v1.21';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 2;
     // ★ 가족 보안 코드 최소 길이 (DB에서도 같은 규칙으로 막음)
@@ -558,6 +558,25 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.21',
+        date: '2026-11-03',
+        title: '여러 장 한 번에 최대 10장',
+        changes: [
+          '[영수증] 앨범에서 한 번에 고를 수 있는 사진을 6장 → 10장으로 (긴 영수증 2개 + 앱 화면 2장 = 7장도 한 번에)',
+          '[영수증] 한도를 넘게 고르면 앞쪽만 보내지 않고 안내만 함 (긴 영수증 아랫부분이 빠져 합계 없이 읽히던 문제)',
+          '[영수증] 같은 가게 영수증이 두 개 섞여도 회원번호·승인번호·시각으로 구분하도록 AI 안내 보강 (서버 함수)'
+        ]
+      },
+      {
+        version: 'v1.20',
+        date: '2026-11-03',
+        title: '등록하면서 분류 바로 추가',
+        changes: [
+          '[분류] 영수증 확인 화면과 내역 목록의 분류 칸에서 [＋ 새 대분류…] / [＋ 세부 분류 추가…]를 고르면 그 자리에서 만들고 바로 선택됨 (예: 생활/미용 › 미용실)',
+          '[분류] 이미 있는 대분류 이름을 넣으면 세부 분류만 더함, 추가한 분류는 다음 영수증부터 AI도 고를 수 있음'
+        ]
+      },
+      {
         version: 'v1.19',
         date: '2026-11-03',
         title: '뒤로가기로 팝업 닫기',
@@ -842,6 +861,8 @@
       const [smsText, setSmsText] = useState('');
 
       const [newCatName, setNewCatName] = useState('');
+      // 등록·내역 화면에서 바로 분류 추가: { where: 'scan' | 내역 id, kind: 'cat'(새 대분류) | 'sub'(세부 분류), cat, name, sub }
+      const [catAdder, setCatAdder] = useState(null);
       const [selectedCatId, setSelectedCatId] = useState('c1');
       const [newSubName, setNewSubName] = useState('');
 
@@ -882,9 +903,10 @@
 
       // 안드로이드 뒤로가기: 팝업·수정창이 열려 있으면 앱을 닫지 않고 그 창만 닫음
       // (창이 열릴 때 방문 기록을 한 칸 쌓아 두고, 뒤로가기가 그 칸을 지우면 창을 닫음)
-      const overlayOpen = showVersionModal || showWebhookModal || showCodeMigrateModal || editingId !== null;
+      const overlayOpen = showVersionModal || showWebhookModal || showCodeMigrateModal || editingId !== null || catAdder !== null;
       const closeTopOverlayRef = useRef(() => true);
       closeTopOverlayRef.current = () => {
+        if (catAdder) { setCatAdder(null); return true; }
         if (showVersionModal) { setShowVersionModal(false); return true; }
         if (showWebhookModal) { setShowWebhookModal(false); return true; }
         if (showCodeMigrateModal) { if (isMigrating) return false; setShowCodeMigrateModal(false); return true; }
@@ -1395,6 +1417,75 @@
         }
       };
 
+      // 분류 바로 추가: 대분류가 없으면 새로 만들고, 있으면 세부 분류만 더함. 성공하면 {category, sub_category}
+      const addCategoryQuick = async (catName, subName) => {
+        const cn = (catName || '').trim().slice(0, 20);
+        let sn = (subName || '').trim().slice(0, 20);
+        if (!cn) { showToast('⚠️ 대분류 이름을 입력해주세요.'); return null; }
+        if (cn.includes('|') || sn.includes('|')) { showToast('⚠️ 이름에 | 기호는 쓸 수 없습니다.'); return null; }
+        const exist = categories.find(c => c.name === cn);
+        let updated, msg;
+        if (exist) {
+          if (!sn) sn = exist.subs[0] || '기타';
+          if (exist.subs.includes(sn)) return { category: cn, sub_category: sn };   // 이미 있으면 고르기만
+          updated = categories.map(c => c.id === exist.id ? { ...c, subs: [...c.subs, sn] } : c);
+          msg = `✅ [${cn} › ${sn}] 세부 분류 추가됨`;
+        } else {
+          if (!sn) sn = '기타';
+          updated = [...categories, { id: 'c-' + Date.now(), name: cn, subs: [sn] }];
+          msg = `✅ [${cn} › ${sn}] 새 분류 추가됨`;
+        }
+        if (!(await saveCategories(updated))) return null;
+        showToast(msg);
+        return { category: cn, sub_category: sn };
+      };
+
+      // 분류 고르는 칸에서 '＋ 새 …'를 고르면 입력창을 엶. 아니면 false
+      const openCatAdder = (value, where, curCat) => {
+        if (value === '__new_cat__') { setCatAdder({ where, kind: 'cat', cat: '', name: '', sub: '' }); return true; }
+        if (value === '__new_sub__') { setCatAdder({ where, kind: 'sub', cat: curCat, name: curCat, sub: '' }); return true; }
+        return false;
+      };
+
+      const renderCatAdder = (where, onAdded) => {
+        if (!catAdder || catAdder.where !== where) return null;
+        const submit = async () => {
+          const r = await addCategoryQuick(catAdder.kind === 'cat' ? catAdder.name : catAdder.cat, catAdder.sub);
+          if (r) { setCatAdder(null); onAdded(r); }
+        };
+        const onKey = e => { if (e.key === 'Enter') submit(); };
+        return (
+          <div className="mt-1.5 p-2 bg-slate-950 border border-indigo-700/60 rounded-lg space-y-1.5 text-xs">
+            <p className="text-[10px] text-indigo-300 font-bold">
+              {catAdder.kind === 'cat' ? '＋ 새 대분류 만들기' : `＋ [${catAdder.cat}]에 세부 분류 추가`}
+            </p>
+            {catAdder.kind === 'cat' && (
+              <input
+                autoFocus
+                value={catAdder.name}
+                onChange={e => setCatAdder({ ...catAdder, name: e.target.value })}
+                onKeyDown={onKey}
+                placeholder="대분류 이름 (예: 생활/미용)"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200"
+              />
+            )}
+            <input
+              autoFocus={catAdder.kind === 'sub'}
+              value={catAdder.sub}
+              onChange={e => setCatAdder({ ...catAdder, sub: e.target.value })}
+              onKeyDown={onKey}
+              placeholder={catAdder.kind === 'cat' ? '세부 분류 (예: 미용실 · 비우면 기타)' : '세부 분류 이름 (예: 미용실)'}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200"
+            />
+            <div className="flex gap-1.5">
+              <button onClick={submit} className="flex-1 py-1.5 bg-indigo-600 text-white font-bold rounded-lg">추가하고 고르기</button>
+              <button onClick={() => setCatAdder(null)} className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg">취소</button>
+            </div>
+            <p className="text-[10px] text-slate-500">추가한 분류는 두 사람 모두에게 바로 보이고, 다음 영수증부터 AI도 이 분류를 고를 수 있어요.</p>
+          </div>
+        );
+      };
+
       const handleAddCategory = async () => {
         if (!newCatName.trim()) return;
         const newCat = { id: 'c-' + Date.now(), name: newCatName.trim(), subs: ['기타'] };
@@ -1445,7 +1536,8 @@
       const SCAN_TIMEOUT_MS = 90000;
       const SCAN_EXTRA_MS = 15000;   // 사진이 한 장 늘 때마다 더 기다리는 시간
       const SCAN_MAX_PHOTOS = 4;     // 긴 영수증 이어 찍기 최대 장수
-      const SCAN_MAX_AUTO = 6;       // 앨범에서 한 번에 보내는 최대 장수 (서버 함수 한도)
+      const SCAN_MAX_AUTO = 10;      // 앨범에서 한 번에 보내는 최대 장수 (서버 함수 한도와 같게)
+      const SCAN_LIMIT_MAX_MS = 160000;   // 사진이 많아도 이 이상은 기다리지 않음 (서버 함수 최대 처리 시간 150초 + 여유)
       const scanRequestRef = useRef(0); // 늦게 도착한 이전 요청의 답은 무시하기 위한 번호
 
       const resizeImage = (file) => new Promise((resolve, reject) => {
@@ -1501,8 +1593,13 @@
           }
           // 보통 모드: 고른 사진을 한 번에 보내면 AI가 같은 영수증 사진끼리 묶고 다른 결제는 나눔
           //   (긴 영수증 3장 + 앱 화면 2장 → 결제 3건) → 확인 화면에서 한 건씩 등록
-          if (files.length > SCAN_MAX_AUTO) showToast(`ℹ️ 한 번에 ${SCAN_MAX_AUTO}장까지 읽습니다. 나머지는 다시 골라주세요.`);
-          const photos = await Promise.all(files.slice(0, SCAN_MAX_AUTO).map(resizeImage));
+          // 한도를 넘으면 일부만 보내지 않음 (긴 영수증의 아랫부분만 빠져 합계 없이 읽히는 일을 막음)
+          if (files.length > SCAN_MAX_AUTO) {
+            setScanResult(null);
+            setScanError(`사진 ${files.length}장을 골랐습니다. 한 번에 ${SCAN_MAX_AUTO}장까지 읽을 수 있어요. 영수증 단위로 나눠서 (같은 영수증 사진은 같은 묶음에) 다시 골라주세요.`);
+            return;
+          }
+          const photos = await Promise.all(files.map(resizeImage));
           await readReceipt(photos, { auto: photos.length > 1 });
         } catch (err) {
           setScanError(err.message || String(err));
@@ -1568,7 +1665,7 @@
         setIsScanning(true);
         const requestId = ++scanRequestRef.current;
         const isCurrent = () => scanRequestRef.current === requestId;
-        const limitMs = SCAN_TIMEOUT_MS + (photos.length - 1) * SCAN_EXTRA_MS;
+        const limitMs = Math.min(SCAN_TIMEOUT_MS + (photos.length - 1) * SCAN_EXTRA_MS, SCAN_LIMIT_MAX_MS);
         try {
           setScanPreview(photos.map(p => p.preview));
           let timer;
@@ -1638,6 +1735,7 @@
       const readNextInQueue = () => {
         if (scanQueue.length === 0) { setQueueInfo({ pos: 0, total: 0 }); return false; }
         const [next, ...rest] = scanQueue;
+        setCatAdder(null);
         setScanQueue(rest);
         setQueueInfo(q => ({ ...q, pos: q.pos + 1 }));
         setScanError('');
@@ -1648,6 +1746,7 @@
 
       // 읽는 중에 사용자가 그만두기
       const cancelScan = () => {
+        setCatAdder(null);
         setScanQueue([]);
         setQueueInfo({ pos: 0, total: 0 });
         scanRequestRef.current++;
@@ -2480,6 +2579,7 @@
                                   <select
                                     value={item.category}
                                     onChange={(e) => {
+                                      if (openCatAdder(e.target.value, item.id, item.category)) return;
                                       const newCatObj = categories.find(c => c.name === e.target.value) || categories[0];
                                       const newSub = newCatObj.subs[0] || '기타';
                                       changeRowCategory(item, newCatObj.name, newSub);
@@ -2490,15 +2590,18 @@
                                       <option value={item.category}>{item.category}</option>
                                     )}
                                     {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                    <option value="__new_cat__">＋ 새 대분류…</option>
                                   </select>
                                   <select
                                     value={item.sub_category || ''}
-                                    onChange={(e) => changeRowCategory(item, item.category, e.target.value)}
+                                    onChange={(e) => { if (!openCatAdder(e.target.value, item.id, item.category)) changeRowCategory(item, item.category, e.target.value); }}
                                     className="bg-indigo-950/80 text-indigo-300 text-xs px-1.5 py-0.5 rounded border border-indigo-700/50"
                                   >
                                     {(matchedCat?.subs || ['미분류']).map(s => <option key={s} value={s}>{s}</option>)}
+                                    {matchedCat && <option value="__new_sub__">＋ 세부 분류 추가…</option>}
                                   </select>
                                 </div>
+                                {renderCatAdder(item.id, r => changeRowCategory(item, r.category, r.sub_category))}
                                 <h4 className="font-bold text-white text-base pt-0.5 truncate">{item.store}</h4>
                                 <p className="text-[11px] text-slate-400 truncate">
                                   {item.date} · {item.source} {item.memo ? `· ${item.memo}` : ''}
@@ -2954,6 +3057,7 @@
                                 <select
                                   value={scanResult.category}
                                   onChange={e => {
+                                    if (openCatAdder(e.target.value, 'scan', scanResult.category)) return;
                                     const c = categories.find(x => x.name === e.target.value);
                                     const newSub = c?.subs?.[0] || '미분류';
                                     setScanResult({ ...scanResult, category: e.target.value, sub_category: newSub,
@@ -2962,16 +3066,23 @@
                                   className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-1 py-1.5 text-slate-200"
                                 >
                                   {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                  <option value="__new_cat__">＋ 새 대분류…</option>
                                 </select>
                                 <select
                                   value={scanResult.sub_category}
-                                  onChange={e => setScanResult({ ...scanResult, sub_category: e.target.value,
-                                    items: retargetItems(scanResult.items, scanResult.category, scanResult.sub_category, scanResult.category, e.target.value) })}
+                                  onChange={e => {
+                                    if (openCatAdder(e.target.value, 'scan', scanResult.category)) return;
+                                    setScanResult({ ...scanResult, sub_category: e.target.value,
+                                      items: retargetItems(scanResult.items, scanResult.category, scanResult.sub_category, scanResult.category, e.target.value) });
+                                  }}
                                   className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-1 py-1.5 text-slate-200"
                                 >
                                   {(cat?.subs || [scanResult.sub_category]).map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                                  {cat && <option value="__new_sub__">＋ 세부 분류 추가…</option>}
                                 </select>
                               </div>
+                              {renderCatAdder('scan', r => setScanResult(sr => ({ ...sr, category: r.category, sub_category: r.sub_category,
+                                items: retargetItems(sr.items, sr.category, sr.sub_category, r.category, r.sub_category) })))}
                             </div>
                             <div>
                               <div className="flex justify-between items-center">
