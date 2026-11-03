@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.18</title>
+  <title>부부 AI 가계부 v1.19</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.18';
+    const APP_VERSION = 'v1.19';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 2;
     // ★ 가족 보안 코드 최소 길이 (DB에서도 같은 규칙으로 막음)
@@ -558,6 +558,15 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.19',
+        date: '2026-11-03',
+        title: '뒤로가기로 팝업 닫기',
+        changes: [
+          '[화면] 버전 기록·문자 연동 안내·가족 코드 변경 창이나 내역 수정창이 열려 있을 때 안드로이드 뒤로가기를 누르면 앱이 꺼지지 않고 그 창만 닫힘',
+          '[화면] 가족 코드를 옮기는 중에는 뒤로가기로 창이 닫히지 않음'
+        ]
+      },
+      {
         version: 'v1.18',
         date: '2026-11-03',
         title: '여러 장 한 번에 — 결제별 자동 구분',
@@ -870,6 +879,33 @@
       const supabaseClient = useMemo(() => createSecuredClient(familyCode), [familyCode]);
       const syncTimerRef = useRef(null);
       const broadcastChannelRef = useRef(null);
+
+      // 안드로이드 뒤로가기: 팝업·수정창이 열려 있으면 앱을 닫지 않고 그 창만 닫음
+      // (창이 열릴 때 방문 기록을 한 칸 쌓아 두고, 뒤로가기가 그 칸을 지우면 창을 닫음)
+      const overlayOpen = showVersionModal || showWebhookModal || showCodeMigrateModal || editingId !== null;
+      const closeTopOverlayRef = useRef(() => true);
+      closeTopOverlayRef.current = () => {
+        if (showVersionModal) { setShowVersionModal(false); return true; }
+        if (showWebhookModal) { setShowWebhookModal(false); return true; }
+        if (showCodeMigrateModal) { if (isMigrating) return false; setShowCodeMigrateModal(false); return true; }
+        if (editingId !== null) { setEditingId(null); return true; }
+        return true;
+      };
+      useEffect(() => {
+        if (!overlayOpen) return;
+        window.history.pushState({ overlay: true }, '');
+        let consumed = false;
+        const onPop = () => {
+          if (closeTopOverlayRef.current()) consumed = true;
+          else window.history.pushState({ overlay: true }, '');   // 옮기는 중엔 닫지 않음
+        };
+        window.addEventListener('popstate', onPop);
+        return () => {
+          window.removeEventListener('popstate', onPop);
+          // ✕·취소 버튼으로 닫았으면 쌓아 둔 칸을 지워서, 다음 뒤로가기가 두 번 눌러야 되는 일이 없게
+          if (!consumed && window.history.state && window.history.state.overlay) window.history.back();
+        };
+      }, [overlayOpen]);
 
       // 이전 알림의 타이머가 새 알림을 일찍 지우지 않도록 타이머를 하나만 유지
       const toastTimerRef = useRef(null);
