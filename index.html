@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.24</title>
+  <title>부부 AI 가계부 v1.25</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.24';
+    const APP_VERSION = 'v1.25';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 2;
     // ★ 가족 보안 코드 최소 길이 (DB에서도 같은 규칙으로 막음)
@@ -604,6 +604,17 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.25',
+        date: '2026-11-05',
+        title: '뒤로가기 두 번 종료 · 제휴할인·멤버십 영수증',
+        changes: [
+          '[화면] 뒤로가기를 누르면 바로 꺼지지 않고 "한 번 더 누르면 종료됩니다" 안내 → 2.5초 안에 한 번 더 누르면 종료',
+          '[영수증] 결제금액 뒤에 제휴할인(KT 등)이 또 있으면 실제로 나간 돈(예: 32,100 → 31,300)으로, 할인은 음수 품목으로 (서버 함수)',
+          '[영수증] KT 멤버십·OK캐쉬백 같은 할인·적립 카드는 결제 카드로 등록하지 않음, 계좌 간편결제는 현금으로',
+          '[영수증] 같은 결제의 종이 영수증 사진과 모바일 영수증을 함께 올리면 한 건으로 묶음 (서버 함수)'
+        ]
+      },
+      {
         version: 'v1.24',
         date: '2026-11-03',
         title: '문자 수신 기록 · 다시 처리',
@@ -999,6 +1010,11 @@
         if (editingId !== null) { setEditingId(null); return true; }
         return true;
       };
+      const overlayOpenRef = useRef(false);
+      overlayOpenRef.current = overlayOpen;
+      const skipPopRef = useRef(0);          // 앱이 스스로 부른 history.back()은 '종료 안내'로 치지 않음
+      const guardPendingRef = useRef(false); // 창이 열려 있어 종료 안내 칸을 다시 못 쌓은 상태
+      const pushExitGuard = () => window.history.pushState({ exitGuard: true }, '');
       useEffect(() => {
         if (!overlayOpen) return;
         window.history.pushState({ overlay: true }, '');
@@ -1011,17 +1027,48 @@
         return () => {
           window.removeEventListener('popstate', onPop);
           // ✕·취소 버튼으로 닫았으면 쌓아 둔 칸을 지워서, 다음 뒤로가기가 두 번 눌러야 되는 일이 없게
-          if (!consumed && window.history.state && window.history.state.overlay) window.history.back();
+          if (!consumed && window.history.state && window.history.state.overlay) {
+            skipPopRef.current++;
+            window.history.back();
+          }
         };
+      }, [overlayOpen]);
+      // 창이 닫힌 뒤, 못 쌓았던 종료 안내 칸을 다시 쌓음
+      useEffect(() => {
+        if (overlayOpen || !guardPendingRef.current) return;
+        const t = setTimeout(() => {
+          if (!overlayOpenRef.current && guardPendingRef.current) { guardPendingRef.current = false; pushExitGuard(); }
+        }, 300);
+        return () => clearTimeout(t);
       }, [overlayOpen]);
 
       // 이전 알림의 타이머가 새 알림을 일찍 지우지 않도록 타이머를 하나만 유지
       const toastTimerRef = useRef(null);
-      const showToast = (msg) => {
+      const showToast = (msg, ms = 3800) => {
         setToastMsg(msg);
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = setTimeout(() => setToastMsg(''), 3800);
+        toastTimerRef.current = setTimeout(() => setToastMsg(''), ms);
       };
+
+      // 안드로이드 뒤로가기 두 번 눌러 종료: 첫 번째는 안내만, 2.5초 안에 한 번 더 누르면 종료
+      //   (방문 기록에 '종료 안내' 칸을 하나 쌓아 두고, 그 칸이 빠지면 안내 → 2.5초 뒤 다시 쌓음)
+      const EXIT_WINDOW_MS = 2500;
+      useEffect(() => {
+        pushExitGuard();
+        let timer = null;
+        const onPop = () => {
+          if (skipPopRef.current > 0) { skipPopRef.current--; return; }
+          if (overlayOpenRef.current) return;   // 창 닫기는 창 쪽에서 처리
+          showToast('↩️ 뒤로가기를 한 번 더 누르면 종료됩니다', EXIT_WINDOW_MS);
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            if (overlayOpenRef.current) guardPendingRef.current = true;
+            else pushExitGuard();
+          }, EXIT_WINDOW_MS);
+        };
+        window.addEventListener('popstate', onPop);
+        return () => { window.removeEventListener('popstate', onPop); clearTimeout(timer); };
+      }, []);
 
       // ★ content:// (로컬 파일) 환경에서도 100% 작동하는 클립보드 복사 함수 (폴백 지원)
       const copyToClipboard = (text, label) => {
@@ -1764,10 +1811,12 @@
           const ruleHit = CLASSIFY_RULES.some(rule => rule.test(`${store} ${items.map(it => it.name).join(' ')}`));
           const { category, sub_category } = (!ruleHit && dominantItemCategory(items)) || ruleCat;
           // 결제 수단: 현금 / 카드(카드사·뒤 4자리) / 모름. 카드 주인이 정해져 있으면 결제자도 그 사람
-          const cardIssuer = normalizeCardIssuer(r.card_issuer);
-          const cardNum = normalizeCardNum(r.card_number);
+          // 할인·적립용 멤버십·포인트 카드(KT 멤버십, OK캐쉬백 …)는 결제 카드가 아님 → 카드로 등록하지 않음
+          const isMembership = /멤버십|멤버쉽|membership|포인트|캐쉬백|캐시백|적립|CJ\s*ONE|L\.?\s*POINT/i.test(String(r.card_issuer || ''));
+          const cardIssuer = isMembership ? '' : normalizeCardIssuer(r.card_issuer);
+          const cardNum = isMembership ? '' : normalizeCardNum(r.card_number);
           const pay = r.pay_method === '현금' ? 'cash'
-            : (cardNum || cardIssuer || r.pay_method === '카드') ? `card:${cardIssuer}|${cardNum}` : 'none';
+            : (cardNum || cardIssuer || (r.pay_method === '카드' && !isMembership)) ? `card:${cardIssuer}|${cardNum}` : 'none';
           const payFields = payFieldsOf(pay);
           return {
             pay,
