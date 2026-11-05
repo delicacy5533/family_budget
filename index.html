@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.25</title>
+  <title>부부 AI 가계부 v1.26</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.25';
+    const APP_VERSION = 'v1.26';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 2;
     // ★ 가족 보안 코드 최소 길이 (DB에서도 같은 규칙으로 막음)
@@ -603,6 +603,16 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.26',
+        date: '2026-11-05',
+        title: '영수증 대표 분류 오류 수정',
+        changes: [
+          '[영수증] 할인 품목 이름(예: 제휴할인(KT))의 \'KT\' 때문에 스타벅스가 통신/공과금으로 분류되던 문제 수정',
+          '[영수증] 대표 분류 순서: 가게 이름 규칙 → 품목별 분류(AI) → 가게+품목 이름 규칙, 할인 품목은 분류에 쓰지 않음',
+          '[영수증] 상호가 로고로만 찍힌 영수증(STARBUCKS 로고 + 송내역점)은 \'스타벅스 송내역점\'처럼 브랜드를 붙여 읽음 (서버 함수)'
+        ]
+      },
       {
         version: 'v1.25',
         date: '2026-11-05',
@@ -1805,11 +1815,15 @@
           const itemsSum = items.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
           const amount = r.total != null ? sign * Math.abs(r.total) : itemsSum;
           const store = r.store || '영수증가맹점';
-          // 가게 이름이 잘려 있어도(예: '…열우물주') 품목 이름(보통휘발유 등)으로 분류할 수 있게 함께 봄
-          // 대표 분류: 규칙에 맞는 가게(주유소·푸드코트 등)는 규칙, 아니면 품목 금액이 가장 큰 분류, 그것도 없으면 규칙의 기본값
-          const ruleCat = classifyStoreAndText(`${store} ${items.map(it => it.name).join(' ')}`, categories);
-          const ruleHit = CLASSIFY_RULES.some(rule => rule.test(`${store} ${items.map(it => it.name).join(' ')}`));
-          const { category, sub_category } = (!ruleHit && dominantItemCategory(items)) || ruleCat;
+          // 대표 분류: ① 가게 이름이 규칙에 맞으면(주유소·푸드코트 등) 규칙
+          //           ② 아니면 품목 금액이 가장 큰 분류(AI가 품목마다 고른 것)
+          //           ③ 그것도 없으면 가게 이름 + 품목 이름으로 규칙 (가게 이름이 잘린 주유소 '…열우물주' + '보통휘발유' 등)
+          //   할인 품목(음수, 예: '제휴할인(KT)')의 이름은 보지 않음 → 'KT' 때문에 통신요금으로 가는 일 없게
+          const storeHit = CLASSIFY_RULES.some(rule => rule.test(store));
+          const itemText = items.filter(it => Number(it.price) > 0).map(it => it.name).join(' ');
+          const { category, sub_category } = (storeHit && classifyStoreAndText(store, categories))
+            || dominantItemCategory(items)
+            || classifyStoreAndText(`${store} ${itemText}`, categories);
           // 결제 수단: 현금 / 카드(카드사·뒤 4자리) / 모름. 카드 주인이 정해져 있으면 결제자도 그 사람
           // 할인·적립용 멤버십·포인트 카드(KT 멤버십, OK캐쉬백 …)는 결제 카드가 아님 → 카드로 등록하지 않음
           const isMembership = /멤버십|멤버쉽|membership|포인트|캐쉬백|캐시백|적립|CJ\s*ONE|L\.?\s*POINT/i.test(String(r.card_issuer || ''));
