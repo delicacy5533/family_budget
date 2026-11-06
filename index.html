@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.40</title>
+  <title>부부 AI 가계부 v1.41</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.40';
+    const APP_VERSION = 'v1.41';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 9;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -739,6 +739,16 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.41',
+        date: '2026-11-06',
+        title: '급여명세서 여러 장 = 여러 명세서',
+        changes: [
+          '[급여] 사진을 여러 장 올리면 같은 명세서를 나눠 찍은 사진은 합치고, 귀속월·급여유형이 다른 명세서는 따로 읽음 (예: 12월 성과급 + 1월 월급여 → 2개)',
+          '[급여] 여러 개를 읽으면 오래된 달부터 "명세서 1/2"로 하나씩 확인·저장, [건너뛰기]로 다음 명세서로',
+          '[급여] 한 번에 올릴 수 있는 사진 4장 → 10장'
+        ]
+      },
+      {
         version: 'v1.40',
         date: '2026-11-06',
         title: '🎯 월 예산 · 🔍 내역 검색 · 영수증 품목 고치기',
@@ -1255,6 +1265,7 @@
       const [psYear, setPsYear] = useState(String(new Date().getFullYear()));
       const [psEdit, setPsEdit] = useState(null);            // 편집 중인 명세서 (새로 읽은 것 포함)
       const [psBusy, setPsBusy] = useState('');
+      const [psQueue, setPsQueue] = useState([]);            // 한 번에 읽은 명세서가 여러 개일 때 아직 확인 안 한 것들
       // 📊 통계에서 항목을 눌러 해당 내역 보기: { kind: 'cat'|'pay'|'income'|'uncat', key, title, sub }
       const [statDrill, setStatDrill] = useState(null);
       const [flashId, setFlashId] = useState(null);
@@ -1354,7 +1365,7 @@
       closeTopOverlayRef.current = () => {
         if (catAdder) { setCatAdder(null); return true; }   // 열려 있으면 늘 맨 위 (직접 입력 창 안이거나, 다른 창이 없을 때만 남음)
         if (manual) { setManual(null); return true; }
-        if (psEdit) { setPsEdit(null); return true; }
+        if (psEdit) { setPsEdit(null); setPsQueue([]); return true; }
         if (showPayslips) { setShowPayslips(false); return true; }
         if (payEdit) { setPayEdit(null); return true; }
         if (loanEdit) { setLoanEdit(null); return true; }
@@ -1910,7 +1921,7 @@
       });
       // 사진(여러 장 가능)을 AI로 읽어 편집 화면에
       const readPayslipPhotos = async (fileList) => {
-        const files = Array.from(fileList || []).slice(0, 4);
+        const files = Array.from(fileList || []).slice(0, 10);
         if (files.length === 0 || !ensureConnected()) return;
         setPsBusy('reading');
         try {
@@ -1929,16 +1940,21 @@
           if (error) throw new Error(await describeScanError(error));
           if (data?.status === 'not_receipt') throw new Error('급여명세서가 아닌 사진 같습니다. 지급·공제 내역이 보이게 다시 찍어주세요.');
           if (data?.status !== 'success' || !data.payslip) throw new Error(data?.message || '명세서를 읽지 못했습니다.');
-          const ps = data.payslip;
-          const marked = { earnings: (ps.earnings || []).map(e => ({ name: e.name, amount: e.amount })), deductions: (ps.deductions || []).map(x => ({ ...x, group: payslipGroupOf(x.name) })) };
-          setPsEdit(newPayslipDraft({
+          // 서로 다른 명세서는 따로 (오래된 달부터). 예전 서버(payslip 하나)도 그대로 받음
+          const list = Array.isArray(data.payslips) && data.payslips.length ? data.payslips : [data.payslip];
+          const drafts = list.map((ps, i) => newPayslipDraft({
             pay_month: ps.pay_month || getKSTDateTimeString().slice(0, 7),
             pay_date: ps.pay_date || '',
             pay_type: payslipTypeOf(ps.pay_type),
             company: ps.company || '',
-            earnings: marked.earnings, deductions: marked.deductions, refs: ps.refs || [],
-            read: { gross: ps.gross, deduction_total: ps.deduction_total, net: ps.net, model: data.model, monthMissing: !ps.pay_month }
+            earnings: (ps.earnings || []).map(e => ({ name: e.name, amount: e.amount })),
+            deductions: (ps.deductions || []).map(x => ({ ...x, group: payslipGroupOf(x.name) })),
+            refs: ps.refs || [],
+            read: { gross: ps.gross, deduction_total: ps.deduction_total, net: ps.net, model: data.model, monthMissing: !ps.pay_month, pos: i + 1, total: list.length, photos: ps.photos || [] }
           }));
+          setPsEdit(drafts[0]);
+          setPsQueue(drafts.slice(1));
+          if (drafts.length > 1) showToast(`💼 명세서 ${drafts.length}개를 읽었습니다. 하나씩 확인해 저장하세요.`);
         } catch (err) {
           showToast('⚠️ ' + (err.message || String(err)));
         } finally {
@@ -2027,7 +2043,8 @@
           showToast(`💼 ${d.pay_month} ${ptype} 명세서 저장 · 실지급 ${t.net.toLocaleString()}원`);
           setPsYear(d.pay_month.slice(0, 4));
           setPsOwner(d.owner);
-          setPsEdit(null);
+          if (psQueue.length) { setPsEdit(psQueue[0]); setPsQueue(q => q.slice(1)); }   // 같이 읽은 다음 명세서
+          else setPsEdit(null);
           loadPayslips();
         } catch (err) {
           showToast('⚠️ 저장 실패: ' + (err.message || String(err)));
@@ -5312,10 +5329,10 @@
                     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3">
                       <div className="bg-slate-900 border border-emerald-700/60 rounded-2xl max-w-md w-full p-4 space-y-2.5 max-h-[92vh] overflow-y-auto text-xs">
                         <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                          <h3 className="font-bold text-white text-sm">💼 급여명세서 {d.id ? '고치기' : d.read ? '읽은 내용 확인' : '직접 입력'}</h3>
-                          <button onClick={() => setPsEdit(null)} className="text-slate-400">✕</button>
+                          <h3 className="font-bold text-white text-sm">💼 급여명세서 {d.id ? '고치기' : d.read ? '읽은 내용 확인' : '직접 입력'}{d.read?.total > 1 ? ` (${d.read.pos}/${d.read.total})` : ''}</h3>
+                          <button onClick={() => { setPsEdit(null); setPsQueue([]); }} className="text-slate-400">✕</button>
                         </div>
-                        {d.read?.model && <p className="text-[11px] text-slate-500">🤖 {d.read.model}로 읽음 · 틀린 곳은 고친 뒤 저장</p>}
+                        {d.read?.model && <p className="text-[11px] text-slate-500">🤖 {d.read.model}로 읽음{d.read.total > 1 ? ` · 같이 올린 명세서 ${d.read.total}개 중 ${d.read.pos}번째${d.read.photos?.length ? ` (사진 ${d.read.photos.join('·')}번)` : ''}` : ''} · 틀린 곳은 고친 뒤 저장</p>}
                         {d.read?.monthMissing && <p className="text-[11px] text-amber-300">📅 명세서에서 귀속월을 찾지 못했습니다. 아래에서 골라주세요.</p>}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
@@ -5399,7 +5416,8 @@
                             {psBusy === 'saving' ? '저장 중…' : '💾 저장'}
                           </button>
                           {d.id && <button onClick={() => deletePayslip(d)} className="px-3 py-2 bg-slate-800 text-rose-300 rounded-lg">삭제</button>}
-                          <button onClick={() => setPsEdit(null)} className="px-3 py-2 bg-slate-800 text-slate-300 rounded-lg">취소</button>
+                          {!d.id && psQueue.length > 0 && <button onClick={() => { setPsEdit(psQueue[0]); setPsQueue(q => q.slice(1)); }} className="px-3 py-2 bg-slate-800 text-amber-200 rounded-lg">건너뛰기</button>}
+                          <button onClick={() => { setPsEdit(null); setPsQueue([]); }} className="px-3 py-2 bg-slate-800 text-slate-300 rounded-lg">취소</button>
                         </div>
                       </div>
                     </div>
@@ -5439,7 +5457,7 @@
                       </div>
                       <p className="text-[10px] text-slate-500 leading-relaxed">
                         사진은 AI(Gemini)가 읽습니다. 결제를 연결하지 않은 무료 등급이면 보낸 내용이 구글 서비스 개선에 쓰일 수 있으니, 그때는 이름·계좌번호를 가리고 찍거나 직접 입력을 쓰세요.
-                        한 명세서를 나눠 찍었으면 여러 장(최대 4장)을 함께 고르세요.
+                        여러 장(최대 10장)을 함께 고르면, 한 명세서를 나눠 찍은 사진은 합치고 다른 달·다른 유형 명세서는 따로 읽어 하나씩 확인합니다.
                       </p>
                       {psState === 'loading' && <p className="text-slate-400 text-center py-4">불러오는 중…</p>}
                       {psState === 'missing' && <p className="text-amber-300 py-2">서버에 급여명세서 표가 아직 없습니다. Supabase SQL Editor에서 <b>v1.31 업데이트 SQL</b>을 실행해주세요.</p>}
