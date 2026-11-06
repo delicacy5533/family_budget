@@ -1,11 +1,12 @@
 // =====================================================================
 //  부부 AI 가계부 — 서비스 워커
 //  · 앱 화면(index.html): 인터넷이 되면 항상 최신본, 안 되면 저장본으로 실행
+//    (GitHub Pages는 10분 캐시를 허용하므로, 받을 때마다 서버에 바뀌었는지 확인 — v1.43)
 //  · 외부 라이브러리(React 등): 저장본으로 바로 실행하고 뒤에서 새로 받아 둠
 //  · Supabase 데이터 요청: 저장하지 않음 (항상 서버로)
 //  index.html만 고쳐서 올릴 때는 이 파일을 바꿀 필요가 없습니다.
 // =====================================================================
-const CACHE = 'couple-budget-v1';
+const CACHE = 'couple-budget-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -34,7 +35,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE)
       .then(async (c) => {
-        await c.addAll(APP_SHELL);
+        await c.addAll(APP_SHELL.map((u) => new Request(u, { cache: 'reload' })));   // 브라우저 캐시 말고 서버에서 새로
         await precacheLibraries(c).catch(() => {});   // 실패해도 설치는 계속 (다음 실행 때 저장됨)
       })
       .then(() => self.skipWaiting())
@@ -58,9 +59,10 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname.endsWith('supabase.co')) return;
 
   // 앱 화면: 네트워크 우선 → 실패하면 저장본
+  //   cache: 'no-cache' = 브라우저 캐시에 있어도 서버에 바뀌었는지 물어봄 (안 바뀌었으면 304로 짧게 끝남)
   if (req.mode === 'navigate' || (url.origin === self.location.origin && url.pathname.endsWith('.html'))) {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();

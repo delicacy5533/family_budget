@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.42</title>
+  <title>부부 AI 가계부 v1.43</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.42';
+    const APP_VERSION = 'v1.43';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 9;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -739,6 +739,18 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.43',
+        date: '2026-11-06',
+        title: '설치한 앱 새 버전 반영 · 연결된 기록 함께 삭제 묻기',
+        changes: [
+          '[앱] 설치한 앱(홈 화면)이 새 버전을 올린 뒤에도 최대 10분 동안 예전 화면을 쓰던 문제: 앱 화면을 받을 때마다 서버에 새 버전인지 확인 (sw.js 변경)',
+          '[앱] 앱을 켜거나 다시 볼 때 서버의 버전이 지금과 다르면 위에 "🔄 새 버전이 나왔어요 [새로고침]" 안내',
+          '[삭제] 연결된 기록이 있으면 함께 지울지 물어봄: 급여 수입 ↔ 급여명세서, 대출 상환 지출 ↔ 상환 기록, 대출 ↔ 상환 지출 ([함께 삭제] / [이것만 삭제] / [취소])',
+          '[급여] 명세서 목록의 연결 표시: 🔗수입(있음) · 🗑️수입 휴지통 · 수입 미등록(실수령액이 가계부 수입에 없음)',
+          '[대출] 상환 기록만 지운 뒤 같은 상환을 다시 넣으면 남아 있던 지출과 다시 연결 (지출이 두 번 생기지 않게)'
+        ]
+      },
+      {
         version: 'v1.42',
         date: '2026-11-06',
         title: '품목 고치기 보강 · 예산·검색 다듬기',
@@ -1307,6 +1319,37 @@
       const [inboxOpenId, setInboxOpenId] = useState(null);  // 원문 펼친 기록
       const [inboxBusyId, setInboxBusyId] = useState(null);
       const [toastMsg, setToastMsg] = useState('');
+      // 고르기 팝업 (삭제할 때 연결된 기록도 함께 지울지 등): { title, message, choices: [{ value, label, tone }], resolve }
+      const [choiceDlg, setChoiceDlg] = useState(null);
+      const askChoice = (title, message, choices) => new Promise(resolve => setChoiceDlg({ title, message, choices, resolve }));
+      const answerChoice = (v) => { setChoiceDlg(cur => { if (cur) cur.resolve(v); return null; }); };
+      // 🔄 새 버전 알림: 서버에 올라간 index.html의 버전이 지금 실행 중인 것과 다르면 안내
+      const [newVersion, setNewVersion] = useState('');
+      useEffect(() => {
+        if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) return;
+        let last = 0;
+        const check = async () => {
+          if (Date.now() - last < 60000) return;   // 1분에 한 번까지만
+          last = Date.now();
+          try {
+            const res = await fetch('./index.html?vcheck=' + Date.now(), { cache: 'no-store' });
+            if (!res.ok) return;
+            const m = (await res.text()).match(/const APP_VERSION = '(v[0-9.]+)'/);
+            if (m && m[1] !== APP_VERSION) setNewVersion(m[1]);
+          } catch (e) { /* 오프라인이면 다음에 */ }
+        };
+        check();
+        const onVis = () => { if (document.visibilityState === 'visible') check(); };
+        document.addEventListener('visibilitychange', onVis);
+        return () => document.removeEventListener('visibilitychange', onVis);
+      }, []);
+      const reloadToNewVersion = async () => {
+        try {
+          const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+          if (reg) await reg.update();
+        } catch (e) {}
+        location.reload();
+      };
 
       const [editingId, setEditingId] = useState(null);
       const [editForm, setEditForm] = useState({ store: '', amount: 0, date: '', memo: '', payer: '남편', pay: 'none' });
@@ -1367,18 +1410,19 @@
 
       // 안드로이드 뒤로가기: 팝업·수정창이 열려 있으면 앱을 닫지 않고 그 창만 닫음
       // (창이 열릴 때 방문 기록을 한 칸 쌓아 두고, 뒤로가기가 그 칸을 지우면 창을 닫음)
-      const overlayOpen = showVersionModal || showWebhookModal || showInbox || showTrash || manual !== null || showPayslips || showLoans || statDrill !== null || budgetEdit !== null || showCodeMigrateModal || editingId !== null || catAdder !== null || memoEdit !== null;
+      const overlayOpen = showVersionModal || showWebhookModal || showInbox || showTrash || manual !== null || showPayslips || showLoans || statDrill !== null || budgetEdit !== null || showCodeMigrateModal || choiceDlg !== null || editingId !== null || catAdder !== null || memoEdit !== null;
       const closeTopOverlayRef = useRef(() => true);
       // 겹쳐 열린 창 수 (예: 급여명세서 목록 위에 편집 화면) → 위 창만 닫으면 방문 기록 칸을 다시 쌓음
       const overlayLayersRef = useRef(0);
-      const fullModalOpen = showVersionModal || showWebhookModal || showInbox || showTrash || manual !== null || showPayslips || showLoans || statDrill !== null || budgetEdit !== null || showCodeMigrateModal;
+      const fullModalOpen = showVersionModal || showWebhookModal || showInbox || showTrash || manual !== null || showPayslips || showLoans || statDrill !== null || budgetEdit !== null || showCodeMigrateModal || choiceDlg !== null;
       // 내역 카드 안의 수정·메모·새 분류 입력은 큰 창이 열리면 곧 닫히므로 그때는 세지 않음
       //   (세면 방문 기록을 한 칸 쌓았다가 바로 지우는 왕복이 생김)
       const inlineLayer = (open) => open && !fullModalOpen;
       overlayLayersRef.current = [showVersionModal, showWebhookModal, showInbox, showTrash, manual !== null, showPayslips, psEdit !== null,
         showLoans, loanOpenId !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null,
-        showCodeMigrateModal, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null)].filter(Boolean).length;
+        showCodeMigrateModal, choiceDlg !== null, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null)].filter(Boolean).length;
       closeTopOverlayRef.current = () => {
+        if (choiceDlg) { answerChoice(null); return true; }   // 고르기 팝업은 늘 맨 위 → 뒤로가기 = 취소
         if (catAdder) { setCatAdder(null); return true; }   // 열려 있으면 늘 맨 위 (직접 입력 창 안이거나, 다른 창이 없을 때만 남음)
         if (manual) { setManual(null); return true; }
         if (psEdit) { setPsEdit(null); setPsQueue([]); return true; }
@@ -1857,10 +1901,51 @@
         return true;
       };
 
+      // 여러 내역을 휴지통으로 (연결된 기록을 함께 지울 때)
+      const trashExpenses = async (items) => {
+        const list = items.filter(Boolean);
+        if (!list.length) return true;
+        const deleted_at = new Date().toISOString();
+        const ids = list.map(e => e.id);
+        const { error } = await supabaseClient.from('expenses').update({ deleted_at, updated_by: MY_DEVICE_ID }).in('id', ids).eq('family_code', familyCode);
+        if (error) { showToast('⚠️ 삭제 실패: ' + error.message); return false; }
+        setExpenses(prev => prev.filter(e => !ids.includes(e.id)));
+        setTrash(prev => [...list.map(e => ({ ...e, deleted_at })), ...prev.filter(e => !ids.includes(e.id))]);
+        notifyPartner();
+        return true;
+      };
       // 삭제 = 휴지통으로 옮기기 (deleted_at 기록). 휴지통에서 복원하거나 영구 삭제
+      //   급여명세서·대출 상환 기록과 연결된 내역이면 함께 지울지 물어봄
       const deleteExpenseRow = async (item) => {
         if (!ensureConnected()) return false;
-        if (!window.confirm(`[${item.store} - ${item.amount.toLocaleString()}원]\n휴지통으로 옮길까요? (${TRASH_KEEP_DAYS}일 안에 복원할 수 있습니다)`)) return false;
+        let linkPs = null, linkPay = null;
+        if (isIncome(item)) {
+          const { data } = await supabaseClient.from('payslips').select('id,pay_month,pay_type,income_id').eq('income_id', item.id);
+          linkPs = (data || [])[0] || null;
+        }
+        if (item.source === '대출상환') linkPay = loanPays.find(p => p.expense_id === item.id) || null;
+        let both = false;
+        if (linkPs || linkPay) {
+          const loanName = linkPay && (loans.find(l => l.id === linkPay.loan_id) || {}).name;
+          const what = linkPs ? `${linkPs.pay_month} ${payslipTypeOf(linkPs.pay_type)} 급여명세서` : `${loanName || '대출'} ${linkPay.pay_date} 상환 기록`;
+          const v = await askChoice('🗑️ 내역 삭제', `[${item.store} · ${Number(item.amount).toLocaleString()}원]\n연결된 기록: ${what}\n\n내역은 휴지통으로 옮기고, 연결된 기록은 바로 지워집니다 (휴지통 없음).`, [
+            { value: 'both', label: `${linkPs ? '명세서' : '상환 기록'}도 함께 삭제`, tone: 'danger' },
+            { value: 'one', label: `이 내역만 삭제 (${linkPs ? '명세서는' : '상환 기록은'} 남김)` },
+            { value: null, label: '취소' }
+          ]);
+          if (!v) return false;
+          both = v === 'both';
+        } else if (!window.confirm(`[${item.store} - ${item.amount.toLocaleString()}원]\n휴지통으로 옮길까요? (${TRASH_KEEP_DAYS}일 안에 복원할 수 있습니다)`)) return false;
+        if (both && linkPs) {
+          const { error: e1 } = await supabaseClient.from('payslips').delete().eq('id', linkPs.id);
+          if (e1) { showToast('⚠️ 명세서 삭제 실패: ' + e1.message); return false; }
+          setPayslips(prev => prev.filter(x => x.id !== linkPs.id));
+        }
+        if (both && linkPay) {
+          const { error: e1 } = await supabaseClient.from('loan_payments').delete().eq('id', linkPay.id);
+          if (e1) { showToast('⚠️ 상환 기록 삭제 실패: ' + e1.message); return false; }
+          setLoanPays(prev => prev.filter(x => x.id !== linkPay.id));
+        }
         const deleted_at = new Date().toISOString();
         const { error } = await supabaseClient
           .from('expenses')
@@ -1874,7 +1959,7 @@
         setExpenses(prev => prev.filter(e => e.id !== item.id));
         setTrash(prev => [{ ...item, deleted_at }, ...prev]);
         notifyPartner();
-        showToast('🗑️ 휴지통으로 옮겼습니다. (내역 탭 위 🗑️ 휴지통에서 복원)');
+        showToast(both ? `🗑️ 휴지통으로 옮기고 연결된 ${linkPs ? '명세서' : '상환 기록'}도 지웠습니다.` : '🗑️ 휴지통으로 옮겼습니다. (내역 탭 위 🗑️ 휴지통에서 복원)');
         return true;
       };
 
@@ -2069,17 +2154,23 @@
         }
       };
       const deletePayslip = async (p) => {
-        if (!window.confirm(`${p.pay_month} ${payslipTypeOf(p.pay_type)} 명세서를 삭제할까요?${p.income_id ? '\n연결된 수입 내역은 휴지통으로 옮깁니다.' : ''}`)) return;
+        const label = `${p.pay_month} ${payslipTypeOf(p.pay_type)} 명세서`;
+        const inc = p.income_id && expenses.find(e => e.id === p.income_id);
+        let both = false;
+        if (inc) {
+          const v = await askChoice('🗑️ 명세서 삭제', `${label}를 삭제합니다 (휴지통 없음).\n이 명세서는 수입 내역 [${inc.store} · ${Number(inc.amount).toLocaleString()}원]과 연결돼 있어요.`, [
+            { value: 'both', label: '수입 내역도 함께 삭제 (휴지통으로)', tone: 'danger' },
+            { value: 'one', label: '명세서만 삭제 (수입 내역은 남김)' },
+            { value: null, label: '취소' }
+          ]);
+          if (!v) return;
+          both = v === 'both';
+        } else if (!window.confirm(`${label}를 삭제할까요? (휴지통 없음)`)) return;
         const { error } = await supabaseClient.from('payslips').delete().eq('id', p.id);
         if (error) return showToast('⚠️ 삭제 실패: ' + error.message);
-        const inc = p.income_id && expenses.find(e => e.id === p.income_id);
-        if (inc) {
-          const deleted_at = new Date().toISOString();
-          const { error: e2 } = await supabaseClient.from('expenses').update({ deleted_at, updated_by: MY_DEVICE_ID }).eq('id', inc.id).eq('family_code', familyCode);
-          if (!e2) { setExpenses(prev => prev.filter(e => e.id !== inc.id)); setTrash(prev => [{ ...inc, deleted_at }, ...prev]); notifyPartner(); }
-        }
+        if (both) await trashExpenses([inc]);
         setPsEdit(null);
-        showToast('🗑️ 명세서를 삭제했습니다.');
+        showToast(both ? '🗑️ 명세서를 지우고 수입 내역은 휴지통으로 옮겼습니다.' : '🗑️ 명세서를 삭제했습니다.');
         loadPayslips();
       };
       const exportPayslips = () => {
@@ -2176,10 +2267,16 @@
       // 상환 기록 저장 (새로 넣기·고치기) + 상환 지출 맞추기
       const saveLoanPayments = async (loan, rows) => {
         const fresh = [];
+        const usedExp = new Set(loanPays.map(x => x.expense_id).filter(Boolean));
         const out = rows.map(r => {
           const p = { ...r, family_code: familyCode, loan_id: loan.id, updated_by: MY_DEVICE_ID };
           const want = loanWantsExpense(loan, p);
-          if (want && !p.expense_id) { p.expense_id = 'loanint-' + p.id; fresh.push(p); }
+          if (want && !p.expense_id) {
+            // 상환 기록만 지웠다가 다시 넣은 경우: 남아 있는 같은 날·같은 금액의 상환 지출과 다시 연결 (두 번 생기지 않게)
+            const orphan = expenses.find(e => e.source === '대출상환' && !usedExp.has(e.id) && String(e.date).slice(0, 10) === p.pay_date && e.amount === loanCost(p));
+            if (orphan) { p.expense_id = orphan.id; usedExp.add(orphan.id); }
+            else { p.expense_id = 'loanint-' + p.id; fresh.push(p); }
+          }
           return p;
         });
         if (fresh.length && !(await insertExpenseRows(fresh.map(p => loanExpenseRow(loan, p))))) return false;
@@ -2259,19 +2356,26 @@
       };
       const deleteLoan = async (loan) => {
         const pays = loanPays.filter(p => p.loan_id === loan.id);
-        if (!window.confirm(`${loan.name} 대출을 삭제할까요?\n상환 기록 ${pays.length}건과 자동으로 넣은 상환 지출도 함께 지웁니다.`)) return;
+        const exps = pays.map(p => p.expense_id && expenses.find(e => e.id === p.expense_id)).filter(Boolean);
+        let both = false;
+        if (exps.length) {
+          const v = await askChoice('🗑️ 대출 삭제', `${loan.name} 대출과 상환 기록 ${pays.length}건을 삭제합니다 (휴지통 없음).\n가계부 내역에 이 대출의 상환 지출 ${exps.length}건(${exps.reduce((t, e) => t + e.amount, 0).toLocaleString()}원)이 있어요.`, [
+            { value: 'both', label: `상환 지출 ${exps.length}건도 함께 삭제 (휴지통으로)`, tone: 'danger' },
+            { value: 'one', label: '대출만 삭제 (지출 내역은 남김)' },
+            { value: null, label: '취소' }
+          ]);
+          if (!v) return;
+          both = v === 'both';
+        } else if (!window.confirm(`${loan.name} 대출과 상환 기록 ${pays.length}건을 삭제할까요? (휴지통 없음)`)) return;
         if (!ensureConnected()) return;
-        const ids = pays.map(p => p.expense_id).filter(Boolean);
-        if (ids.length) await supabaseClient.from('expenses').delete().in('id', ids).eq('family_code', familyCode);
         const { error } = await supabaseClient.from('loans').delete().eq('id', loan.id);
         if (error) return showToast('⚠️ 삭제 실패: ' + error.message);
-        setExpenses(prev => prev.filter(e => !ids.includes(e.id)));
-        setTrash(prev => prev.filter(e => !ids.includes(e.id)));
+        if (both) await trashExpenses(exps);
         setLoans(prev => prev.filter(l => l.id !== loan.id));
         setLoanPays(prev => prev.filter(p => p.loan_id !== loan.id));
         notifyPartner();
         setLoanEdit(null); setLoanOpenId(null);
-        showToast('🗑️ 대출을 삭제했습니다.');
+        showToast(both ? `🗑️ 대출을 지우고 상환 지출 ${exps.length}건은 휴지통으로 옮겼습니다.` : '🗑️ 대출을 삭제했습니다.');
       };
       // 상환 1건 직접 입력·고치기
       const newPayDraft = (loan) => {
@@ -2299,13 +2403,21 @@
         if (ok) { setPayEdit(null); showToast(`🏠 ${row.pay_date} 상환 ${total.toLocaleString()}원 저장`); }
       };
       const deletePay = async (p) => {
-        if (!window.confirm(`${p.pay_date} 상환 기록(${Number(p.total).toLocaleString()}원)을 지울까요?${p.expense_id ? '\n자동으로 넣은 상환 지출도 함께 지웁니다.' : ''}`)) return;
+        const ex = p.expense_id && expenses.find(e => e.id === p.expense_id);
+        let both = false;
+        if (ex) {
+          const v = await askChoice('🗑️ 상환 기록 삭제', `${p.pay_date} 상환 기록(${Number(p.total).toLocaleString()}원)을 삭제합니다 (휴지통 없음).\n가계부 내역 [${ex.store} · ${Number(ex.amount).toLocaleString()}원]과 연결돼 있어요.`, [
+            { value: 'both', label: '지출 내역도 함께 삭제 (휴지통으로)', tone: 'danger' },
+            { value: 'one', label: '상환 기록만 삭제 (지출 내역은 남김)' },
+            { value: null, label: '취소' }
+          ]);
+          if (!v) return;
+          both = v === 'both';
+        } else if (!window.confirm(`${p.pay_date} 상환 기록(${Number(p.total).toLocaleString()}원)을 지울까요? (휴지통 없음)`)) return;
         if (!ensureConnected()) return;
-        if (p.expense_id) await supabaseClient.from('expenses').delete().eq('id', p.expense_id).eq('family_code', familyCode);
         const { error } = await supabaseClient.from('loan_payments').delete().eq('id', p.id);
         if (error) return showToast('⚠️ 삭제 실패: ' + error.message);
-        setExpenses(prev => prev.filter(e => e.id !== p.expense_id));
-        setTrash(prev => prev.filter(e => e.id !== p.expense_id));
+        if (both) await trashExpenses([ex]);
         setLoanPays(prev => prev.filter(x => x.id !== p.id));
         notifyPartner();
         setPayEdit(null);
@@ -3577,6 +3689,15 @@
 
       return (
         <div className="min-h-screen pb-24 safe-page max-w-xl mx-auto bg-slate-950">
+          {newVersion && (
+            <div className="sticky top-0 z-40 bg-emerald-700 text-white text-xs font-bold px-3 py-2 flex justify-between items-center gap-2">
+              <span>🔄 새 버전이 나왔어요: {newVersion} (지금 {APP_VERSION})</span>
+              <span className="flex gap-1.5 shrink-0">
+                <button onClick={reloadToNewVersion} className="bg-white text-emerald-800 px-2.5 py-1 rounded-lg">새로고침</button>
+                <button onClick={() => setNewVersion('')} className="px-1.5 text-emerald-100">✕</button>
+              </span>
+            </div>
+          )}
           {toastMsg && (
             <div style={{ marginBottom: 'env(safe-area-inset-bottom)' }} className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-xl whitespace-nowrap">
               {toastMsg}
@@ -5457,7 +5578,7 @@
                           : <p className="text-amber-300">⚠️ 명세서에 찍힌 값과 다릅니다: {mism.map(([n, a, b]) => `${n} ${Number(a).toLocaleString()} ≠ 항목 합계 ${b.toLocaleString()}`).join(' · ')} — 빠지거나 잘못 읽은 항목을 확인해주세요.</p>)}
                         <label className="flex items-start gap-2 text-slate-300">
                           <input type="checkbox" checked={!!d.linkIncome} onChange={e => set({ linkIncome: e.target.checked })} className="mt-0.5" />
-                          <span>실지급액을 수입(급여 › {isBonusType(d.pay_type) ? '상여/성과급' : '월급'})으로 등록 · 같은 금액의 입금 내역이 있으면 그것과 연결{d.income_id ? ' (연결됨)' : ''}
+                          <span>실지급액을 수입(급여 › {isBonusType(d.pay_type) ? '상여/성과급' : '월급'})으로 등록 · 같은 금액의 입금 내역이 있으면 그것과 연결{d.income_id && expenses.some(e => e.id === d.income_id) ? ' (연결됨)' : ''}
                             {d.income_id && !d.linkIncome && <span className="block text-amber-300 text-[11px]">끄고 저장하면 명세서가 만든 수입은 휴지통으로, 직접 넣은 입금 내역은 연결만 끊깁니다.</span>}</span>
                         </label>
                         <input value={d.memo || ''} onChange={e => set({ memo: e.target.value.slice(0, 200) })} placeholder="📝 메모 (선택)" className={inp} />
@@ -5544,7 +5665,8 @@
                                     총지급 {p.gross.toLocaleString()} · 공제 {p.deduction_total.toLocaleString()}
                                     {t.yearEnd !== 0 && ` · 연말정산 ${t.yearEnd < 0 ? '환급 ' + (-t.yearEnd).toLocaleString() : t.yearEnd.toLocaleString()}`}
                                     {diff !== null && diff !== 0 && <span className={diff > 0 ? 'text-sky-400' : 'text-rose-400'}> · 전달보다 {diff > 0 ? '+' : ''}{diff.toLocaleString()}</span>}
-                                    {p.income_id ? ' · 🔗수입' : ''}
+                                    {p.income_id && expenses.some(e => e.id === p.income_id) ? ' · 🔗수입'
+                                      : p.income_id && trash.some(e => e.id === p.income_id) ? ' · 🗑️수입 휴지통' : ' · 수입 미등록'}
                                   </p>
                                 </button>
                               );
@@ -5557,6 +5679,23 @@
                   </div>
                 );
               })()}
+
+              {choiceDlg && (
+                <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+                  <div className="bg-slate-900 border border-rose-700/60 rounded-2xl max-w-sm w-full p-4 space-y-3 text-xs">
+                    <h3 className="font-bold text-white text-sm">{choiceDlg.title}</h3>
+                    <p className="text-slate-300 whitespace-pre-line leading-relaxed">{choiceDlg.message}</p>
+                    <div className="space-y-1.5">
+                      {choiceDlg.choices.map((c, i) => (
+                        <button key={i} onClick={() => answerChoice(c.value)}
+                          className={`w-full py-2.5 rounded-lg font-bold ${c.tone === 'danger' ? 'bg-rose-600 text-white' : c.value ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-slate-400'}`}>
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {budgetEdit && (() => {
                 const d = budgetEdit;
@@ -5920,7 +6059,7 @@
                               <b className="text-slate-100">{p.pay_date}{p.seq ? ` · ${p.seq}회` : ''}{kindTag(p.kind)}</b>
                               <b className="text-slate-100">{won(p.total)}</b>
                             </div>
-                            <p>{payLine(p)}{p.expense_id ? <span className="text-[10px] text-slate-500"> · 🔗지출</span> : ''}{p.memo ? <span className="text-[10px] text-slate-400"> · 📝 {p.memo}</span> : ''}</p>
+                            <p>{payLine(p)}{p.expense_id && expenses.some(e => e.id === p.expense_id) ? <span className="text-[10px] text-slate-500"> · 🔗지출</span> : p.expense_id && trash.some(e => e.id === p.expense_id) ? <span className="text-[10px] text-slate-500"> · 🗑️지출 휴지통</span> : ''}{p.memo ? <span className="text-[10px] text-slate-400"> · 📝 {p.memo}</span> : ''}</p>
                           </button>
                         ))}
                       </div>
