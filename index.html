@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.41</title>
+  <title>부부 AI 가계부 v1.42</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.41';
+    const APP_VERSION = 'v1.42';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 9;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -739,6 +739,18 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.42',
+        date: '2026-11-06',
+        title: '품목 고치기 보강 · 예산·검색 다듬기',
+        changes: [
+          '[영수증] 품목이 0개여도(카드 전표, 다 지운 경우) [＋ 품목 추가]가 보임',
+          '[내역] ✏️ 수정에서도 품목 이름·금액 고치기·지우기·추가 (품목 합계와 금액 대조 표시)',
+          '[예산] 부부 합산 예산을 비우고 각자 예산만 넣으면 [전체]는 남편+아내 예산 합으로 보여줌',
+          '[검색] 검색 중에 이전달·다음달·전체기간을 누르면 검색어를 지우고 그 달 목록으로',
+          '[뒤로가기] 수정·메모 입력을 열어 둔 채 큰 창을 열 때 방문 기록을 쌓았다 바로 지우던 왕복을 없앰'
+        ]
+      },
+      {
         version: 'v1.41',
         date: '2026-11-06',
         title: '급여명세서 여러 장 = 여러 명세서',
@@ -1359,9 +1371,13 @@
       const closeTopOverlayRef = useRef(() => true);
       // 겹쳐 열린 창 수 (예: 급여명세서 목록 위에 편집 화면) → 위 창만 닫으면 방문 기록 칸을 다시 쌓음
       const overlayLayersRef = useRef(0);
+      const fullModalOpen = showVersionModal || showWebhookModal || showInbox || showTrash || manual !== null || showPayslips || showLoans || statDrill !== null || budgetEdit !== null || showCodeMigrateModal;
+      // 내역 카드 안의 수정·메모·새 분류 입력은 큰 창이 열리면 곧 닫히므로 그때는 세지 않음
+      //   (세면 방문 기록을 한 칸 쌓았다가 바로 지우는 왕복이 생김)
+      const inlineLayer = (open) => open && !fullModalOpen;
       overlayLayersRef.current = [showVersionModal, showWebhookModal, showInbox, showTrash, manual !== null, showPayslips, psEdit !== null,
         showLoans, loanOpenId !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null,
-        showCodeMigrateModal, editingId !== null, catAdder !== null, memoEdit !== null].filter(Boolean).length;
+        showCodeMigrateModal, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null)].filter(Boolean).length;
       closeTopOverlayRef.current = () => {
         if (catAdder) { setCatAdder(null); return true; }   // 열려 있으면 늘 맨 위 (직접 입력 창 안이거나, 다른 창이 없을 때만 남음)
         if (manual) { setManual(null); return true; }
@@ -1386,7 +1402,6 @@
       };
       // 탭을 바꾸거나 전체 화면 창(대출·급여·직접 입력·설정 등)을 열면, 내역 카드 안에 열어 둔 수정·메모·새 분류 입력을 닫음.
       //   (가려진 입력창이 남아 있으면 뒤로가기가 보이는 창 대신 그 입력창을 먼저 닫음)
-      const fullModalOpen = showVersionModal || showWebhookModal || showInbox || showTrash || manual !== null || showPayslips || showLoans || statDrill !== null || budgetEdit !== null || showCodeMigrateModal;
       useEffect(() => {
         setMemoEdit(null);
         setEditingId(null);
@@ -1490,6 +1505,7 @@
       };
 
       const moveMonth = (delta) => {
+        setListQuery('');   // 검색 중이면 검색을 끝내고 그 달 목록으로
         if (selectedMonth === 'ALL') {
           setSelectedMonth(getKSTDateTimeString().slice(0, 7));
           return;
@@ -2440,6 +2456,12 @@
 
       const saveEditForm = async (id) => {
         const amt = Number(editForm.amount) || 0;
+        // 품목을 고쳤으면 같이 저장 (금액은 숫자로, 이름·금액이 빈 줄은 뺌)
+        const before = expenses.find(e => e.id === id);
+        const newItems = (editForm.items || []).map(it => ({ ...it, name: String(it.name || '').trim(), price: Math.round(Number(String(it.price ?? '').replace(/[^0-9-]/g, '')) || 0) }))
+          .filter(it => it.name || it.price);
+        const itemsChanged = before && JSON.stringify(newItems.map(x => [x.name, x.price])) !== JSON.stringify((before.items || []).map(x => [x.name, Number(x.price) || 0]));
+        const itemsPatch = itemsChanged ? { items: newItems, verified: newItems.length === 0 || newItems.reduce((t, x) => t + x.price, 0) === amt } : {};
         // 부가세: 금액을 안 바꿨으면 그대로 (영수증에서 읽은 실제 부가세 유지),
         //         바꿨으면 원래 비율대로 (면세 품목이 섞인 영수증도 비율 유지, 취소로 바꾸면 음수)
         const orig = expenses.find(e => e.id === id);
@@ -2454,7 +2476,8 @@
           date: normalizeDateString(editForm.date),
           memo: editForm.memo.trim(),
           payer: editForm.payer,
-          ...payFieldsOf(editForm.pay)
+          ...payFieldsOf(editForm.pay),
+          ...itemsPatch
         });
         if (ok) {
           setEditingId(null);
@@ -3524,7 +3547,9 @@
       // 🎯 월 예산: 지출 전체(고정비 포함) 기준. 전체 = 부부 합산 예산, 남편·아내 = 각자 예산 (없으면 합산 예산 중 비율)
       const budgetView = (() => {
         if (selectedMonth === 'ALL' || filterUser === '업무용') return null;
-        const total = Number(budget.total) || 0;
+        // 합산 예산을 비워 두고 각자 예산만 넣었으면 합산 = 남편 + 아내
+        const eachSum = (Number(budget['남편']) || 0) + (Number(budget['아내']) || 0);
+        const total = Number(budget.total) || eachSum;
         const mine = filterUser === '전체' ? total : (Number(budget[filterUser]) || 0);
         if (!total && !mine) return { none: true };
         const today = getKSTDateTimeString().slice(0, 10);
@@ -3537,7 +3562,7 @@
         const pct = Math.round(totalAmount / mine * 100);
         const remain = mine - totalAmount;
         const daysLeft = selectedMonth === cur ? days - dayNow + 1 : 0;
-        return { budget: mine, pct, remain, pace, daysLeft, perDay: daysLeft > 0 && remain > 0 ? Math.floor(remain / daysLeft) : 0, current: selectedMonth === cur, past: selectedMonth < cur };
+        return { derived: filterUser === '전체' && !Number(budget.total), budget: mine, pct, remain, pace, daysLeft, perDay: daysLeft > 0 && remain > 0 ? Math.floor(remain / daysLeft) : 0, current: selectedMonth === cur, past: selectedMonth < cur };
       })();
       const goToExpense = (id) => {
         setStatDrill(null);
@@ -3731,7 +3756,7 @@
                         {selectedMonth === 'ALL' ? '📅 전체 기간' : `📅 ${selectedMonth.split('-')[0]}년 ${selectedMonth.split('-')[1]}월`}
                       </span>
                       <button
-                        onClick={() => setSelectedMonth(selectedMonth === 'ALL' ? getKSTDateTimeString().slice(0, 7) : 'ALL')}
+                        onClick={() => { setListQuery(''); setSelectedMonth(selectedMonth === 'ALL' ? getKSTDateTimeString().slice(0, 7) : 'ALL'); }}
                         className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700"
                       >
                         {selectedMonth === 'ALL' ? '월별보기' : '전체기간'}
@@ -3773,7 +3798,7 @@
                     return (
                       <button onClick={() => setBudgetEdit({ total: budget.total || '', 남편: budget['남편'] || '', 아내: budget['아내'] || '' })} className="w-full text-left space-y-1">
                         <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-300">🎯 {filterUser === '전체' ? '부부 합산' : filterUser} 예산 {b.budget.toLocaleString()}원 중 <b className={over ? 'text-rose-300' : fast ? 'text-amber-300' : 'text-emerald-300'}>{b.pct}%</b></span>
+                          <span className="text-slate-300">🎯 {filterUser === '전체' ? (b.derived ? '남편+아내' : '부부 합산') : filterUser} 예산 {b.budget.toLocaleString()}원 중 <b className={over ? 'text-rose-300' : fast ? 'text-amber-300' : 'text-emerald-300'}>{b.pct}%</b></span>
                           <span className={b.remain >= 0 ? 'text-slate-300' : 'text-rose-300 font-bold'}>{b.remain >= 0 ? `남은 ${b.remain.toLocaleString()}원` : `${(-b.remain).toLocaleString()}원 초과`}</span>
                         </div>
                         <div className="relative w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
@@ -3926,6 +3951,30 @@
                                   {payOptions(editForm.pay).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </select>
                               </div>}
+                              {!isIncome(item) && (() => {
+                                const its = editForm.items || [];
+                                const setIts = (next) => setEditForm({ ...editForm, items: next });
+                                const sum = its.reduce((t, x) => t + (Number(x.price) || 0), 0);
+                                const amtNow = Number(editForm.amount) || 0;
+                                return (
+                                  <div className="space-y-1">
+                                    <label className="text-[11px] text-slate-400">품목 {its.length ? `(${its.length}개 · 이름·금액 고치기 · ✕ 지우기)` : '(없음)'}</label>
+                                    {its.map((it, k) => (
+                                      <div key={k} className="flex items-center gap-1">
+                                        <input value={it.name || ''} onChange={e => setIts(its.map((x, j) => j !== k ? x : { ...x, name: e.target.value.slice(0, 60) }))} placeholder="품목 이름"
+                                          className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-200" />
+                                        <input inputMode="numeric" value={it.price ?? ''} onChange={e => setIts(its.map((x, j) => j !== k ? x : { ...x, price: e.target.value.replace(/[^0-9-]/g, '') }))}
+                                          className="w-24 bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-right text-slate-200" />
+                                        <button onClick={() => setIts(its.filter((_, j) => j !== k))} className="text-rose-300 px-1 shrink-0" aria-label="품목 지우기">✕</button>
+                                      </div>
+                                    ))}
+                                    <div className="flex justify-between items-center">
+                                      <button onClick={() => setIts([...its, { name: '', price: '', category: '', sub_category: '' }])} className="text-[11px] text-sky-300">＋ 품목 추가</button>
+                                      {its.length > 0 && <span className={`text-[10px] ${sum === amtNow ? 'text-emerald-400' : 'text-amber-300'}`}>{sum === amtNow ? `✓ 품목 합계 = 금액` : `품목 합계 ${sum.toLocaleString()}원 ≠ 금액 ${amtNow.toLocaleString()}원`}</span>}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                               <div className="flex gap-2 pt-1">
                                 <button onClick={() => saveEditForm(item.id)} className="flex-1 py-1.5 bg-indigo-600 text-white font-bold rounded-lg">
                                   💾 수정 저장
@@ -4102,7 +4151,8 @@
                                     date: item.date,
                                     memo: userMemo(item.memo),
                                     payer: item.payer,
-                                    pay: payValueOf(item)
+                                    pay: payValueOf(item),
+                                    items: (item.items || []).map(x => ({ ...x, price: String(x.price ?? '') }))
                                   });
                                 }}
                                 className="text-indigo-400 hover:text-indigo-300 font-bold px-1.5 py-1 whitespace-nowrap"
@@ -4539,10 +4589,10 @@
                             </div>
                           </div>
 
-                          {scanResult.items.length > 0 && (
+                          {!scanInc && (
                             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5 max-h-72 overflow-y-auto">
                               <div className="flex justify-between items-center gap-2">
-                                <p className="text-[10px] text-slate-500">품목 (이름·금액 고치기 · ✕ 지우기 · 분류는 아래 칸)</p>
+                                <p className="text-[10px] text-slate-500">{scanResult.items.length ? '품목 (이름·금액 고치기 · ✕ 지우기 · 분류는 아래 칸)' : '품목 없음 · 필요하면 직접 추가'}</p>
                                 {hasItemCategories(scanResult.items) && (
                                   <button
                                     onClick={() => setScanResult({ ...scanResult, items: clearItemCategories(scanResult.items) })}
