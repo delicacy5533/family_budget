@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.46</title>
+  <title>부부 AI 가계부 v1.47</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -751,7 +751,10 @@
           '[입력] 대출 상환 직접 입력에서 대출이 여러 개면 고르기, 대출이 없으면 대출부터 등록',
           '[입력] 카드사 엑셀·CSV 파일 올리기는 ➕ 입력 탭 아래 작은 줄로',
           '[통계] 위쪽에 [💼 급여명세서 ›] [🏠 대출 ›] 바로가기 (목록 보기는 여기서)',
-          '[급여] 명세서 입력 창에서 항목 이름 칸이 좁아지던 문제 고침'
+          '[급여] 명세서 입력 창에서 항목 이름 칸이 좁아지던 문제 고침',
+          '[스캔] 확인 화면에서 금액을 고치면 부가세도 고친 금액으로 (영수증에 찍힌 세액은 금액에 맞을 때만 그대로, 면세 0원도 그대로)',
+          '[뒤로가기] 입력 탭에서 연 급여·대출 입력 창은 방문 기록을 한 칸만 씀 (닫을 때 뒤로 두 번 가지 않게)',
+          '[스캔] 사진이 적을 때 서버가 명세서·대출을 다시 읽는 시간을 앱이 기다리는 시간 안으로'
         ]
       },
       {
@@ -1465,8 +1468,9 @@
       // 내역 카드 안의 수정·메모·새 분류 입력은 큰 창이 열리면 곧 닫히므로 그때는 세지 않음
       //   (세면 방문 기록을 한 칸 쌓았다가 바로 지우는 왕복이 생김)
       const inlineLayer = (open) => open && !fullModalOpen;
-      overlayLayersRef.current = [showVersionModal, showWebhookModal, showInbox, showTrash, manual !== null, showPayslips, psEdit !== null,
-        showLoans, loanOpenId !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null,
+      // ➕ 입력 탭에서 연 급여·대출 입력 창은 뒤에 깔린 목록 창을 세지 않음 (입력 창을 닫으면 목록도 함께 닫히므로 한 칸만)
+      overlayLayersRef.current = [showVersionModal, showWebhookModal, showInbox, showTrash, manual !== null, showPayslips && inputReturn !== 'payslip', psEdit !== null,
+        showLoans && inputReturn !== 'loan', loanOpenId !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null,
         showCodeMigrateModal, choiceDlg !== null, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null)].filter(Boolean).length;
       closeTopOverlayRef.current = () => {
         if (choiceDlg) { answerChoice(null); return true; }   // 고르기 팝업은 늘 맨 위 → 뒤로가기 = 취소
@@ -2062,7 +2066,7 @@
           const bin = trash.find(t => isDuplicateExpense(x, [t]));
           if (bin) {
             const tr = await askRestoreFromTrash([bin]);
-            if (tr.restored) { showToast(`↩️ 휴지통에서 다시 등록했습니다: ${bin.store}`); setManual(null); }
+            if (tr.restored) { showToast(`↩️ 휴지통에서 다시 등록했습니다: ${bin.store}`); setManual(null); setActiveTab('list'); }
             else showToast('ℹ️ 휴지통에 있는 결제라 등록하지 않았습니다.');
             return;
           }
@@ -3322,6 +3326,16 @@
         }) || null;
       };
 
+      // 저장할 부가세: 영수증에 찍힌 세액은 지금 금액에 맞을 때만(0 ~ 금액÷11, 면세 0 포함) 그대로,
+      //   찍힌 세액이 없거나(금액÷11로 추정해 둔 값) 문자 캡처면 확인 화면에서 고친 금액으로 다시 계산
+      const scanTaxFor = (sr, amount) => {
+        if (sr.store === '후불교통대금') return 0;   // 교통대금 정산은 부가세 없음
+        if (sr.taxFromReceipt && !sr.fromSms) {
+          const t = Number(sr.tax) || 0;
+          if ((t === 0 || Math.sign(t) === Math.sign(amount)) && Math.abs(t) <= Math.abs(amount) / 11 + 10) return t;
+        }
+        return Math.round(amount / 11);
+      };
       // 확인 화면에서 품목을 고치거나 지우면 품목 합계도 다시 계산
       const setScanItems = (items) => setScanResult(sr => ({ ...sr, items, itemsSum: items.reduce((t, x) => t + (Number(x.price) || 0), 0) }));
       const confirmScan = async () => {
@@ -3381,7 +3395,7 @@
             sub_category: sr.sub_category,
             items: sr.items,
             // 문자에는 부가세가 없어 금액÷11로 넣어 둔 값 → 영수증의 부가세로 바로잡음 (면세 품목이 있으면 크게 다름)
-            ...(sr.taxFromReceipt ? { tax: Number(sr.tax) || 0 } : {}),
+            ...(sr.taxFromReceipt && !sr.fromSms ? { tax: scanTaxFor(sr, amount) } : {}),
             payer: sr.payer,
             is_business: sr.is_business || !!target.is_business,
             ...(keepTargetCard || !payFields.pay_method ? {} : payFields),
@@ -3397,7 +3411,7 @@
             category: sr.category,
             sub_category: sr.sub_category,
             amount,
-            tax: sr.store === '후불교통대금' ? 0 : (Number(sr.tax) || Math.round(amount / 11)),   // 교통대금 정산은 부가세 없음
+            tax: scanTaxFor(sr, amount),
             payer: sr.payer,
             ...payFields,
             is_business: sr.is_business,
