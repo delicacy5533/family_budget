@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.37</title>
+  <title>부부 AI 가계부 v1.38</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.37';
+    const APP_VERSION = 'v1.38';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 8;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -739,6 +739,16 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.38',
+        date: '2026-11-06',
+        title: '뒤로가기 정리 · 통계에서 해당 내역 보기',
+        changes: [
+          '[뒤로가기] 창이 겹쳐 열려 있을 때(대출 목록 위 상세, 급여명세서 목록 위 편집 등) 뒤로가기를 누르면 앱이 꺼지던 문제: 창을 열 때 창 수만큼 방문 기록을 쌓고, 뒤로가기 때는 다시 쌓지 않게 바꿈 (안드로이드 크롬은 터치 없이 쌓인 기록을 건너뜀)',
+          '[통계] 카테고리·결제 수단·수입 분류 줄을 누르면 해당 지출·수입 목록을 보여줌 (합계·건수, 카테고리는 세부 분류별로 나눠 보기)',
+          '[통계] 목록에서 내역을 누르면 내역 탭의 그 내역으로 이동'
+        ]
+      },
+      {
         version: 'v1.37',
         date: '2026-11-06',
         title: '휴지통 결제 다시 등록 확인 · 대출 예외 상황 정리',
@@ -1222,6 +1232,9 @@
       const [psYear, setPsYear] = useState(String(new Date().getFullYear()));
       const [psEdit, setPsEdit] = useState(null);            // 편집 중인 명세서 (새로 읽은 것 포함)
       const [psBusy, setPsBusy] = useState('');
+      // 📊 통계에서 항목을 눌러 해당 내역 보기: { kind: 'cat'|'pay'|'income'|'uncat', key, title, sub }
+      const [statDrill, setStatDrill] = useState(null);
+      const [flashId, setFlashId] = useState(null);          // 통계 목록에서 눌러 내역 탭으로 왔을 때 잠깐 표시
       // 🏠 대출
       const [showLoans, setShowLoans] = useState(false);
       const [loans, setLoans] = useState([]);
@@ -1302,12 +1315,12 @@
 
       // 안드로이드 뒤로가기: 팝업·수정창이 열려 있으면 앱을 닫지 않고 그 창만 닫음
       // (창이 열릴 때 방문 기록을 한 칸 쌓아 두고, 뒤로가기가 그 칸을 지우면 창을 닫음)
-      const overlayOpen = showVersionModal || showWebhookModal || showInbox || showTrash || manual !== null || showPayslips || showLoans || showCodeMigrateModal || editingId !== null || catAdder !== null || memoEdit !== null;
+      const overlayOpen = showVersionModal || showWebhookModal || showInbox || showTrash || manual !== null || showPayslips || showLoans || statDrill !== null || showCodeMigrateModal || editingId !== null || catAdder !== null || memoEdit !== null;
       const closeTopOverlayRef = useRef(() => true);
       // 겹쳐 열린 창 수 (예: 급여명세서 목록 위에 편집 화면) → 위 창만 닫으면 방문 기록 칸을 다시 쌓음
       const overlayLayersRef = useRef(0);
       overlayLayersRef.current = [showVersionModal, showWebhookModal, showInbox, showTrash, manual !== null, showPayslips, psEdit !== null,
-        showLoans, loanOpenId !== null, loanEdit !== null, loanRead !== null, payEdit !== null,
+        showLoans, loanOpenId !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null,
         showCodeMigrateModal, editingId !== null, catAdder !== null, memoEdit !== null].filter(Boolean).length;
       closeTopOverlayRef.current = () => {
         if (catAdder) { setCatAdder(null); return true; }
@@ -1320,6 +1333,7 @@
         if (loanRead) { setLoanRead(null); return true; }
         if (loanOpenId) { setLoanOpenId(null); return true; }
         if (showLoans) { setShowLoans(false); return true; }
+        if (statDrill) { setStatDrill(null); return true; }
         if (showInbox) { setShowInbox(false); return true; }
         if (showTrash) { setShowTrash(false); return true; }
         if (showVersionModal) { setShowVersionModal(false); return true; }
@@ -1333,27 +1347,24 @@
       const skipPopRef = useRef(0);          // 앱이 스스로 부른 history.back()은 '종료 안내'로 치지 않음
       const guardPendingRef = useRef(false); // 창이 열려 있어 종료 안내 칸을 다시 못 쌓은 상태
       const pushExitGuard = () => window.history.pushState({ exitGuard: true }, '');
+      // 창이 열릴 때(= 사용자가 누를 때) 겹친 창 수만큼 방문 기록 칸을 쌓고, 뒤로가기 때는 다시 쌓지 않음.
+      //   안드로이드 크롬은 터치 없이 쌓은 칸을 뒤로가기에서 건너뛰므로, 뒤로가기 처리 중에 칸을 다시 쌓으면
+      //   다음 뒤로가기가 그 칸을 건너뛰어 앱이 꺼질 수 있음 (v1.37까지의 문제)
+      const overlayDepthRef = useRef(0);     // 창 때문에 쌓아 둔 칸 수
+      const overlayLayerCount = overlayLayersRef.current;
       useEffect(() => {
-        if (!overlayOpen) return;
-        window.history.pushState({ overlay: true }, '');
-        let consumed = false;
-        const onPop = () => {
-          const layers = overlayLayersRef.current;
-          if (!closeTopOverlayRef.current()) window.history.pushState({ overlay: true }, '');   // 옮기는 중엔 닫지 않음
-          else if (layers > 1) window.history.pushState({ overlay: true }, '');                 // 아래 창이 남아 있음
-          else consumed = true;
-        };
-        window.addEventListener('popstate', onPop);
-        return () => {
-          window.removeEventListener('popstate', onPop);
-          // ✕·취소 버튼으로 닫았으면 쌓아 둔 칸을 지워서, 다음 뒤로가기가 두 번 눌러야 되는 일이 없게
-          if (!consumed && window.history.state && window.history.state.overlay) {
-            skipPopRef.current++;
-            window.history.back();
-          }
-        };
-      }, [overlayOpen]);
-      // 창이 닫힌 뒤, 못 쌓았던 종료 안내 칸을 다시 쌓음
+        const want = overlayLayerCount, have = overlayDepthRef.current;
+        if (want > have) {
+          for (let i = have; i < want; i++) window.history.pushState({ overlay: true, depth: i + 1 }, '');
+          overlayDepthRef.current = want;
+        } else if (want < have) {
+          // ✕·취소·저장 버튼으로 닫음 → 쌓아 둔 칸을 그만큼 지움 (이때 생기는 뒤로가기 이벤트 1번은 무시)
+          overlayDepthRef.current = want;
+          skipPopRef.current++;
+          window.history.go(want - have);
+        }
+      }, [overlayLayerCount]);
+      // 창이 다 닫힌 뒤, 못 쌓았던 종료 안내 칸을 다시 쌓음
       useEffect(() => {
         if (overlayOpen || !guardPendingRef.current) return;
         const t = setTimeout(() => {
@@ -1378,7 +1389,13 @@
         let timer = null;
         const onPop = () => {
           if (skipPopRef.current > 0) { skipPopRef.current--; return; }
-          if (overlayOpenRef.current) return;   // 창 닫기는 창 쪽에서 처리
+          if (overlayDepthRef.current > 0) {
+            // 창 칸 하나가 빠짐 → 맨 위 창 하나를 닫음 (닫을 수 없는 상태면 칸을 다시 채움)
+            overlayDepthRef.current--;
+            if (!closeTopOverlayRef.current()) { window.history.pushState({ overlay: true }, ''); overlayDepthRef.current++; }
+            return;
+          }
+          if (overlayOpenRef.current) return;
           showToast('↩️ 뒤로가기를 한 번 더 누르면 종료됩니다', EXIT_WINDOW_MS);
           clearTimeout(timer);
           timer = setTimeout(() => {
@@ -3395,6 +3412,28 @@
       const knownCatNames = categories.map(c => c.name);
       // 통계는 품목 분류대로 나눠서 합산 (영수증 한 건에 식비·생필품이 섞여 있으면 각각에)
       const categoryParts = monthSpend.flatMap(splitExpenseByCategory);
+      // 결제 수단 묶음 키: 카드(같은 카드로 합친 묶음) / 현금 / 계좌이체 / 모름
+      const payGroupKey = (e) => {
+        const rootId = expenseRootMap.get(e.id);
+        return e.pay_method === '현금' ? 'cash' : e.pay_method === '계좌이체' ? 'transfer' : rootId || ((e.card_issuer || e.card_num) ? `raw:${e.card_issuer}|${e.card_num}` : 'none');
+      };
+      // 📊 통계 항목을 눌렀을 때 보여줄 내역 (카테고리는 품목 분류대로 나눈 금액)
+      const NO_SUB = '(세부 없음)';
+      const drillRows = !statDrill ? [] : statDrill.kind === 'pay'
+        ? monthSpend.filter(e => payGroupKey(e) === statDrill.key).map(e => ({ e, amt: e.amount, parts: null }))
+        : statDrill.kind === 'income'
+          ? monthIncome.filter(e => statDrill.key === '__other' ? !incomeCategories.some(c => c.name === e.category) : e.category === statDrill.key).map(e => ({ e, amt: e.amount, parts: null }))
+          : monthSpend.map(e => {
+              const parts = splitExpenseByCategory(e).filter(x => statDrill.kind === 'uncat' ? !knownCatNames.includes(x.category) : x.category === statDrill.key);
+              return parts.length ? { e, amt: parts.reduce((t, x) => t + x.amount, 0), parts } : null;
+            }).filter(Boolean);
+      const goToExpense = (id) => {
+        setStatDrill(null);
+        setActiveTab('list');
+        setFlashId(id);
+        setTimeout(() => { const el = document.getElementById('exp-' + id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 400);
+        setTimeout(() => setFlashId(cur => (cur === id ? null : cur)), 3000);
+      };
       const uncategorizedSum = categoryParts.filter(x => !knownCatNames.includes(x.category)).reduce((s, x) => s + x.amount, 0);
 
       return (
@@ -3655,7 +3694,7 @@
                       const isEditing = editingId === item.id;
 
                       return (
-                        <div key={item.id} className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+                        <div key={item.id} id={'exp-' + item.id} className={`bg-slate-900 p-3.5 rounded-xl border space-y-2.5 transition-colors ${flashId === item.id ? 'border-amber-400 ring-2 ring-amber-400/60' : 'border-slate-800'}`}>
                           {isEditing ? (
                             <div className="bg-slate-950 p-3 rounded-xl border border-indigo-500/60 space-y-2.5 text-xs">
                               <div className="flex justify-between items-center">
@@ -4544,11 +4583,11 @@
                       const other = monthIncome.filter(e => !incomeCategories.some(c => c.name === e.category)).reduce((t, e) => t + e.amount, 0);
                       if (rows.length === 0 && !other) return <p className="text-xs text-slate-500">이 기간에는 수입이 없습니다.</p>;
                       return [...rows.map(({ c, sum }) => (
-                        <div key={c.id} className="text-xs space-y-1">
-                          <div className="flex justify-between"><span>{c.name}</span><span className="font-bold text-emerald-300">+{sum.toLocaleString()}원 ({incomeTotal ? Math.round(sum / incomeTotal * 100) : 0}%)</span></div>
+                        <button key={c.id} onClick={() => setStatDrill({ kind: 'income', key: c.name, title: `💰 ${c.name}`, sub: null })} className="w-full text-left text-xs space-y-1 active:opacity-70">
+                          <div className="flex justify-between"><span>{c.name} <span className="text-slate-500">›</span></span><span className="font-bold text-emerald-300">+{sum.toLocaleString()}원 ({incomeTotal ? Math.round(sum / incomeTotal * 100) : 0}%)</span></div>
                           <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${incomeTotal ? Math.min(100, Math.round(sum / incomeTotal * 100)) : 0}%` }} /></div>
-                        </div>
-                      )), other ? <p key="other" className="text-[11px] text-slate-400">기타 분류 +{other.toLocaleString()}원</p> : null];
+                        </button>
+                      )), other ? <button key="other" onClick={() => setStatDrill({ kind: 'income', key: '__other', title: '💰 기타 분류 수입', sub: null })} className="text-[11px] text-slate-400">기타 분류 +{other.toLocaleString()}원 ›</button> : null];
                     })()}
                   </div>
                 )}
@@ -4572,21 +4611,21 @@
                       const pctBase = categories.reduce((t, cc) => t + Math.max(0, categoryParts.filter(x => x.category === cc.name).reduce((s2, x) => s2 + x.amount, 0)), 0);
                       const pct = pctBase > 0 ? Math.max(0, Math.round((sum / pctBase) * 100)) : 0;
                       return (
-                        <div key={c.id} className="text-xs space-y-1">
+                        <button key={c.id} onClick={() => setStatDrill({ kind: 'cat', key: c.name, title: c.name, sub: null })} className="w-full text-left text-xs space-y-1 active:opacity-70">
                           <div className="flex justify-between">
-                            <span>{c.name}</span>
+                            <span>{c.name} <span className="text-slate-500">›</span></span>
                             <span className="font-bold">{sum.toLocaleString()}원 ({pct}%)</span>
                           </div>
                           <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                             <div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, pct)}%` }} />
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                     {uncategorizedSum !== 0 && (
-                      <div className="text-xs space-y-1 pt-1 border-t border-slate-800">
+                      <div onClick={() => setStatDrill({ kind: 'uncat', key: '', title: '삭제된 구 카테고리 내역', sub: null })} className="text-xs space-y-1 pt-1 border-t border-slate-800 cursor-pointer">
                         <div className="flex justify-between text-amber-300">
-                          <span>삭제된 구 카테고리 내역</span>
+                          <span>삭제된 구 카테고리 내역 ›</span>
                           <span className="font-bold">{uncategorizedSum.toLocaleString()}원</span>
                         </div>
                       </div>
@@ -4596,7 +4635,7 @@
                       const groups = new Map();
                       for (const e of monthSpend) {
                         const rootId = expenseRootMap.get(e.id);
-                        const key = e.pay_method === '현금' ? 'cash' : e.pay_method === '계좌이체' ? 'transfer' : rootId || ((e.card_issuer || e.card_num) ? `raw:${e.card_issuer}|${e.card_num}` : 'none');
+                        const key = payGroupKey(e);
                         const g = groups.get(key) || { key, sum: 0, count: 0, label: '' };
                         g.sum += e.amount; g.count += 1;
                         if (!g.label) {
@@ -4611,10 +4650,10 @@
                         <div className="pt-3 border-t border-slate-800 space-y-1.5">
                           <h4 className="font-bold text-white text-sm">💳 결제 수단별</h4>
                           {list.map(g => (
-                            <div key={g.key} className="flex justify-between text-xs">
-                              <span className={g.key === 'none' ? 'text-slate-500' : 'text-slate-200'}>{g.label}</span>
+                            <button key={g.key} onClick={() => setStatDrill({ kind: 'pay', key: g.key, title: g.label, sub: null })} className="w-full flex justify-between text-xs py-0.5 active:opacity-70">
+                              <span className={g.key === 'none' ? 'text-slate-500' : 'text-slate-200'}>{g.label} <span className="text-slate-500">›</span></span>
                               <span className="font-bold">{g.sum.toLocaleString()}원 <span className="text-slate-500 font-normal">({g.count}건)</span></span>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       );
@@ -5290,6 +5329,61 @@
                           {rows.length > 0 && <button onClick={exportPayslips} className="w-full py-2 bg-slate-800 text-slate-200 font-bold rounded-lg">📥 {psYear}년 {psOwner} 명세서 엑셀 저장</button>}
                         </>
                       )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {statDrill && (() => {
+                const d = statDrill;
+                let rows = drillRows;
+                let subSums = null;
+                if (d.kind === 'cat') {
+                  const m = new Map();
+                  rows.forEach(r => r.parts.forEach(x => { const k = x.sub_category || NO_SUB; m.set(k, (m.get(k) || 0) + x.amount); }));
+                  subSums = [...m.entries()].sort((a, b) => b[1] - a[1]);
+                  if (d.sub) rows = rows.map(r => { const ps = r.parts.filter(x => (x.sub_category || NO_SUB) === d.sub); return ps.length ? { ...r, parts: ps, amt: ps.reduce((t, x) => t + x.amount, 0) } : null; }).filter(Boolean);
+                }
+                rows = [...rows].sort((a, b) => String(b.e.date).localeCompare(String(a.e.date)));
+                const total = rows.reduce((t, r) => t + r.amt, 0);
+                const inc = d.kind === 'income';
+                return (
+                  <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3">
+                    <div className="bg-slate-900 border border-indigo-700/60 rounded-2xl max-w-md w-full p-4 space-y-2.5 max-h-[92vh] overflow-y-auto text-xs">
+                      <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <h3 className="font-bold text-white text-sm">📂 {d.title}</h3>
+                        <button onClick={() => setStatDrill(null)} className="text-slate-400">✕</button>
+                      </div>
+                      <div className="flex justify-between items-end">
+                        <span className="text-slate-400">{selectedMonth === 'ALL' ? '전체 기간' : selectedMonth}{filterUser !== '전체' ? ` · ${filterUser}` : ''}{d.sub ? ` · ${d.sub}` : ''} · {rows.length}건</span>
+                        <b className={`text-base ${inc ? 'text-emerald-300' : 'text-white'}`}>{inc ? '+' : ''}{total.toLocaleString()}원</b>
+                      </div>
+                      {subSums && subSums.length > 1 && (
+                        <div className="flex flex-wrap gap-1">
+                          <button onClick={() => setStatDrill({ ...d, sub: null })} className={`px-2 py-1 rounded-lg ${!d.sub ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-800 text-slate-300'}`}>전체</button>
+                          {subSums.map(([k, v]) => (
+                            <button key={k} onClick={() => setStatDrill({ ...d, sub: d.sub === k ? null : k })} className={`px-2 py-1 rounded-lg ${d.sub === k ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-800 text-slate-300'}`}>
+                              {k} <span className="opacity-70">{v.toLocaleString()}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {rows.length === 0 && <p className="text-slate-500 text-center py-4">내역이 없습니다.</p>}
+                      <div className="space-y-1.5">
+                        {rows.map(({ e, amt, parts }) => (
+                          <button key={e.id} onClick={() => goToExpense(e.id)} className="w-full text-left bg-slate-950 rounded-xl border border-slate-800 p-2.5 space-y-0.5 active:opacity-70">
+                            <div className="flex justify-between gap-2">
+                              <b className="text-slate-100 truncate">{e.store}</b>
+                              <b className={`shrink-0 ${inc ? 'text-emerald-300' : amt < 0 ? 'text-rose-300' : 'text-slate-100'}`}>{inc ? '+' : ''}{amt.toLocaleString()}원</b>
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              {normalizeDateString(e.date).slice(5, 16)} · {e.payer}{payLabel(cards, e) ? ` · ${payLabel(cards, e)}` : ''}{d.kind !== 'cat' ? ` · ${e.category}${e.sub_category ? ' › ' + e.sub_category : ''}` : (() => { const subs = [...new Set((parts || []).map(x => x.sub_category).filter(Boolean))]; return subs.length ? ` · ${subs.join(', ')}` : ''; })()}
+                              {amt !== e.amount && <span className="text-amber-300"> · 결제 {Number(e.amount).toLocaleString()}원 중 이 분류</span>}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-500 text-center">내역을 누르면 내역 탭의 그 결제로 이동합니다.</p>
                     </div>
                   </div>
                 );
