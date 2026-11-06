@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.36</title>
+  <title>부부 AI 가계부 v1.37</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.36';
+    const APP_VERSION = 'v1.37';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 8;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -738,6 +738,17 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.37',
+        date: '2026-11-06',
+        title: '휴지통 결제 다시 등록 확인 · 대출 예외 상황 정리',
+        changes: [
+          '[휴지통] 문자 붙여넣기·카드사 파일에 휴지통에 버린 결제와 같은 내역이 있으면 목록을 보여주고 다시 등록할지 물어봄 (예: 휴지통에서 꺼냄 / 취소: 그대로 둠)',
+          '[대출] 같은 날 같은 금액이라도 회차가 다르면 다른 상환으로 봄 (같은 날 두 번 조기상환)',
+          '[대출] 상환 날짜를 지출 시작 달 이전으로 고치거나 금액을 0으로 만들면 자동으로 넣은 지출도 지움',
+          '[직접 입력] 결제 수단 안내 문구를 🏦 계좌이체에 맞게 고침'
+        ]
+      },
       {
         version: 'v1.36',
         date: '2026-11-06',
@@ -2078,6 +2089,15 @@
           return p;
         });
         if (fresh.length && !(await insertExpenseRows(fresh.map(p => loanExpenseRow(loan, p))))) return false;
+        // 날짜를 지출 시작 달 이전으로 옮기거나 금액이 0이 되면 자동으로 넣은 지출은 지움
+        const dropIds = out.filter(p => p.expense_id && !loanWantsExpense(loan, p)).map(p => p.expense_id);
+        if (dropIds.length) {
+          await supabaseClient.from('expenses').delete().in('id', dropIds).eq('family_code', familyCode);
+          setExpenses(prev => prev.filter(e => !dropIds.includes(e.id)));
+          setTrash(prev => prev.filter(e => !dropIds.includes(e.id)));
+          out.forEach(p => { if (dropIds.includes(p.expense_id)) p.expense_id = null; });
+          notifyPartner();
+        }
         // 이미 있던 상환 지출은 금액·날짜를 맞춤
         for (const p of out) {
           if (fresh.includes(p) || !p.expense_id) continue;
@@ -2234,7 +2254,8 @@
           else if (info.next_pay_date && (!draft.next_due || draft.next_due.date !== info.next_pay_date)) draft.next_due = { date: info.next_pay_date };
           const existing = target ? loanPays.filter(p => p.loan_id === target.id) : [];
           const pays = (r.payments || []).map((p, i) => {
-            const dup = existing.find(x => x.pay_date === p.date && Number(x.total) === Number(p.total));
+            // 같은 날·같은 합계라도 회차가 둘 다 있고 다르면 다른 상환 (같은 날 두 번 조기상환)
+            const dup = existing.find(x => x.pay_date === p.date && Number(x.total) === Number(p.total) && (!x.seq || !p.seq || Number(x.seq) === Number(p.seq)));
             return { key: i, seq: p.seq, pay_date: p.date, total: p.total, principal: p.principal, interest: p.interest, fee: p.fee || 0, late_fee: p.late_fee || 0,
               kind: loanPayKind(p), dup: !!dup, on: !dup };
           });
@@ -2294,6 +2315,25 @@
         setExpenses(prev => [...prev, { ...item, deleted_at: null }].sort((a, b) => b.date.localeCompare(a.date)));
         notifyPartner();
         showToast(`↩️ 복원했습니다: ${item.store} ${Number(item.amount).toLocaleString()}원`);
+      };
+
+      // 문자 붙여넣기·카드사 파일에 휴지통에 버린 결제와 같은 내역이 있으면: 알려주고 다시 등록(휴지통에서 꺼내기)할지 물어봄
+      //   → { total: 휴지통과 겹친 건수, restored: 꺼낸 건수 }
+      const askRestoreFromTrash = async (hits) => {
+        const uniq = [...new Map(hits.filter(Boolean).map(e => [e.id, e])).values()];
+        if (uniq.length === 0) return { total: 0, restored: 0 };
+        const lines = uniq.slice(0, 5).map(e => `· ${normalizeDateString(e.date).slice(0, 16)} ${e.store} ${Number(e.amount).toLocaleString()}원`).join('\n');
+        const more = uniq.length > 5 ? `\n… 외 ${uniq.length - 5}건` : '';
+        if (!window.confirm(`🗑️ 휴지통에 버린 결제와 같은 내역이 ${uniq.length}건 있습니다.\n${lines}${more}\n\n휴지통에서 꺼내 다시 등록할까요?\n(취소를 누르면 등록하지 않고 휴지통에 그대로 둡니다)`)) {
+          return { total: uniq.length, restored: 0 };
+        }
+        const ids = uniq.map(e => e.id);
+        const { error } = await supabaseClient.from('expenses').update({ deleted_at: null, updated_by: MY_DEVICE_ID }).in('id', ids).eq('family_code', familyCode);
+        if (error) { showToast('⚠️ 휴지통에서 꺼내기 실패: ' + error.message); return { total: uniq.length, restored: 0 }; }
+        setTrash(prev => prev.filter(e => !ids.includes(e.id)));
+        setExpenses(prev => [...prev, ...uniq.map(e => ({ ...e, deleted_at: null }))].sort((a, b) => b.date.localeCompare(a.date)));
+        notifyPartner();
+        return { total: uniq.length, restored: uniq.length };
       };
 
       const purgeExpenseRows = async (items) => {
@@ -2945,7 +2985,7 @@
         const parsedRows = [];
         let duplicateCount = 0;
         let spamIgnoredCount = 0;
-        let trashSkipCount = 0;   // 휴지통에 버린 결제와 같은 문자 (서버 자동등록과 같은 규칙: 되살리지 않음)
+        const trashHits = [];     // 휴지통에 버린 결제와 같은 문자 → 다시 등록할지 물어봄
 
         for (const block of rawBlocks) {
           const parsed = parseSingleSmsBlock(block, categories, currentUser, cards);
@@ -2953,7 +2993,7 @@
             if (isDuplicateExpense(parsed, [...expenses, ...parsedRows])) {
               duplicateCount++;
             } else if (isDuplicateExpense(parsed, trash)) {
-              trashSkipCount++;
+              trashHits.push(trash.find(t => isDuplicateExpense(parsed, [t])));
             } else {
               parsedRows.push(parsed);
             }
@@ -2962,7 +3002,10 @@
           }
         }
 
+        const tr = await askRestoreFromTrash(trashHits);
+        const trashSkipCount = tr.total - tr.restored;
         if (parsedRows.length === 0) {
+          if (tr.restored > 0) { setSmsText(''); setActiveTab('list'); return showToast(`↩️ 휴지통에서 ${tr.restored}건을 다시 등록했습니다.${duplicateCount ? ` (중복 ${duplicateCount}건 제외)` : ''}`); }
           if (duplicateCount > 0 || trashSkipCount > 0) return showToast(`ℹ️ 새 내역 없음 (중복 ${duplicateCount}건${trashSkipCount ? `, 휴지통에 있는 ${trashSkipCount}건` : ''} 제외)`);
           return showToast('⚠️ 카드 결제 승인 문자가 없습니다 (광고/설문/비결제 문자 자동 무시됨).');
         }
@@ -2972,6 +3015,7 @@
           setSmsText('');
           const extra = [
             duplicateCount > 0 ? `중복 ${duplicateCount}건 제외` : '',
+            tr.restored > 0 ? `휴지통에서 ${tr.restored}건 다시 등록` : '',
             trashSkipCount > 0 ? `휴지통에 있는 ${trashSkipCount}건 제외` : '',
             spamIgnoredCount > 0 ? `광고/설문 ${spamIgnoredCount}건 차단` : ''
           ].filter(Boolean).join(', ');
@@ -3130,7 +3174,7 @@
 
           const newRows = [];
           let dupCount = 0;
-          let trashSkipCount = 0;   // 휴지통에 버린 결제와 같은 행 (되살리지 않음)
+          const trashHits = [];     // 휴지통에 버린 결제와 같은 행 → 다시 등록할지 물어봄
           let autoIgnoredCancelCount = 0;
 
           for (const item of normalItems) {
@@ -3155,7 +3199,7 @@
             if (isDuplicateExpense(candidate, [...expenses, ...newRows])) {
               dupCount++;
             } else if (isDuplicateExpense(candidate, trash)) {
-              trashSkipCount++;
+              trashHits.push(trash.find(t => isDuplicateExpense(candidate, [t])));
             } else {
               newRows.push(candidate);
             }
@@ -3207,7 +3251,7 @@
               continue;
             }
             if (isDuplicateExpense(cancelCandidate, trash)) {
-              trashSkipCount++;
+              trashHits.push(trash.find(t => isDuplicateExpense(cancelCandidate, [t])));
               continue;
             }
             if (!markPaired(cancelCandidate, approvalsPool())) {
@@ -3218,7 +3262,10 @@
           }
 
           e.target.value = '';
+          const tr = await askRestoreFromTrash(trashHits);
+          const trashSkipCount = tr.total - tr.restored;
           if (newRows.length === 0) {
+            if (tr.restored > 0) { setActiveTab('list'); return showToast(`↩️ 휴지통에서 ${tr.restored}건을 다시 등록했습니다.${dupCount ? ` (중복 ${dupCount}건 제외)` : ''}`); }
             if (dupCount > 0 || trashSkipCount > 0 || autoIgnoredCancelCount > 0) {
               return showToast(`ℹ️ 신규 내역 없음 (중복 ${dupCount}건${trashSkipCount ? `, 휴지통에 있는 ${trashSkipCount}건` : ''}, 단독취소 ${autoIgnoredCancelCount}건 제외)`);
             }
@@ -3229,6 +3276,7 @@
           if (ok) {
             const extraMsg = [
               dupCount > 0 ? `중복 ${dupCount}건 제외` : '',
+              tr.restored > 0 ? `휴지통에서 ${tr.restored}건 다시 등록` : '',
               trashSkipCount > 0 ? `휴지통에 있는 ${trashSkipCount}건 제외` : '',
               autoIgnoredCancelCount > 0 ? `단독취소 ${autoIgnoredCancelCount}건 자동제외` : ''
             ].filter(Boolean).join(', ');
@@ -5025,7 +5073,7 @@
                             >
                               {payOptions(manual.pay).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                             </select>
-                            <p className="text-[10px] text-slate-500 mt-0.5">계좌이체도 💵 현금으로 고르세요.</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">자동이체·무통장입금·계좌이체는 🏦 계좌이체를 고르세요.</p>
                           </>
                         )}
                       </div>
