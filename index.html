@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.47</title>
+  <title>부부 AI 가계부 v1.48</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.47';
+    const APP_VERSION = 'v1.48';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 9;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -739,6 +739,19 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.48',
+        date: '2026-11-07',
+        title: 'v1.47 검토 반영 (부가세 · 뒤로가기 · 대기 시간)',
+        changes: [
+          '[스캔] 확인 화면에서 금액을 고치면 부가세도 고친 금액으로 (영수증에 찍힌 세액은 금액에 맞을 때만 그대로)',
+          '[스캔] 면세 영수증(세액 0원)이 금액÷11로 저장되던 문제 고침',
+          '[뒤로가기] 입력 탭에서 연 급여·대출 입력 창은 방문 기록을 한 칸만 씀 (닫을 때 뒤로 두 번 가지 않게)',
+          '[스캔] 서버가 명세서·대출 사진을 다시 읽는 시간을 앱이 기다리는 시간보다 짧게 (넘을 것 같으면 그 사진만 다시 올리라고 안내)',
+          '[입력] 붙여넣은 문자 1건이 휴지통에 있어 다시 등록하면 내역 탭으로 이동',
+          '[화면] 브라우저 탭 제목의 버전 표시를 앱 버전과 맞춤'
+        ]
+      },
+      {
         version: 'v1.47',
         date: '2026-11-06',
         title: '입력을 ➕ 입력 탭 하나로',
@@ -751,10 +764,7 @@
           '[입력] 대출 상환 직접 입력에서 대출이 여러 개면 고르기, 대출이 없으면 대출부터 등록',
           '[입력] 카드사 엑셀·CSV 파일 올리기는 ➕ 입력 탭 아래 작은 줄로',
           '[통계] 위쪽에 [💼 급여명세서 ›] [🏠 대출 ›] 바로가기 (목록 보기는 여기서)',
-          '[급여] 명세서 입력 창에서 항목 이름 칸이 좁아지던 문제 고침',
-          '[스캔] 확인 화면에서 금액을 고치면 부가세도 고친 금액으로 (영수증에 찍힌 세액은 금액에 맞을 때만 그대로, 면세 0원도 그대로)',
-          '[뒤로가기] 입력 탭에서 연 급여·대출 입력 창은 방문 기록을 한 칸만 씀 (닫을 때 뒤로 두 번 가지 않게)',
-          '[스캔] 사진이 적을 때 서버가 명세서·대출을 다시 읽는 시간을 앱이 기다리는 시간 안으로'
+          '[급여] 명세서 입력 창에서 항목 이름 칸이 좁아지던 문제 고침'
         ]
       },
       {
