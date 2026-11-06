@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.35</title>
+  <title>부부 AI 가계부 v1.36</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.35';
+    const APP_VERSION = 'v1.36';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 8;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -738,6 +738,17 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.36',
+        date: '2026-11-06',
+        title: '수입·휴지통·급여명세서 예외 상황 정리',
+        changes: [
+          '[수입] 수입 내역에는 업무경비 전환 버튼과 수정 화면의 결제 수단 칸을 숨김. 업무용 필터·업무경비 엑셀에도 수입은 넣지 않음',
+          '[휴지통] 문자 붙여넣기·카드사 파일 올리기에서 휴지통에 있는 결제와 같으면 다시 등록하지 않음 (서버 문자 자동등록과 같은 규칙)',
+          '[급여] 명세서를 고칠 때 "수입으로 등록"을 끄면 명세서가 만든 수입은 휴지통으로, 직접 넣은 입금 내역은 연결만 끊음. 연결 안 했던 명세서는 다시 열어도 꺼진 상태로',
+          '[급여·대출] 사진을 여러 장 올리면 장수만큼 기다리는 시간을 늘림 (영수증과 같게)'
+        ]
+      },
       {
         version: 'v1.35',
         date: '2026-11-06',
@@ -1833,7 +1844,8 @@
         try {
           const photos = await Promise.all(files.map(resizeImage));
           let timer;
-          const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('⏱️ AI 응답이 너무 늦습니다. 잠시 후 다시 시도해주세요.')), SCAN_TIMEOUT_MS); });
+          const limitMs = Math.min(SCAN_TIMEOUT_MS + (photos.length - 1) * SCAN_EXTRA_MS, SCAN_LIMIT_MAX_MS);   // 사진이 많으면 더 기다림 (영수증과 같게)
+          const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('⏱️ AI 응답이 너무 늦습니다. 잠시 후 다시 시도해주세요.')), limitMs); });
           const { data, error } = await Promise.race([
             supabaseClient.functions.invoke('scan-receipt', { body: {
               ...(photos.length === 1 ? { image: photos[0].base64, mimeType: photos[0].mimeType }
@@ -1863,7 +1875,7 @@
       };
       const editPayslip = (p) => setPsEdit({
         ...p, pay_type: payslipTypeOf(p.pay_type), earnings: (p.earnings || []).map(e => ({ name: e.name, amount: e.amount })), deductions: (p.deductions || []).map(d => ({ ...d, group: d.group && d.group !== '상계' ? d.group : payslipGroupOf(d.name) })),
-        read: null, linkIncome: true
+        read: null, linkIncome: !!p.income_id   // 저장할 때 상태 그대로 (연결 안 했던 명세서를 고쳐도 수입이 새로 생기지 않게)
       });
       // 저장: 명세서 + 실수령액을 수입(급여 › 월급 또는 상여/성과급)으로 (이미 입금 캡처로 넣은 같은 금액 수입이 있으면 그것과 연결)
       const savePayslip = async () => {
@@ -1919,6 +1931,19 @@
                 }]);
               }
             }
+          } else if (income_id) {
+            // '수입으로 등록'을 끔: 명세서가 만든 수입은 휴지통으로, 직접 넣은 입금 내역(입금 캡처 등)은 연결만 끊음
+            const inc = expenses.find(e => e.id === income_id);
+            if (inc && (inc.source === '급여명세서' || String(inc.id).startsWith('inc-ps-'))) {
+              const deleted_at = new Date().toISOString();
+              const { error: e2 } = await supabaseClient.from('expenses').update({ deleted_at, updated_by: MY_DEVICE_ID }).eq('id', inc.id).eq('family_code', familyCode);
+              if (e2) throw e2;
+              setExpenses(prev => prev.filter(e => e.id !== inc.id));
+              setTrash(prev => [{ ...inc, deleted_at }, ...prev]);
+              notifyPartner();
+              showToast('🗑️ 연결된 수입 내역을 휴지통으로 옮겼습니다.');
+            }
+            income_id = null;
           }
           const row = {
             id, family_code: familyCode, owner: d.owner, pay_month: d.pay_month, pay_date: d.pay_date || '', pay_type: ptype, company: (d.company || '').trim(),
@@ -2179,7 +2204,8 @@
         try {
           const photos = await Promise.all(files.map(resizeImage));
           let timer;
-          const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('⏱️ AI 응답이 너무 늦습니다. 사진을 나눠서 다시 올려주세요.')), SCAN_TIMEOUT_MS); });
+          const limitMs = Math.min(SCAN_TIMEOUT_MS + (photos.length - 1) * SCAN_EXTRA_MS, SCAN_LIMIT_MAX_MS);
+          const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('⏱️ AI 응답이 너무 늦습니다. 사진을 나눠서 다시 올려주세요.')), limitMs); });
           const { data, error } = await Promise.race([
             supabaseClient.functions.invoke('scan-receipt', { body: {
               ...(photos.length === 1 ? { image: photos[0].base64, mimeType: photos[0].mimeType }
@@ -2919,12 +2945,15 @@
         const parsedRows = [];
         let duplicateCount = 0;
         let spamIgnoredCount = 0;
+        let trashSkipCount = 0;   // 휴지통에 버린 결제와 같은 문자 (서버 자동등록과 같은 규칙: 되살리지 않음)
 
         for (const block of rawBlocks) {
           const parsed = parseSingleSmsBlock(block, categories, currentUser, cards);
           if (parsed) {
             if (isDuplicateExpense(parsed, [...expenses, ...parsedRows])) {
               duplicateCount++;
+            } else if (isDuplicateExpense(parsed, trash)) {
+              trashSkipCount++;
             } else {
               parsedRows.push(parsed);
             }
@@ -2934,7 +2963,7 @@
         }
 
         if (parsedRows.length === 0) {
-          if (duplicateCount > 0) return showToast(`ℹ️ 이미 등록된 중복 내역(${duplicateCount}건)입니다.`);
+          if (duplicateCount > 0 || trashSkipCount > 0) return showToast(`ℹ️ 새 내역 없음 (중복 ${duplicateCount}건${trashSkipCount ? `, 휴지통에 있는 ${trashSkipCount}건` : ''} 제외)`);
           return showToast('⚠️ 카드 결제 승인 문자가 없습니다 (광고/설문/비결제 문자 자동 무시됨).');
         }
 
@@ -2943,6 +2972,7 @@
           setSmsText('');
           const extra = [
             duplicateCount > 0 ? `중복 ${duplicateCount}건 제외` : '',
+            trashSkipCount > 0 ? `휴지통에 있는 ${trashSkipCount}건 제외` : '',
             spamIgnoredCount > 0 ? `광고/설문 ${spamIgnoredCount}건 차단` : ''
           ].filter(Boolean).join(', ');
           showToast(`🎉 총 ${parsedRows.length}건 등록 완료!${extra ? ` (${extra})` : ''}`);
@@ -3100,6 +3130,7 @@
 
           const newRows = [];
           let dupCount = 0;
+          let trashSkipCount = 0;   // 휴지통에 버린 결제와 같은 행 (되살리지 않음)
           let autoIgnoredCancelCount = 0;
 
           for (const item of normalItems) {
@@ -3123,6 +3154,8 @@
 
             if (isDuplicateExpense(candidate, [...expenses, ...newRows])) {
               dupCount++;
+            } else if (isDuplicateExpense(candidate, trash)) {
+              trashSkipCount++;
             } else {
               newRows.push(candidate);
             }
@@ -3173,6 +3206,10 @@
               dupCount++;
               continue;
             }
+            if (isDuplicateExpense(cancelCandidate, trash)) {
+              trashSkipCount++;
+              continue;
+            }
             if (!markPaired(cancelCandidate, approvalsPool())) {
               autoIgnoredCancelCount++;
               continue;
@@ -3182,8 +3219,8 @@
 
           e.target.value = '';
           if (newRows.length === 0) {
-            if (dupCount > 0 || autoIgnoredCancelCount > 0) {
-              return showToast(`ℹ️ 신규 내역 없음 (중복 ${dupCount}건, 단독취소 ${autoIgnoredCancelCount}건 제외)`);
+            if (dupCount > 0 || trashSkipCount > 0 || autoIgnoredCancelCount > 0) {
+              return showToast(`ℹ️ 신규 내역 없음 (중복 ${dupCount}건${trashSkipCount ? `, 휴지통에 있는 ${trashSkipCount}건` : ''}, 단독취소 ${autoIgnoredCancelCount}건 제외)`);
             }
             return showToast('⚠️ 파일에서 등록할 결제 내역을 찾지 못했습니다.');
           }
@@ -3192,6 +3229,7 @@
           if (ok) {
             const extraMsg = [
               dupCount > 0 ? `중복 ${dupCount}건 제외` : '',
+              trashSkipCount > 0 ? `휴지통에 있는 ${trashSkipCount}건 제외` : '',
               autoIgnoredCancelCount > 0 ? `단독취소 ${autoIgnoredCancelCount}건 자동제외` : ''
             ].filter(Boolean).join(', ');
             showToast(`📥 총 ${newRows.length}건 등록 완료!${extraMsg ? ` (${extraMsg})` : ''}`);
@@ -3218,7 +3256,7 @@
       };
 
       const exportExcel = (onlyBiz) => {
-        const list = onlyBiz ? monthFiltered.filter(e => e.is_business) : monthFiltered;
+        const list = onlyBiz ? monthFiltered.filter(e => e.is_business && !isIncome(e)) : monthFiltered;
         if (list.length === 0) return showToast('ℹ️ 저장할 내역이 없습니다.');
         const payName = (e) => payLabel(cards, e).replace(/^\S+\s/, '');
         const kind = (e) => isIncome(e) ? '수입' : e.is_business ? '업무경비' : '개인';
@@ -3296,7 +3334,7 @@
         if (selectedMonth !== 'ALL' && !(e.date || '').startsWith(selectedMonth)) return false;
         if (filterUser === '남편') return e.payer === '남편';
         if (filterUser === '아내') return e.payer === '아내';
-        if (filterUser === '업무용') return e.is_business;
+        if (filterUser === '업무용') return e.is_business && !isIncome(e);
         return true;
       });
 
@@ -3627,7 +3665,7 @@
                                   />
                                 </div>
                               </div>
-                              <div>
+                              {!isIncome(item) && <div>
                                 <label className="text-[11px] text-slate-400">결제 수단</label>
                                 <select
                                   value={editForm.pay}
@@ -3639,7 +3677,7 @@
                                 >
                                   {payOptions(editForm.pay).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </select>
-                              </div>
+                              </div>}
                               <div className="flex gap-2 pt-1">
                                 <button onClick={() => saveEditForm(item.id)} className="flex-1 py-1.5 bg-indigo-600 text-white font-bold rounded-lg">
                                   💾 수정 저장
@@ -3797,14 +3835,14 @@
                           })()}
 
                           <div className="flex justify-between items-center pt-2 border-t border-slate-800/70 text-xs">
-                            <button
+                            {isIncome(item) ? <span /> : <button
                               onClick={() => updateExpenseRow(item.id, { is_business: !item.is_business })}
                               className={`px-2.5 py-1 rounded border whitespace-nowrap ${
                                 item.is_business ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 font-bold' : 'bg-slate-800 border-slate-700 text-slate-400'
                               }`}
                             >
                               {item.is_business ? '💼 업무경비 ON' : '개인 지출 (경비전환)'}
-                            </button>
+                            </button>}
 
                             <div className="flex items-center gap-2">
                               <button
@@ -5109,7 +5147,8 @@
                           : <p className="text-amber-300">⚠️ 명세서에 찍힌 값과 다릅니다: {mism.map(([n, a, b]) => `${n} ${Number(a).toLocaleString()} ≠ 항목 합계 ${b.toLocaleString()}`).join(' · ')} — 빠지거나 잘못 읽은 항목을 확인해주세요.</p>)}
                         <label className="flex items-start gap-2 text-slate-300">
                           <input type="checkbox" checked={!!d.linkIncome} onChange={e => set({ linkIncome: e.target.checked })} className="mt-0.5" />
-                          <span>실지급액을 수입(급여 › {isBonusType(d.pay_type) ? '상여/성과급' : '월급'})으로 등록 · 같은 금액의 입금 내역이 있으면 그것과 연결{d.income_id ? ' (연결됨)' : ''}</span>
+                          <span>실지급액을 수입(급여 › {isBonusType(d.pay_type) ? '상여/성과급' : '월급'})으로 등록 · 같은 금액의 입금 내역이 있으면 그것과 연결{d.income_id ? ' (연결됨)' : ''}
+                            {d.income_id && !d.linkIncome && <span className="block text-amber-300 text-[11px]">끄고 저장하면 명세서가 만든 수입은 휴지통으로, 직접 넣은 입금 내역은 연결만 끊깁니다.</span>}</span>
                         </label>
                         <input value={d.memo || ''} onChange={e => set({ memo: e.target.value.slice(0, 200) })} placeholder="📝 메모 (선택)" className={inp} />
                         <div className="flex gap-2 pt-1">
