@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.50</title>
+  <title>부부 AI 가계부 v1.51</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -27,6 +27,10 @@
     .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
     .safe-page { padding-bottom: calc(6rem + env(safe-area-inset-bottom)) !important; }
   </style>
+  <!-- 화면 크기 설정(⚙️ 설정 탭)을 화면이 그려지기 전에 적용 (폰마다 따로 저장) -->
+  <script id="ui-size">
+    try { const v = JSON.parse(localStorage.getItem('UI_SIZE') || '{}'); if (Number(v.app) > 0) document.documentElement.style.fontSize = (Number(v.app) * 100) + '%'; } catch (e) {}
+  </script>
 </head>
 <body class="bg-slate-950 text-slate-100 select-none">
   <div id="root"></div>
@@ -37,7 +41,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.50';
+    const APP_VERSION = 'v1.51';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 9;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -715,7 +719,7 @@
       if (rootDiv) rootDiv.innerHTML = '';
       // 실행 중에 브라우저가 덧붙인 것 제거: Babel이 변환해 넣은 스크립트(남겨두면 다시 열 때 앱이 두 번 실행됨),
       // Tailwind가 만든 스타일(다시 열면 자동으로 새로 만듦)
-      clone.querySelectorAll('script:not([src]):not([type="text/babel"]):not(#sw-register)').forEach(el => el.remove());
+      clone.querySelectorAll('script:not([src]):not([type="text/babel"]):not(#sw-register):not(#ui-size)').forEach(el => el.remove());
       clone.querySelectorAll('style:not(#app-style)').forEach(el => el.remove());
       const cleanHtml = '<!DOCTYPE html>\n' + clone.outerHTML;
       const blob = new Blob([cleanHtml], { type: 'text/html;charset=utf-8;' });
@@ -738,6 +742,17 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.51',
+        date: '2026-11-07',
+        title: '화면 크기 설정 · ⚙️ 설정 탭',
+        changes: [
+          '[설정] ⚙️ 카드·분류 탭 이름을 ⚙️ 설정으로 바꾸고 맨 위에 🔠 화면 크기',
+          '[설정] 앱 전체 크기: 작게 · 보통 · 크게 · 아주 크게 (글자·버튼·입력칸이 함께)',
+          '[설정] 아래 탭 크기: 보통 · 크게 · 아주 크게 (앱 전체 크기에서 탭만 한 번 더)',
+          '[설정] 크기 설정은 이 폰에만 저장 (남편·아내 폰 따로), 앱을 켤 때 바로 적용'
+        ]
+      },
       {
         version: 'v1.50',
         date: '2026-11-07',
@@ -1345,6 +1360,15 @@
       const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
       const [incomeCategories, setIncomeCategories] = useState(DEFAULT_INCOME_CATEGORIES);
       const [activeTab, setActiveTab] = useState('list');
+      // 🔠 화면 크기 (폰마다 따로): app = 앱 전체(글자·버튼·입력칸), nav = 아래 탭을 거기서 한 번 더
+      const [uiSize, setUiSize] = useState(() => {
+        try { const v = JSON.parse(localStorage.getItem('UI_SIZE') || '{}'); return { app: Number(v.app) || 1, nav: Number(v.nav) || 1 }; }
+        catch (e) { return { app: 1, nav: 1 }; }
+      });
+      useEffect(() => {
+        document.documentElement.style.fontSize = `${uiSize.app * 100}%`;
+        try { localStorage.setItem('UI_SIZE', JSON.stringify(uiSize)); } catch (e) {}
+      }, [uiSize]);
       const [currentUser, setCurrentUser] = useState('남편');
       const [filterUser, setFilterUser] = useState('전체');
       const [selectedMonth, setSelectedMonth] = useState(() => getKSTDateTimeString().slice(0, 7));
@@ -2430,7 +2454,7 @@
         <div className="grid grid-cols-4 gap-1">
           {[['expense', '💸 지출', 'bg-indigo-600'], ['income', '💰 수입', 'bg-emerald-600'], ['payslip', '💼 급여', 'bg-emerald-700'], ['loan', '🏠 대출', 'bg-amber-600']].map(([k, label, on]) => (
             <button key={k} onClick={() => cur !== k && openInputKind(k)}
-              className={`py-1.5 rounded-lg font-bold text-[11px] ${cur === k ? `${on} text-white` : 'bg-slate-800 text-slate-400'}`}>{label}</button>
+              className={`py-1.5 rounded-lg font-bold text-[0.6875rem] ${cur === k ? `${on} text-white` : 'bg-slate-800 text-slate-400'}`}>{label}</button>
           ))}
         </div>
       );
@@ -2959,7 +2983,7 @@
         const onKey = e => { if (e.key === 'Enter') submit(); };
         return (
           <div className="mt-1.5 p-2 bg-slate-950 border border-indigo-700/60 rounded-lg space-y-1.5 text-xs">
-            <p className="text-[10px] text-indigo-300 font-bold">
+            <p className="text-[0.625rem] text-indigo-300 font-bold">
               {catAdder.kind === 'cat' ? '＋ 새 대분류 만들기' : `＋ [${catAdder.cat}]에 세부 분류 추가`}
             </p>
             {catAdder.kind === 'cat' && (
@@ -2984,7 +3008,7 @@
               <button onClick={submit} className="flex-1 py-1.5 bg-indigo-600 text-white font-bold rounded-lg">추가하고 고르기</button>
               <button onClick={() => setCatAdder(null)} className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg">취소</button>
             </div>
-            <p className="text-[10px] text-slate-500">추가한 분류는 두 사람 모두에게 바로 보이고, 다음 영수증부터 AI도 이 분류를 고를 수 있어요.</p>
+            <p className="text-[0.625rem] text-slate-500">추가한 분류는 두 사람 모두에게 바로 보이고, 다음 영수증부터 AI도 이 분류를 고를 수 있어요.</p>
           </div>
         );
       };
@@ -4013,7 +4037,7 @@
               <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 px-3 py-2.5 safe-top space-y-2">
                 <div className="flex justify-between items-center gap-1">
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-2 py-0.5 rounded-full whitespace-nowrap">
+                    <span className="bg-emerald-600 text-white text-[0.6875rem] font-extrabold px-2 py-0.5 rounded-full whitespace-nowrap">
                       {APP_VERSION}
                     </span>
                     <h1 className="font-bold text-sm sm:text-base text-white whitespace-nowrap">
@@ -4026,20 +4050,20 @@
                     {installPrompt && (
                       <button
                         onClick={handleInstall}
-                        className="text-[11px] bg-amber-500 text-slate-950 px-2 py-1 rounded-lg font-bold whitespace-nowrap"
+                        className="text-[0.6875rem] bg-amber-500 text-slate-950 px-2 py-1 rounded-lg font-bold whitespace-nowrap"
                       >
                         📲앱 설치
                       </button>
                     )}
                     <button
                       onClick={DOWNLOAD_CLEAN_HTML_FILE}
-                      className="text-[11px] bg-emerald-950 text-emerald-300 px-2 py-1 rounded-lg border border-emerald-700 font-bold whitespace-nowrap"
+                      className="text-[0.6875rem] bg-emerald-950 text-emerald-300 px-2 py-1 rounded-lg border border-emerald-700 font-bold whitespace-nowrap"
                     >
                       💾파일저장
                     </button>
                     <button
                       onClick={() => setShowWebhookModal(true)}
-                      className="text-[11px] bg-indigo-950 text-indigo-300 px-2 py-1 rounded-lg border border-indigo-700/70 whitespace-nowrap font-bold"
+                      className="text-[0.6875rem] bg-indigo-950 text-indigo-300 px-2 py-1 rounded-lg border border-indigo-700/70 whitespace-nowrap font-bold"
                     >
                       ⚡자동연동/SQL
                     </button>
@@ -4048,26 +4072,26 @@
                         setNewPassTarget('');
                         setShowCodeMigrateModal(true);
                       }}
-                      className="text-[11px] bg-slate-800 text-slate-200 px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap"
+                      className="text-[0.6875rem] bg-slate-800 text-slate-200 px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap"
                     >
                       🔒코드변경
                     </button>
                     <button
                       onClick={() => fetchFromCloud({ showSpinner: true, showSuccessToast: true })}
-                      className="text-[11px] bg-slate-800 text-slate-200 px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap"
+                      className="text-[0.6875rem] bg-slate-800 text-slate-200 px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap"
                     >
                       🔄
                     </button>
                     <button
                       onClick={() => setShowVersionModal(true)}
-                      className="text-[11px] bg-slate-800 text-slate-200 px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap"
+                      className="text-[0.6875rem] bg-slate-800 text-slate-200 px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap"
                     >
                       🕓버전
                     </button>
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 text-[11px] gap-2">
+                <div className="flex justify-between items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 text-[0.6875rem] gap-2">
                   <div className="truncate">
                     {syncStatus === 'connected' && (
                       <span className="text-emerald-400 font-bold whitespace-nowrap">
@@ -4123,30 +4147,30 @@
                 )}
 
                 {['table_missing', 'schema_old', 'network_error'].includes(syncStatus) && errorDetail && (
-                  <div className="bg-rose-950/50 border border-rose-700/60 rounded-xl p-3 text-[11px] text-rose-200 leading-relaxed">
+                  <div className="bg-rose-950/50 border border-rose-700/60 rounded-xl p-3 text-[0.6875rem] text-rose-200 leading-relaxed">
                     ⚠️ {errorDetail}
                   </div>
                 )}
 
-                {/* 달 이동·지출 합계·예산·결제자 필터: 내역·통계 탭에서만 (입력·카드·분류 탭에서는 쓰지 않음) */}
+                {/* 달 이동·지출 합계·예산·결제자 필터: 내역·통계 탭에서만 (입력·설정 탭에서는 쓰지 않음) */}
                 {(activeTab === 'list' || activeTab === 'stats') && (
                 <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-700 space-y-3">
-                  <div className="flex justify-between items-center bg-slate-950/70 px-3 py-1.5 rounded-xl border border-slate-800">
-                    <button onClick={() => moveMonth(-1)} className="text-xs font-bold text-slate-300 px-2 py-0.5 hover:text-white">
+                  <div className="flex justify-between items-center bg-slate-950/70 px-2 py-1.5 rounded-xl border border-slate-800 gap-1">
+                    <button onClick={() => moveMonth(-1)} className="text-xs font-bold text-slate-300 px-1.5 py-0.5 hover:text-white whitespace-nowrap shrink-0">
                       ◀ 이전달
                     </button>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-extrabold text-indigo-300">
+                    <div className="flex flex-wrap justify-center items-center gap-x-1.5 gap-y-0.5 min-w-0">
+                      <span className="text-xs font-extrabold text-indigo-300 whitespace-nowrap">
                         {selectedMonth === 'ALL' ? '📅 전체 기간' : `📅 ${selectedMonth.split('-')[0]}년 ${selectedMonth.split('-')[1]}월`}
                       </span>
                       <button
                         onClick={() => { setListQuery(''); setSelectedMonth(selectedMonth === 'ALL' ? getKSTDateTimeString().slice(0, 7) : 'ALL'); }}
-                        className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700"
+                        className="text-[0.625rem] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap"
                       >
                         {selectedMonth === 'ALL' ? '월별보기' : '전체기간'}
                       </button>
                     </div>
-                    <button onClick={() => moveMonth(1)} className="text-xs font-bold text-slate-300 px-2 py-0.5 hover:text-white">
+                    <button onClick={() => moveMonth(1)} className="text-xs font-bold text-slate-300 px-1.5 py-0.5 hover:text-white whitespace-nowrap shrink-0">
                       다음달 ▶
                     </button>
                   </div>
@@ -4156,23 +4180,23 @@
                       <p className="text-xs text-slate-400">지출 합계 ({filterUser})</p>
                       <h2 className="text-2xl font-extrabold text-white mt-0.5">{totalAmount.toLocaleString()}원</h2>
                       {hasIncome && (
-                        <p className="text-[11px] mt-0.5">
+                        <p className="text-[0.6875rem] mt-0.5">
                           <span className="text-emerald-300 font-bold">💰 수입 +{incomeTotal.toLocaleString()}원</span>
                           <span className={`ml-2 font-bold ${incomeTotal - totalAmount >= 0 ? 'text-sky-300' : 'text-rose-300'}`}>남은 돈 {(incomeTotal - totalAmount).toLocaleString()}원</span>
                         </p>
                       )}
                     </div>
-                    <span className="text-[11px] text-indigo-300 bg-indigo-950/80 px-2.5 py-1 rounded-lg border border-indigo-700/50">
+                    <span className="text-[0.6875rem] text-indigo-300 bg-indigo-950/80 px-2.5 py-1 rounded-lg border border-indigo-700/50">
                       총 {monthFiltered.length}건 (전체 {expenses.length}건)
                     </span>
                   </div>
 
                   {budgetView && (budgetView.none ? (
-                    <button onClick={() => setBudgetEdit({ total: budget.total || '', 남편: budget['남편'] || '', 아내: budget['아내'] || '' })} className="w-full text-left text-[11px] text-slate-400 bg-slate-950/60 border border-dashed border-slate-700 rounded-lg px-2.5 py-1.5">
+                    <button onClick={() => setBudgetEdit({ total: budget.total || '', 남편: budget['남편'] || '', 아내: budget['아내'] || '' })} className="w-full text-left text-[0.6875rem] text-slate-400 bg-slate-950/60 border border-dashed border-slate-700 rounded-lg px-2.5 py-1.5">
                       🎯 월 예산을 정하면 이번 달 얼마나 썼는지 막대로 보여드려요 ›
                     </button>
                   ) : budgetView.share ? (
-                    <button onClick={() => setBudgetEdit({ total: budget.total || '', 남편: budget['남편'] || '', 아내: budget['아내'] || '' })} className="w-full text-left text-[11px] text-slate-300 bg-slate-950/60 border border-slate-700 rounded-lg px-2.5 py-1.5">
+                    <button onClick={() => setBudgetEdit({ total: budget.total || '', 남편: budget['남편'] || '', 아내: budget['아내'] || '' })} className="w-full text-left text-[0.6875rem] text-slate-300 bg-slate-950/60 border border-slate-700 rounded-lg px-2.5 py-1.5">
                       🎯 {filterUser} 지출은 부부 합산 예산 {budgetView.total.toLocaleString()}원의 <b className="text-white">{budgetView.pctOfTotal}%</b> <span className="text-slate-500">· {filterUser} 예산 정하기 ›</span>
                     </button>
                   ) : (() => {
@@ -4181,7 +4205,7 @@
                     const bar = over ? 'bg-rose-500' : fast ? 'bg-amber-400' : 'bg-emerald-500';
                     return (
                       <button onClick={() => setBudgetEdit({ total: budget.total || '', 남편: budget['남편'] || '', 아내: budget['아내'] || '' })} className="w-full text-left space-y-1">
-                        <div className="flex justify-between text-[11px]">
+                        <div className="flex justify-between text-[0.6875rem]">
                           <span className="text-slate-300">🎯 {filterUser === '전체' ? (b.derived ? '남편+아내' : '부부 합산') : filterUser} 예산 {b.budget.toLocaleString()}원 중 <b className={over ? 'text-rose-300' : fast ? 'text-amber-300' : 'text-emerald-300'}>{b.pct}%</b></span>
                           <span className={b.remain >= 0 ? 'text-slate-300' : 'text-rose-300 font-bold'}>{b.remain >= 0 ? `남은 ${b.remain.toLocaleString()}원` : `${(-b.remain).toLocaleString()}원 초과`}</span>
                         </div>
@@ -4190,7 +4214,7 @@
                           {b.current && <div className="absolute top-0 h-full w-0.5 bg-white/70" style={{ left: `${b.pace}%` }} />}
                         </div>
                         {b.current && (
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-[0.625rem] text-slate-500">
                             오늘까지 적정 {b.pace}% (흰 선){b.perDay > 0 ? ` · 남은 ${b.daysLeft}일 동안 하루 ${b.perDay.toLocaleString()}원` : ''}{fast ? ' · 지출 속도가 빨라요' : ''}
                           </p>
                         )}
@@ -4218,7 +4242,7 @@
                   <div className="space-y-2.5">
                     {trash.length > 0 && (
                     <div className="flex justify-end items-center">
-                        <button onClick={() => setShowTrash(true)} className="text-[11px] text-slate-400 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg">
+                        <button onClick={() => setShowTrash(true)} className="text-[0.6875rem] text-slate-400 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg">
                           🗑️ 휴지통 {trash.length}건
                         </button>
                     </div>
@@ -4232,7 +4256,7 @@
                       const sp = listSource.filter(e => !isIncome(e)).reduce((t, e) => t + e.amount, 0);
                       const ic = listSource.filter(isIncome).reduce((t, e) => t + e.amount, 0);
                       return (
-                        <p className="text-[11px] text-slate-400 px-1">
+                        <p className="text-[0.6875rem] text-slate-400 px-1">
                           🔍 전체 기간{filterUser !== '전체' ? ` · ${filterUser}` : ''}에서 <b className="text-slate-200">{listSource.length}건</b>
                           {sp !== 0 && <> · 지출 <b className="text-slate-200">{sp.toLocaleString()}원</b></>}
                           {ic !== 0 && <> · 수입 <b className="text-emerald-300">+{ic.toLocaleString()}원</b></>}
@@ -4270,7 +4294,7 @@
                               </div>
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                  <label className="text-[11px] text-slate-400">상호명(가맹점)</label>
+                                  <label className="text-[0.6875rem] text-slate-400">상호명(가맹점)</label>
                                   <input
                                     type="text"
                                     value={editForm.store}
@@ -4279,7 +4303,7 @@
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-[11px] text-slate-400">결제 금액(원)</label>
+                                  <label className="text-[0.6875rem] text-slate-400">결제 금액(원)</label>
                                   <input
                                     type="number"
                                     value={editForm.amount}
@@ -4290,7 +4314,7 @@
                               </div>
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                  <label className="text-[11px] text-slate-400">결제일시 (달력 선택)</label>
+                                  <label className="text-[0.6875rem] text-slate-400">결제일시 (달력 선택)</label>
                                   <input
                                     type="datetime-local"
                                     value={(editForm.date || '').replace(' ', 'T').slice(0, 16)}
@@ -4299,7 +4323,7 @@
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-[11px] text-slate-400">메모</label>
+                                  <label className="text-[0.6875rem] text-slate-400">메모</label>
                                   <input
                                     type="text"
                                     value={editForm.memo}
@@ -4310,7 +4334,7 @@
                                 </div>
                               </div>
                               {!isIncome(item) && <div>
-                                <label className="text-[11px] text-slate-400">결제 수단</label>
+                                <label className="text-[0.6875rem] text-slate-400">결제 수단</label>
                                 <select
                                   value={editForm.pay}
                                   onChange={e => {
@@ -4329,19 +4353,19 @@
                                 const amtNow = Number(editForm.amount) || 0;
                                 return (
                                   <div className="space-y-1">
-                                    <label className="text-[11px] text-slate-400">품목 {its.length ? `(${its.length}개 · 이름·금액 고치기 · ✕ 지우기)` : '(없음)'}</label>
+                                    <label className="text-[0.6875rem] text-slate-400">품목 {its.length ? `(${its.length}개 · 이름·금액 고치기 · ✕ 지우기)` : '(없음)'}</label>
                                     {its.map((it, k) => (
                                       <div key={k} className="flex items-center gap-1">
                                         <input value={it.name || ''} onChange={e => setIts(its.map((x, j) => j !== k ? x : { ...x, name: e.target.value.slice(0, 60) }))} placeholder="품목 이름"
-                                          className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-200" />
+                                          className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[0.6875rem] text-slate-200" />
                                         <input inputMode="numeric" value={it.price ?? ''} onChange={e => setIts(its.map((x, j) => j !== k ? x : { ...x, price: e.target.value.replace(/[^0-9-]/g, '') }))}
-                                          className="w-24 bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-right text-slate-200" />
+                                          className="w-24 bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[0.6875rem] text-right text-slate-200" />
                                         <button onClick={() => setIts(its.filter((_, j) => j !== k))} className="text-rose-300 px-1 shrink-0" aria-label="품목 지우기">✕</button>
                                       </div>
                                     ))}
                                     <div className="flex justify-between items-center">
-                                      <button onClick={() => setIts([...its, { name: '', price: '', category: '', sub_category: '' }])} className="text-[11px] text-sky-300">＋ 품목 추가</button>
-                                      {its.length > 0 && <span className={`text-[10px] ${sum === amtNow ? 'text-emerald-400' : 'text-amber-300'}`}>{sum === amtNow ? `✓ 품목 합계 = 금액` : `품목 합계 ${sum.toLocaleString()}원 ≠ 금액 ${amtNow.toLocaleString()}원`}</span>}
+                                      <button onClick={() => setIts([...its, { name: '', price: '', category: '', sub_category: '' }])} className="text-[0.6875rem] text-sky-300">＋ 품목 추가</button>
+                                      {its.length > 0 && <span className={`text-[0.625rem] ${sum === amtNow ? 'text-emerald-400' : 'text-amber-300'}`}>{sum === amtNow ? `✓ 품목 합계 = 금액` : `품목 합계 ${sum.toLocaleString()}원 ≠ 금액 ${amtNow.toLocaleString()}원`}</span>}
                                     </div>
                                   </div>
                                 );
@@ -4360,13 +4384,13 @@
                               <div className="space-y-1 min-w-0 flex-1">
                                 <div className="flex items-center gap-1 flex-wrap">
                                   {isIncome(item) && (
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap bg-emerald-500/20 text-emerald-300">💰 수입</span>
+                                    <span className="text-[0.625rem] font-bold px-2 py-0.5 rounded whitespace-nowrap bg-emerald-500/20 text-emerald-300">💰 수입</span>
                                   )}
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${item.payer === '남편' ? 'bg-blue-500/20 text-blue-300' : 'bg-pink-500/20 text-pink-300'}`}>
+                                  <span className={`text-[0.625rem] font-bold px-2 py-0.5 rounded whitespace-nowrap ${item.payer === '남편' ? 'bg-blue-500/20 text-blue-300' : 'bg-pink-500/20 text-pink-300'}`}>
                                     {item.payer}
                                   </span>
                                   {payLabel(cards, item) && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap bg-slate-800 text-slate-300 border border-slate-700">
+                                    <span className="text-[0.625rem] px-1.5 py-0.5 rounded whitespace-nowrap bg-slate-800 text-slate-300 border border-slate-700">
                                       {payLabel(cards, item)}
                                     </span>
                                   )}
@@ -4397,7 +4421,7 @@
                                 </div>
                                 {renderCatAdder(item.id, r => changeRowCategory(item, r.category, r.sub_category))}
                                 <h4 className="font-bold text-white text-base pt-0.5 truncate">{item.store}</h4>
-                                <p className="text-[11px] text-slate-500 truncate">
+                                <p className="text-[0.6875rem] text-slate-500 truncate">
                                   {item.date} · {sourceLabel(item.source)}
                                 </p>
                                 {memoEdit?.id === item.id ? (
@@ -4425,7 +4449,7 @@
                                     📝 {userMemo(item.memo)}
                                   </button>
                                 ) : (
-                                  <button onClick={() => setMemoEdit({ id: item.id, text: '' })} className="text-[11px] text-slate-500 pt-0.5">
+                                  <button onClick={() => setMemoEdit({ id: item.id, text: '' })} className="text-[0.6875rem] text-slate-500 pt-0.5">
                                     ＋ 메모
                                   </button>
                                 )}
@@ -4434,7 +4458,7 @@
                                 <p className={`font-extrabold text-base whitespace-nowrap ${isIncome(item) ? 'text-emerald-300' : item.amount < 0 ? 'text-emerald-400' : 'text-white'}`}>
                                   {isIncome(item) && item.amount > 0 ? '+' : ''}{item.amount.toLocaleString()}원
                                 </p>
-                                {!isIncome(item) && <p className="text-[11px] text-slate-500 whitespace-nowrap">세액 {(item.tax || 0).toLocaleString()}원</p>}
+                                {!isIncome(item) && <p className="text-[0.6875rem] text-slate-500 whitespace-nowrap">세액 {(item.tax || 0).toLocaleString()}원</p>}
                               </div>
                             </div>
                           )}
@@ -4448,7 +4472,7 @@
                             return (
                               <div className="bg-slate-950 p-2.5 rounded-lg text-xs space-y-1 border border-slate-800">
                                 {byCat.size > 1 && (
-                                  <p className="text-[11px] text-indigo-200 pb-1">🏷️ 분류 나눔: {[...byCat].map(([c, v]) => `${c} ${v.toLocaleString()}원`).join(' · ')}</p>
+                                  <p className="text-[0.6875rem] text-indigo-200 pb-1">🏷️ 분류 나눔: {[...byCat].map(([c, v]) => `${c} ${v.toLocaleString()}원`).join(' · ')}</p>
                                 )}
                                 {shown.map((sub, i) => (
                                   <div key={i} className="space-y-0.5">
@@ -4469,7 +4493,7 @@
                                           });
                                           updateExpenseRow(item.id, { items: next });
                                         }}
-                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1 py-0.5 text-[11px] text-slate-400"
+                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1 py-0.5 text-[0.6875rem] text-slate-400"
                                       >
                                         <option value="">(내역 분류를 따름)</option>
                                         {categories.flatMap(c => c.subs.map(s2 => (
@@ -4477,14 +4501,14 @@
                                         )))}
                                       </select>
                                     ) : sub.category && (
-                                      <p className="text-[10px] text-slate-500 pl-2.5">{sub.category} › {sub.sub_category}</p>
+                                      <p className="text-[0.625rem] text-slate-500 pl-2.5">{sub.category} › {sub.sub_category}</p>
                                     )}
                                   </div>
                                 ))}
                                 {isOpen && hasItemCategories(item.items) && (
                                   <button
                                     onClick={() => updateExpenseRow(item.id, { items: clearItemCategories(item.items) })}
-                                    className="w-full pt-1 text-[11px] text-indigo-300"
+                                    className="w-full pt-1 text-[0.6875rem] text-indigo-300"
                                   >
                                     ↺ 모든 품목을 대표 분류({item.category} › {item.sub_category})로
                                   </button>
@@ -4548,6 +4572,38 @@
                     )}
                   </div>
                 )}
+
+                {activeTab === 'cats' && (() => {
+                  const APP_SIZES = [['작게', 0.9], ['보통', 1], ['크게', 1.12], ['아주 크게', 1.25]];
+                  const NAV_SIZES = [['보통', 1], ['크게', 1.2], ['아주 크게', 1.4]];
+                  const pick = (list, key) => (
+                    <div className={`grid gap-1.5 ${list.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                      {list.map(([label, v]) => (
+                        <button key={v} onClick={() => setUiSize(u => ({ ...u, [key]: v }))}
+                          className={`py-2 rounded-lg font-bold text-xs ${uiSize[key] === v ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`}>{label}</button>
+                      ))}
+                    </div>
+                  );
+                  return (
+                    <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3 mb-3">
+                      <div>
+                        <h3 className="font-bold text-white text-base">🔠 화면 크기</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">이 폰에만 저장됩니다 (남편·아내 폰 따로).</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-slate-300 font-bold">앱 전체 <span className="font-normal text-slate-500">· 글자·버튼·입력칸</span></p>
+                        {pick(APP_SIZES, 'app')}
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-slate-300 font-bold">아래 탭 <span className="font-normal text-slate-500">· 앱 전체 크기에서 탭만 한 번 더</span></p>
+                        {pick(NAV_SIZES, 'nav')}
+                      </div>
+                      {(uiSize.app !== 1 || uiSize.nav !== 1) && (
+                        <button onClick={() => setUiSize({ app: 1, nav: 1 })} className="text-[0.6875rem] text-sky-300 underline">처음 크기로 되돌리기</button>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {activeTab === 'cats' && (
                   <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
@@ -4613,7 +4669,7 @@
                                 {m.issuer || '카드사?'} <b className="tracking-wider">{m.num}</b>
                                 {m.id !== root.id && (
                                   <>
-                                    <span className="text-[10px] text-slate-400">{m.auto_linked ? '자동 연결' : '연결'}</span>
+                                    <span className="text-[0.625rem] text-slate-400">{m.auto_linked ? '자동 연결' : '연결'}</span>
                                     <button onClick={() => unlinkCard(m.id)} className="text-rose-400 font-bold ml-0.5" title="다른 카드면 연결 해제">✕</button>
                                   </>
                                 )}
@@ -4669,7 +4725,7 @@
                           value={newCatName}
                           onChange={e => setNewCatName(e.target.value)}
                           placeholder="새 대분류 이름"
-                          className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
+                          className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
                         />
                         <button onClick={handleAddCategory} className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap">
                           + 추가
@@ -4685,7 +4741,7 @@
                             }`}
                           >
                             <span>{c.name}</span>
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(c.id, c.name); }} className="text-[10px] ml-1">✕</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteCategory(c.id, c.name); }} className="text-[0.625rem] ml-1">✕</button>
                           </div>
                         ))}
                       </div>
@@ -4702,7 +4758,7 @@
                               value={newSubName}
                               onChange={e => setNewSubName(e.target.value)}
                               placeholder="새 세부항목 입력"
-                              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
+                              className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
                             />
                             <button onClick={handleAddSubCategory} className="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap">
                               + 세부 추가
@@ -4738,7 +4794,7 @@
                       <div className="text-center space-y-2 py-1">
                         <p className="text-xs text-indigo-300 animate-pulse">
                           🤖 AI가 영수증{scanPreview.length > 1 ? ` ${scanPreview.length}장` : ''}을 읽는 중입니다… (보통 5~30초, 최대 {Math.round((SCAN_TIMEOUT_MS + Math.max(0, scanPreview.length - 1) * SCAN_EXTRA_MS) / 1000)}초)<br />
-                          <span className="text-[10px] text-slate-500">정확 모델이 35초 넘게 걸리면 보조 모델로 자동으로 바꿔 읽어요.</span>
+                          <span className="text-[0.625rem] text-slate-500">정확 모델이 35초 넘게 걸리면 보조 모델로 자동으로 바꿔 읽어요.</span>
                         </p>
                         <button onClick={cancelScan} className="text-xs px-3 py-1 bg-slate-800 text-slate-300 rounded-lg border border-slate-700">그만두기</button>
                       </div>
@@ -4784,12 +4840,12 @@
                             <span className={`px-2 py-0.5 rounded font-bold ${scanInc ? 'bg-emerald-900/60 text-emerald-300' : 'bg-slate-800 text-slate-300'}`}>
                               {scanInc ? '💰 수입(입금)으로 읽음' : '💸 지출'}
                             </span>
-                            <button onClick={switchScanKind} className="text-[11px] text-sky-300 underline">
+                            <button onClick={switchScanKind} className="text-[0.6875rem] text-sky-300 underline">
                               {scanInc ? '지출로 바꾸기' : '수입(입금)으로 바꾸기'}
                             </button>
                           </div>
                           {scanResult.model && (
-                            <p className={`text-[11px] ${scanResult.fallback ? 'text-amber-300' : 'text-slate-500'}`}>
+                            <p className={`text-[0.6875rem] ${scanResult.fallback ? 'text-amber-300' : 'text-slate-500'}`}>
                               🤖 {scanResult.model}로 읽음{scanResult.photos > 1 ? ` (사진 ${scanResult.photos}장)` : ''}
                               {scanResult.fallback && (scanResult.fallbackReason === 'slow'
                                 ? ' — 정확 모델이 오래 걸려(35초 넘게) 보조 모델로 읽었습니다. 가게 이름·품목을 한 번 더 확인해주세요.'
@@ -4798,7 +4854,7 @@
                           )}
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="text-[11px] text-slate-400">{scanInc ? '보낸 곳 / 내용' : '가게 이름'}</label>
+                              <label className="text-[0.6875rem] text-slate-400">{scanInc ? '보낸 곳 / 내용' : '가게 이름'}</label>
                               <input
                                 type="text"
                                 value={scanResult.store}
@@ -4807,7 +4863,7 @@
                               />
                             </div>
                             <div>
-                              <label className="text-[11px] text-slate-400">{scanInc ? '입금 금액(원)' : '결제 금액(원)'}</label>
+                              <label className="text-[0.6875rem] text-slate-400">{scanInc ? '입금 금액(원)' : '결제 금액(원)'}</label>
                               <input
                                 type="number"
                                 inputMode="numeric"
@@ -4819,15 +4875,15 @@
                           </div>
                           <div className="grid grid-cols-1 gap-2">
                             <div>
-                              <label className="text-[11px] text-slate-400">결제 일시</label>
+                              <label className="text-[0.6875rem] text-slate-400">결제 일시</label>
                               {scanResult.dateMissing && (
-                                <p className="text-[11px] text-amber-300">⚠️ 영수증에서 날짜를 읽지 못해 지금 시각을 넣었습니다. 실제 결제 일시로 고쳐주세요.</p>
+                                <p className="text-[0.6875rem] text-amber-300">⚠️ 영수증에서 날짜를 읽지 못해 지금 시각을 넣었습니다. 실제 결제 일시로 고쳐주세요.</p>
                               )}
                               {scanResult.dateSwappedFrom && (
-                                <p className="text-[11px] text-amber-300">📅 AI가 {scanResult.dateSwappedFrom}로 읽었는데 월·일이 바뀐 것으로 보여 고쳤습니다. 맞는지 확인해주세요.</p>
+                                <p className="text-[0.6875rem] text-amber-300">📅 AI가 {scanResult.dateSwappedFrom}로 읽었는데 월·일이 바뀐 것으로 보여 고쳤습니다. 맞는지 확인해주세요.</p>
                               )}
                               {scanResult.dateOdd && (
-                                <p className="text-[11px] text-amber-300">⚠️ 결제 일시가 오늘과 많이 떨어져 있습니다({RECEIPT_PAST_DAYS}일 넘게 지났거나 미래). 맞는지 확인해주세요.</p>
+                                <p className="text-[0.6875rem] text-amber-300">⚠️ 결제 일시가 오늘과 많이 떨어져 있습니다({RECEIPT_PAST_DAYS}일 넘게 지났거나 미래). 맞는지 확인해주세요.</p>
                               )}
                               <input
                                 type="datetime-local"
@@ -4837,7 +4893,7 @@
                               />
                             </div>
                             <div>
-                              <label className="text-[11px] text-slate-400">분류</label>
+                              <label className="text-[0.6875rem] text-slate-400">분류</label>
                               <div className="flex gap-1 mt-0.5">
                                 <select
                                   value={scanResult.category}
@@ -4871,7 +4927,7 @@
                             </div>
                             <div>
                               <div className="flex justify-between items-center">
-                                <label className="text-[11px] text-slate-400">{scanInc ? '받은 사람' : '결제 수단 · 결제자'}</label>
+                                <label className="text-[0.6875rem] text-slate-400">{scanInc ? '받은 사람' : '결제 수단 · 결제자'}</label>
                                 <div className="flex gap-1">
                                   {['남편', '아내'].map(p => (
                                     <button
@@ -4902,11 +4958,11 @@
                           {!scanInc && (
                             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5 max-h-72 overflow-y-auto">
                               <div className="flex justify-between items-center gap-2">
-                                <p className="text-[10px] text-slate-500">{scanResult.items.length ? '품목 (이름·금액 고치기 · ✕ 지우기 · 분류는 아래 칸)' : '품목 없음 · 필요하면 직접 추가'}</p>
+                                <p className="text-[0.625rem] text-slate-500">{scanResult.items.length ? '품목 (이름·금액 고치기 · ✕ 지우기 · 분류는 아래 칸)' : '품목 없음 · 필요하면 직접 추가'}</p>
                                 {hasItemCategories(scanResult.items) && (
                                   <button
                                     onClick={() => setScanResult({ ...scanResult, items: clearItemCategories(scanResult.items) })}
-                                    className="text-[10px] text-indigo-300 shrink-0"
+                                    className="text-[0.625rem] text-indigo-300 shrink-0"
                                   >
                                     ↺ 모든 품목을 대표 분류로
                                   </button>
@@ -4916,9 +4972,9 @@
                                 <div key={i} className="space-y-0.5">
                                   <div className="flex items-center gap-1">
                                     <input value={it.name || ''} onChange={e => setScanItems(scanResult.items.map((x, k) => k !== i ? x : { ...x, name: e.target.value.slice(0, 60) }))}
-                                      placeholder="품목 이름" className="flex-1 min-w-0 bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-slate-200" />
+                                      placeholder="품목 이름" className="flex-1 min-w-0 bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[0.6875rem] text-slate-200" />
                                     <input inputMode="numeric" value={it.price ?? ''} onChange={e => setScanItems(scanResult.items.map((x, k) => k !== i ? x : { ...x, price: e.target.value.replace(/[^0-9-]/g, '') }))}
-                                      className={`w-24 bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-right ${Number(it.price) < 0 ? 'text-emerald-400' : 'text-slate-200'}`} />
+                                      className={`w-24 bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[0.6875rem] text-right ${Number(it.price) < 0 ? 'text-emerald-400' : 'text-slate-200'}`} />
                                     <button onClick={() => setScanItems(scanResult.items.filter((_, k) => k !== i))} className="text-rose-300 px-1 shrink-0" aria-label="품목 지우기">✕</button>
                                   </div>
                                   <select
@@ -4928,7 +4984,7 @@
                                       const next = scanResult.items.map((x, k) => k !== i ? x : (e.target.value ? { ...x, category, sub_category } : cleanItemCategory({ ...x, category: '' }, categories)));
                                       setScanResult({ ...scanResult, items: next });
                                     }}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[11px] text-slate-400"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[0.6875rem] text-slate-400"
                                   >
                                     <option value="">(영수증 대표 분류를 따름)</option>
                                     {categories.flatMap(c => c.subs.map(sub => (
@@ -4937,7 +4993,7 @@
                                   </select>
                                 </div>
                               ))}
-                              <button onClick={() => setScanItems([...scanResult.items, { name: '', price: '', category: '', sub_category: '' }])} className="text-[11px] text-sky-300">＋ 품목 추가</button>
+                              <button onClick={() => setScanItems([...scanResult.items, { name: '', price: '', category: '', sub_category: '' }])} className="text-[0.6875rem] text-sky-300">＋ 품목 추가</button>
                             </div>
                           )}
                           {(() => {
@@ -4945,7 +5001,7 @@
                             const byCat = new Map();
                             parts.forEach(x => byCat.set(x.category, (byCat.get(x.category) || 0) + x.amount));
                             return byCat.size > 1 && (
-                              <p className="text-[11px] text-indigo-200">🏷️ 분류 나눔: {[...byCat].map(([c, v]) => `${c} ${v.toLocaleString()}원`).join(' · ')}</p>
+                              <p className="text-[0.6875rem] text-indigo-200">🏷️ 분류 나눔: {[...byCat].map(([c, v]) => `${c} ${v.toLocaleString()}원`).join(' · ')}</p>
                             );
                           })()}
                           {!scanInc && <p className={sumOk ? 'text-emerald-400' : 'text-amber-300'}>
@@ -4956,7 +5012,7 @@
                                 : `⚠️ 품목 합계 ${scanResult.itemsSum.toLocaleString()}원 ≠ 결제 금액 ${amountNum.toLocaleString()}원 — 금액을 확인해주세요`}
                           </p>}
                           <div>
-                            <label className="text-[11px] text-slate-400">📝 메모 (선택)</label>
+                            <label className="text-[0.6875rem] text-slate-400">📝 메모 (선택)</label>
                             <input
                               type="text"
                               value={scanResult.memo || ''}
@@ -5031,10 +5087,10 @@
                         <span className="text-4xl">📷</span>
                         <div>
                           <div className="text-lg font-extrabold">{isScanning ? '🤖 읽는 중…' : '사진으로 등록'}</div>
-                          <div className="text-[11px] text-indigo-100 mt-0.5">찍거나 앨범에서 여러 장(최대 {SCAN_MAX_AUTO}장) · 긴 영수증 나눠 찍은 것도 알아서 합침</div>
+                          <div className="text-[0.6875rem] text-indigo-100 mt-0.5">찍거나 앨범에서 여러 장(최대 {SCAN_MAX_AUTO}장) · 긴 영수증 나눠 찍은 것도 알아서 합침</div>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-1 mt-3 text-[10px]">{['🧾 영수증', '📱 결제 앱 화면', '📩 카드 문자 캡처', '💰 입금 화면', '💼 급여명세서', '🏠 대출 화면'].map(t => <span key={t} className="bg-white/15 rounded-full px-2 py-0.5">{t}</span>)}</div>
+                      <div className="flex flex-wrap gap-1 mt-3 text-[0.625rem]">{['🧾 영수증', '📱 결제 앱 화면', '📩 카드 문자 캡처', '💰 입금 화면', '💼 급여명세서', '🏠 대출 화면'].map(t => <span key={t} className="bg-white/15 rounded-full px-2 py-0.5">{t}</span>)}</div>
                       <input type="file" accept="image/*" multiple className="hidden" disabled={isScanning} onChange={handleReceiptFile} />
                     </label>
                     <button onClick={() => openManual('expense')} className="block w-full bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-5 text-left text-white shadow-lg border border-slate-500/50 active:opacity-80">
@@ -5042,19 +5098,19 @@
                         <span className="text-4xl">✍️</span>
                         <div>
                           <div className="text-lg font-extrabold">직접 입력 · 붙여넣기</div>
-                          <div className="text-[11px] text-slate-300 mt-0.5">사진이 없을 때 · 카드 문자를 붙여넣으면 자동으로 채움</div>
+                          <div className="text-[0.6875rem] text-slate-300 mt-0.5">사진이 없을 때 · 카드 문자를 붙여넣으면 자동으로 채움</div>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-1 mt-3 text-[10px]">{['💸 지출', '💰 수입', '💼 급여명세서', '🏠 대출 상환', '📋 문자 붙여넣기'].map(t => <span key={t} className="bg-white/10 rounded-full px-2 py-0.5">{t}</span>)}</div>
+                      <div className="flex flex-wrap gap-1 mt-3 text-[0.625rem]">{['💸 지출', '💰 수입', '💼 급여명세서', '🏠 대출 상환', '📋 문자 붙여넣기'].map(t => <span key={t} className="bg-white/10 rounded-full px-2 py-0.5">{t}</span>)}</div>
                     </button>
                     <div className="bg-slate-900 border border-slate-800 rounded-xl text-xs">
                       <button onClick={() => setShowFileImport(v => !v)} className="w-full flex items-center justify-between px-3 py-2.5 text-slate-300">
-                        <span>📄 카드사 엑셀·CSV 파일 올리기 <span className="text-[10px] text-slate-500 ml-1">한 달 치를 한 번에</span></span>
+                        <span>📄 카드사 엑셀·CSV 파일 올리기 <span className="text-[0.625rem] text-slate-500 ml-1">한 달 치를 한 번에</span></span>
                         <span className="text-slate-500">{showFileImport ? '▾' : '›'}</span>
                       </button>
                       {showFileImport && (
                         <div className="px-3 pb-3 space-y-2">
-                          <p className="text-[11px] text-slate-400">카드사 앱·홈페이지에서 받은 이용내역 파일(.xls, .xlsx, .csv)을 올립니다. 이미 있는 내역은 건너뛰고, 취소 행은 60일 안의 짝이 되는 승인 건이 있을 때만 <code>-금액</code>으로 상계합니다.</p>
+                          <p className="text-[0.6875rem] text-slate-400">카드사 앱·홈페이지에서 받은 이용내역 파일(.xls, .xlsx, .csv)을 올립니다. 이미 있는 내역은 건너뛰고, 취소 행은 60일 안의 짝이 되는 승인 건이 있을 때만 <code>-금액</code>으로 상계합니다.</p>
                           <div className="flex items-center gap-2">
                             <span className="text-slate-400 whitespace-nowrap">이 파일의 카드</span>
                             <select value={importPay} onChange={e => setImportPay(e.target.value)} className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200">
@@ -5072,7 +5128,7 @@
                       )}
                     </div>
                     {!isScanning && !scanResult && !scanError && (
-                      <p className="text-[11px] text-slate-500 px-1 leading-relaxed">
+                      <p className="text-[0.6875rem] text-slate-500 px-1 leading-relaxed">
                         팁: 영수증은 전체가 화면에 들어오게, 밝은 곳에서 반듯하게 찍으세요. 긴 영수증은 위에서부터 몇 줄씩 겹치게 나눠 찍어 함께 고르면 됩니다.
                         사진은 AI(Gemini)가 읽습니다 (무료 사용량: 정확 모델 하루 약 20장, 넘으면 보조 모델로 약 500장).
                       </p>
@@ -5095,20 +5151,20 @@
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="bg-slate-950 rounded-xl p-2 border border-slate-800">
-                        <p className="text-[10px] text-slate-400">수입</p>
+                        <p className="text-[0.625rem] text-slate-400">수입</p>
                         <p className="text-sm font-extrabold text-emerald-300">+{incomeTotal.toLocaleString()}</p>
                       </div>
                       <div className="bg-slate-950 rounded-xl p-2 border border-slate-800">
-                        <p className="text-[10px] text-slate-400">지출</p>
+                        <p className="text-[0.625rem] text-slate-400">지출</p>
                         <p className="text-sm font-extrabold text-white">{totalAmount.toLocaleString()}</p>
                       </div>
                       <div className="bg-slate-950 rounded-xl p-2 border border-slate-800">
-                        <p className="text-[10px] text-slate-400">남은 돈</p>
+                        <p className="text-[0.625rem] text-slate-400">남은 돈</p>
                         <p className={`text-sm font-extrabold ${incomeTotal - totalAmount >= 0 ? 'text-sky-300' : 'text-rose-300'}`}>{(incomeTotal - totalAmount).toLocaleString()}</p>
                       </div>
                     </div>
                     {incomeTotal > 0 && (
-                      <p className="text-[11px] text-slate-400">저축률(남은 돈 ÷ 수입): <b className="text-slate-200">{Math.round((incomeTotal - totalAmount) / incomeTotal * 100)}%</b></p>
+                      <p className="text-[0.6875rem] text-slate-400">저축률(남은 돈 ÷ 수입): <b className="text-slate-200">{Math.round((incomeTotal - totalAmount) / incomeTotal * 100)}%</b></p>
                     )}
                     {(() => {
                       const rows = incomeCategories.map(c => ({ c, sum: monthIncome.filter(e => e.category === c.name).reduce((t, e) => t + e.amount, 0) }))
@@ -5120,7 +5176,7 @@
                           <div className="flex justify-between"><span>{c.name} <span className="text-slate-500">›</span></span><span className="font-bold text-emerald-300">+{sum.toLocaleString()}원 ({incomeTotal ? Math.round(sum / incomeTotal * 100) : 0}%)</span></div>
                           <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${incomeTotal ? Math.min(100, Math.round(sum / incomeTotal * 100)) : 0}%` }} /></div>
                         </button>
-                      )), other ? <button key="other" onClick={() => setStatDrill({ kind: 'income', key: '__other', title: '💰 기타 분류 수입', sub: null })} className="text-[11px] text-slate-400">기타 분류 +{other.toLocaleString()}원 ›</button> : null];
+                      )), other ? <button key="other" onClick={() => setStatDrill({ kind: 'income', key: '__other', title: '💰 기타 분류 수입', sub: null })} className="text-[0.6875rem] text-slate-400">기타 분류 +{other.toLocaleString()}원 ›</button> : null];
                     })()}
                   </div>
                 )}
@@ -5130,7 +5186,7 @@
                     <div className="flex justify-between items-center">
                       <h3 className="font-bold text-white text-base">📊 카테고리별 통계 ({selectedMonth === 'ALL' ? '전체' : selectedMonth})</h3>
                     </div>
-                    <p className="text-[11px] text-slate-500 -mt-2">영수증 품목에 분류가 있으면 품목별로 나눠서 더합니다.</p>
+                    <p className="text-[0.6875rem] text-slate-500 -mt-2">영수증 품목에 분류가 있으면 품목별로 나눠서 더합니다.</p>
                     {(() => {
                       // 지출이 있는 분류만, 금액이 큰 순서로 (분류가 많아도 한눈에)
                       const rows = categories.map(c => ({ c, sum: categoryParts.filter(x => x.category === c.name).reduce((s, x) => s + x.amount, 0) }))
@@ -5138,7 +5194,7 @@
                       const hidden = categories.length - rows.length;
                       return rows.length === 0
                         ? <p className="text-xs text-slate-500">이 기간에는 지출이 없습니다.</p>
-                        : hidden > 0 && <p className="text-[10px] text-slate-500 -mt-2">지출이 없는 분류 {hidden}개는 숨김</p>;
+                        : hidden > 0 && <p className="text-[0.625rem] text-slate-500 -mt-2">지출이 없는 분류 {hidden}개는 숨김</p>;
                     })()}
                     {categories.map(c => ({ c, sum: categoryParts.filter(x => x.category === c.name).reduce((s, x) => s + x.amount, 0) }))
                       .filter(r => r.sum !== 0).sort((a, b) => b.sum - a.sum).map(({ c, sum }) => {
@@ -5206,7 +5262,7 @@
                           </button>
                         ))}
                       </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed bg-slate-950 border border-slate-800 rounded-lg p-2">
+                      <p className="text-[0.6875rem] text-slate-400 leading-relaxed bg-slate-950 border border-slate-800 rounded-lg p-2">
                         {exportMode === 'row'
                           ? '결제 1건이 1줄입니다. 카드 명세서와 맞춰 보거나 업무경비를 정산할 때 쓰세요. 공급가액·부가세가 들어가고, 품목은 이름만 한 칸에 모아 적습니다.'
                           : '영수증 품목 1개가 1줄입니다(품목이 없는 결제는 1줄). 무엇에 얼마를 썼는지 품목별 분류로 볼 때 쓰세요. 품목 합계와 결제 금액이 다르면 "(영수증 차액)" 줄을 넣어 합계는 내역 단위와 같습니다.'}
@@ -5219,7 +5275,7 @@
                           📥 화면의 내역 저장
                         </button>
                       </div>
-                      <p className="text-[10px] text-slate-500">위의 월·결제자 선택(전체/남편/아내/업무용)이 그대로 적용됩니다.</p>
+                      <p className="text-[0.625rem] text-slate-500">위의 월·결제자 선택(전체/남편/아내/업무용)이 그대로 적용됩니다.</p>
                     </div>
                   </div>
                 )}
@@ -5233,7 +5289,7 @@
                       <button onClick={() => setShowCodeMigrateModal(false)} className="text-slate-400">✕</button>
                     </div>
 
-                    <div className="bg-amber-950/40 border border-amber-700/50 rounded-xl p-2.5 text-[11px] text-amber-200 space-y-1">
+                    <div className="bg-amber-950/40 border border-amber-700/50 rounded-xl p-2.5 text-[0.6875rem] text-amber-200 space-y-1">
                       <p className="font-bold">⚠️ 코드 이전 시 자동 보호 안내</p>
                       <p>• 전체 내역({expenses.length}건)을 서버에서 새 코드로 옮기고, 이전 코드는 바로 사용할 수 없게 됩니다.</p>
                       <p>• 이미 다른 가계부가 쓰는 코드로는 바꿀 수 없습니다.</p>
@@ -5298,7 +5354,7 @@
                     >
                       <span>
                         <span className="font-bold text-sky-300 block">📨 문자 수신 기록</span>
-                        <span className="text-[11px] text-slate-400">서버가 받은 카드 문자와 처리 결과 · 무시된 문자 다시 처리</span>
+                        <span className="text-[0.6875rem] text-slate-400">서버가 받은 카드 문자와 처리 결과 · 무시된 문자 다시 처리</span>
                       </span>
                       <span className="text-sky-300 font-bold">열기 ›</span>
                     </button>
@@ -5313,7 +5369,7 @@
                           SQL 복사
                         </button>
                       </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                      <p className="text-[0.6875rem] text-slate-400 leading-relaxed">
                         Supabase SQL Editor에 붙여넣고 Run. 여러 번 실행해도 안전합니다. 현재 DB 스키마: {dbSchemaVersion ?? '확인 전'}.
                         처음 설치할 때는 함께 받은 <b>초기화 SQL</b>을 먼저 한 번 실행하세요.
                       </p>
@@ -5321,7 +5377,7 @@
 
                     <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/40 space-y-2">
                       <span className="font-bold text-emerald-300">📞 받을 카드사 발신번호</span>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                      <p className="text-[0.6875rem] text-slate-400 leading-relaxed">
                         등록하면 이 번호에서 온 문자만 자동 등록합니다. 비워 두면 번호는 검사하지 않고 문자 내용만 검사합니다.
                         포워더가 문자 앞에 <code>보낸사람 : 번호</code> 줄을 붙여 보내야 번호 검사가 됩니다.
                       </p>
@@ -5361,7 +5417,7 @@
                           복사
                         </button>
                       </div>
-                      <p className="text-[11px] text-slate-400 break-all">{SUPABASE_URL}/rest/v1/rpc/receive_sms</p>
+                      <p className="text-[0.6875rem] text-slate-400 break-all">{SUPABASE_URL}/rest/v1/rpc/receive_sms</p>
                     </div>
 
                     <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
@@ -5374,7 +5430,7 @@
                           복사
                         </button>
                       </div>
-                      <p className="text-[11px] text-slate-400">헤더 <code>Content-Type: application/json</code>도 함께 넣어주세요.</p>
+                      <p className="text-[0.6875rem] text-slate-400">헤더 <code>Content-Type: application/json</code>도 함께 넣어주세요.</p>
                     </div>
 
                     <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
@@ -5395,7 +5451,7 @@
                           </button>
                         ))}
                       </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                      <p className="text-[0.6875rem] text-slate-400 leading-relaxed">
                         <code>{'{발신번호}'}</code>, <code>{'{문자내용}'}</code>은 포워더 앱이나 단축어에서 쓰는 자리표시자로 바꿔 넣으세요(앱마다 이름이 다릅니다).
                         코드를 바꾸면 <code>fam_code</code>도 꼭 새 값으로 바꿔야 합니다.
                       </p>
@@ -5403,12 +5459,12 @@
 
                     <div className="bg-slate-950 p-3 rounded-xl border border-violet-500/40 space-y-2">
                       <span className="font-bold text-violet-300">🤖 MacroDroid 등 자동화 앱 (원문 방식)</span>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                      <p className="text-[0.6875rem] text-slate-400 leading-relaxed">
                         본문에 문자 원문을 그대로 넣고, 가족 코드·결제자는 헤더로 보냅니다. JSON을 만들 필요가 없어 줄바꿈·따옴표가 있어도 깨지지 않습니다.
                         메시지 앱의 <b>알림</b>을 읽으면 RCS 카드 문자(확인된 발신번호)도 잡힙니다.
                       </p>
                       <div className="flex justify-between items-center gap-2">
-                        <p className="text-[11px] text-slate-300 break-all">{SUPABASE_URL}/rest/v1/rpc/receive_sms_raw</p>
+                        <p className="text-[0.6875rem] text-slate-300 break-all">{SUPABASE_URL}/rest/v1/rpc/receive_sms_raw</p>
                         <button
                           onClick={() => copyToClipboard(`${SUPABASE_URL}/rest/v1/rpc/receive_sms_raw`, '원문 방식 URL')}
                           className="bg-violet-600 text-white px-2.5 py-1 rounded font-bold shrink-0"
@@ -5430,12 +5486,12 @@
                           </button>
                         ))}
                       </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                      <p className="text-[0.6875rem] text-slate-400 leading-relaxed">
                         헤더 4줄: <code>apikey</code> · <code>Content-Type: text/plain</code> · <code>x-family-code</code> · <code>x-payer: husband/wife</code>.
                         본문 예(MacroDroid 알림 트리거): <code>{'보낸사람 : [notification_title]'}</code> 다음 줄에 <code>{'[notification]'}</code>.
                         Content-Type이 빠지면 등록되지 않습니다.
                       </p>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                      <p className="text-[0.6875rem] text-slate-400 leading-relaxed">
                         대화창을 열어 둔 채 문자가 오면 알림이 뜨지 않아 놓칠 수 있습니다. 일반 문자는 <b>SMS 수신</b> 트리거 매크로를 하나 더 만들어 함께 쓰세요
                         (본문: <code>보낸사람 : </code>+SMS 발신번호, 다음 줄에 SMS 내용). 같은 문자가 두 번 와도 한 번만 등록됩니다.
                       </p>
@@ -5454,7 +5510,7 @@
                         <button onClick={() => setShowInbox(false)} className="text-slate-400">✕</button>
                       </div>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-[0.6875rem] text-slate-400 leading-relaxed">
                       서버가 받은 문자 중 금액(…원)이 있는 것만 60일간 보관합니다. 개인 문자는 저장하지 않습니다.
                     </p>
                     <div className="flex gap-1.5">
@@ -5490,15 +5546,15 @@
                           return (
                             <div key={r.id} className={`p-2.5 rounded-xl border space-y-1.5 ${ok ? 'bg-slate-950 border-emerald-800/50' : dup ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-950 border-amber-700/50'}`}>
                               <div className="flex justify-between items-center gap-2">
-                                <span className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${badge[1]}`}>{badge[0]}</span>
-                                <span className="text-[10px] text-slate-500 shrink-0">{when} · {r.payer} · {r.via === 'raw' ? '자동화 앱' : '문자 전달 앱'}</span>
+                                <span className={`px-1.5 py-0.5 rounded font-bold text-[0.625rem] ${badge[1]}`}>{badge[0]}</span>
+                                <span className="text-[0.625rem] text-slate-500 shrink-0">{when} · {r.payer} · {r.via === 'raw' ? '자동화 앱' : '문자 전달 앱'}</span>
                               </div>
                               {ok && r.result?.store && (
                                 <p className="text-slate-200 font-bold">{r.result.store} · {Number(r.result.amount || 0).toLocaleString()}원</p>
                               )}
                               <button onClick={() => setInboxOpenId(open ? null : r.id)} className="w-full text-left">
                                 <p className={`text-slate-400 whitespace-pre-wrap break-all ${open ? '' : 'line-clamp-2'}`}>{(open ? lines : lines.slice(0, 3)).join('\n')}</p>
-                                {!open && lines.length > 3 && <span className="text-[10px] text-sky-400">▼ 원문 전체 보기</span>}
+                                {!open && lines.length > 3 && <span className="text-[0.625rem] text-sky-400">▼ 원문 전체 보기</span>}
                               </button>
                               <div className="flex gap-1.5 justify-end">
                                 <button
@@ -5516,7 +5572,7 @@
                         });
                       })()}
                     </div>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                    <p className="text-[0.625rem] text-slate-500 leading-relaxed">
                       무시된 문자는 발신번호를 추가하거나 해석 규칙이 바뀐 뒤 [다시 처리]로 등록할 수 있습니다. 서버에 닿지 못한 문자(인터넷 끊김 등)는 여기에 없으니,
                       메시지 앱에서 복사해 [문자 붙여넣기]로 넣어주세요.
                     </p>
@@ -5548,18 +5604,18 @@
                             value={manual.sms || ''}
                             onChange={e => onManualSms(e.target.value)}
                             placeholder="📋 카드 문자를 여기에 붙여넣으면 아래 칸이 자동으로 채워져요 (여러 개 한 번에 가능)"
-                            className="w-full bg-transparent text-[11px] text-slate-200 placeholder:text-sky-300/80 leading-snug resize-none outline-none"
+                            className="w-full bg-transparent text-[0.6875rem] text-slate-200 placeholder:text-sky-300/80 leading-snug resize-none outline-none"
                           />
                           {one && (
-                            <p className={`text-[11px] font-bold ${one.status === 'new' ? 'text-sky-300' : 'text-amber-300'}`}>
+                            <p className={`text-[0.6875rem] font-bold ${one.status === 'new' ? 'text-sky-300' : 'text-amber-300'}`}>
                               {one.status === 'dup' ? 'ℹ️ 이미 등록된 결제 문자입니다 (등록하지 않아도 돼요)'
                                 : one.status === 'trash' ? '🗑️ 휴지통에 버린 결제와 같은 문자예요 · 등록하면 다시 꺼낼지 물어봐요'
                                 : '📩 문자 1건을 읽어 아래에 채웠어요 · 확인 후 등록'}
                             </p>
                           )}
-                          {paste && paste.rows.length === 0 && <p className="text-[11px] text-amber-300">⚠️ 카드 결제·취소 문자를 찾지 못했어요. 승인 문자 전체(금액·일시 포함)를 붙여넣어 주세요. 광고·안내 문자는 건너뜁니다.</p>}
+                          {paste && paste.rows.length === 0 && <p className="text-[0.6875rem] text-amber-300">⚠️ 카드 결제·취소 문자를 찾지 못했어요. 승인 문자 전체(금액·일시 포함)를 붙여넣어 주세요. 광고·안내 문자는 건너뜁니다.</p>}
                           {multi && (
-                            <div className="space-y-1 text-[11px]">
+                            <div className="space-y-1 text-[0.6875rem]">
                               <p className="text-sky-300 font-bold">📩 문자 {paste.rows.length}건을 읽었어요</p>
                               {paste.rows.map((r, i) => (
                                 <div key={i} className={`flex justify-between items-center gap-2 ${r.status === 'new' ? '' : 'opacity-50'}`}>
@@ -5585,12 +5641,12 @@
                           <button onClick={() => setManual(null)} className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg">취소</button>
                         </div>
                       ) : (<>
-                      {(inc || !one) && <p className="text-[11px] text-slate-400">
+                      {(inc || !one) && <p className="text-[0.6875rem] text-slate-400">
                         {inc ? '받은 돈(급여, 용돈, 환급, 중고판매 등)을 넣습니다. 입금 화면 캡처는 📷 사진으로 등록에 올려도 됩니다.'
                              : '문자·영수증이 없는 지출(축의금, 용돈, 현금 결제 등)을 직접 넣습니다.'}
                       </p>}
                       <div>
-                        <label className="text-[11px] text-slate-400">{inc ? '보낸 곳 / 내용' : '가게 / 내용'}</label>
+                        <label className="text-[0.6875rem] text-slate-400">{inc ? '보낸 곳 / 내용' : '가게 / 내용'}</label>
                         <input
                           autoFocus
                           value={manual.store}
@@ -5610,7 +5666,7 @@
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="text-[11px] text-slate-400">금액(원)</label>
+                          <label className="text-[0.6875rem] text-slate-400">금액(원)</label>
                           <input
                             inputMode="numeric"
                             value={manual.amount}
@@ -5620,7 +5676,7 @@
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] text-slate-400">날짜</label>
+                          <label className="text-[0.6875rem] text-slate-400">날짜</label>
                           <input
                             type="datetime-local"
                             value={manual.date.replace(' ', 'T').slice(0, 16)}
@@ -5630,7 +5686,7 @@
                         </div>
                       </div>
                       <div>
-                        <label className="text-[11px] text-slate-400">분류</label>
+                        <label className="text-[0.6875rem] text-slate-400">분류</label>
                         <div className="flex gap-1 mt-0.5">
                           <select
                             value={manual.category}
@@ -5660,7 +5716,7 @@
                       </div>
                       <div>
                         <div className="flex justify-between items-center">
-                          <label className="text-[11px] text-slate-400">{inc ? '받은 사람' : '결제 수단 · 결제자'}</label>
+                          <label className="text-[0.6875rem] text-slate-400">{inc ? '받은 사람' : '결제 수단 · 결제자'}</label>
                           <div className="flex gap-1">
                             {['남편', '아내'].map(p => (
                               <button
@@ -5685,12 +5741,12 @@
                             >
                               {payOptions(manual.pay).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                             </select>
-                            <p className="text-[10px] text-slate-500 mt-0.5">자동이체·무통장입금·계좌이체는 🏦 계좌이체를 고르세요.</p>
+                            <p className="text-[0.625rem] text-slate-500 mt-0.5">자동이체·무통장입금·계좌이체는 🏦 계좌이체를 고르세요.</p>
                           </>
                         )}
                       </div>
                       <div>
-                        <label className="text-[11px] text-slate-400">📝 메모 (선택)</label>
+                        <label className="text-[0.6875rem] text-slate-400">📝 메모 (선택)</label>
                         <input
                           value={manual.memo}
                           onChange={e => setManual({ ...manual, memo: e.target.value.slice(0, 200) })}
@@ -5736,12 +5792,12 @@
                           <button onClick={() => { setPsEdit(null); setPsQueue([]); }} className="text-slate-400">✕</button>
                         </div>
                         {inputReturn === 'payslip' && !d.id && !d.read && renderInputKinds('payslip')}
-                        {inputReturn === 'payslip' && !d.id && !d.read && <p className="text-[11px] text-slate-400">명세서 사진은 📷 사진으로 등록에 올리면 AI가 항목을 읽어요. 지난 명세서 목록은 📊 통계 › 💼 급여명세서에서 봅니다.</p>}
-                        {d.read?.model && <p className="text-[11px] text-slate-500">🤖 {d.read.model}로 읽음{d.read.total > 1 ? ` · 같이 올린 명세서 ${d.read.total}개 중 ${d.read.pos}번째${d.read.photos?.length ? ` (사진 ${d.read.photos.join('·')}번)` : ''}` : ''} · 틀린 곳은 고친 뒤 저장</p>}
-                        {d.read?.monthMissing && <p className="text-[11px] text-amber-300">📅 명세서에서 귀속월을 찾지 못했습니다. 아래에서 골라주세요.</p>}
+                        {inputReturn === 'payslip' && !d.id && !d.read && <p className="text-[0.6875rem] text-slate-400">명세서 사진은 📷 사진으로 등록에 올리면 AI가 항목을 읽어요. 지난 명세서 목록은 📊 통계 › 💼 급여명세서에서 봅니다.</p>}
+                        {d.read?.model && <p className="text-[0.6875rem] text-slate-500">🤖 {d.read.model}로 읽음{d.read.total > 1 ? ` · 같이 올린 명세서 ${d.read.total}개 중 ${d.read.pos}번째${d.read.photos?.length ? ` (사진 ${d.read.photos.join('·')}번)` : ''}` : ''} · 틀린 곳은 고친 뒤 저장</p>}
+                        {d.read?.monthMissing && <p className="text-[0.6875rem] text-amber-300">📅 명세서에서 귀속월을 찾지 못했습니다. 아래에서 골라주세요.</p>}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[11px] text-slate-400">받는 사람</label>
+                            <label className="text-[0.6875rem] text-slate-400">받는 사람</label>
                             <div className="flex gap-1 mt-0.5">
                               {['남편', '아내'].map(o => (
                                 <button key={o} onClick={() => set({ owner: o })}
@@ -5750,24 +5806,24 @@
                             </div>
                           </div>
                           <div>
-                            <label className="text-[11px] text-slate-400">귀속월</label>
+                            <label className="text-[0.6875rem] text-slate-400">귀속월</label>
                             <input type="month" value={d.pay_month || ''} onChange={e => set({ pay_month: e.target.value })} className={inp + ' mt-0.5'} />
                           </div>
                           <div>
-                            <label className="text-[11px] text-slate-400">지급일(입금일)</label>
+                            <label className="text-[0.6875rem] text-slate-400">지급일(입금일)</label>
                             <input type="date" value={d.pay_date || ''} onChange={e => set({ pay_date: e.target.value })} className={inp + ' mt-0.5'} />
                           </div>
                           <div>
-                            <label className="text-[11px] text-slate-400">회사</label>
+                            <label className="text-[0.6875rem] text-slate-400">회사</label>
                             <input value={d.company || ''} onChange={e => set({ company: e.target.value.slice(0, 40) })} placeholder="(선택)" className={inp + ' mt-0.5'} />
                           </div>
                         </div>
                         <div>
-                          <label className="text-[11px] text-slate-400">유형 (명세서의 급여유형)</label>
+                          <label className="text-[0.6875rem] text-slate-400">유형 (명세서의 급여유형)</label>
                           <div className="flex gap-1 mt-0.5">
                             {PS_TYPES.map(ty => (
                               <button key={ty} onClick={() => set({ pay_type: ty })}
-                                className={`flex-1 py-1.5 rounded-lg font-bold text-[11px] ${payslipTypeOf(d.pay_type) === ty ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{ty}</button>
+                                className={`flex-1 py-1.5 rounded-lg font-bold text-[0.6875rem] ${payslipTypeOf(d.pay_type) === ty ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{ty}</button>
                             ))}
                           </div>
                         </div>
@@ -5781,31 +5837,31 @@
                               <button onClick={() => set({ earnings: d.earnings.filter((_, k) => k !== i) })} className="text-rose-300 px-1">✕</button>
                             </div>
                           ))}
-                          <button onClick={() => set({ earnings: [...d.earnings, { name: '', amount: 0 }] })} className="text-[11px] text-sky-300">＋ 지급 항목 추가</button>
+                          <button onClick={() => set({ earnings: [...d.earnings, { name: '', amount: 0 }] })} className="text-[0.6875rem] text-sky-300">＋ 지급 항목 추가</button>
                         </div>
 
                         <div className="bg-slate-950 rounded-xl border border-slate-800 p-2 space-y-1.5">
-                          <p className="font-bold text-rose-300">공제 항목 <span className="text-[10px] text-slate-500 font-normal">· 연말정산 환급은 −금액</span></p>
+                          <p className="font-bold text-rose-300">공제 항목 <span className="text-[0.625rem] text-slate-500 font-normal">· 연말정산 환급은 −금액</span></p>
                           {d.deductions.map((x, i) => (
                             <div key={i} className="flex gap-1 items-center">
                               <input value={x.name} onChange={ev => setRow('deductions', i, { name: ev.target.value, group: payslipGroupOf(ev.target.value) === '기타' ? x.group : payslipGroupOf(ev.target.value) })} className={rowInp + ' flex-1 min-w-0'} placeholder="항목" />
                               <input inputMode="numeric" value={x.amount} onChange={ev => setRow('deductions', i, { amount: ev.target.value.replace(/[^0-9-]/g, '') })} className={rowInp + ' w-24 shrink-0 text-right'} />
-                              <select value={x.group && x.group !== '상계' ? x.group : payslipGroupOf(x.name)} onChange={ev => setRow('deductions', i, { group: ev.target.value })} className="bg-slate-950 border border-slate-700 rounded-lg px-0.5 py-1.5 text-[10px] text-slate-300 w-16 shrink-0">
+                              <select value={x.group && x.group !== '상계' ? x.group : payslipGroupOf(x.name)} onChange={ev => setRow('deductions', i, { group: ev.target.value })} className="bg-slate-950 border border-slate-700 rounded-lg px-0.5 py-1.5 text-[0.625rem] text-slate-300 w-16 shrink-0">
                                 {PS_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
                               </select>
                               <button onClick={() => set({ deductions: d.deductions.filter((_, k) => k !== i) })} className="text-rose-300 px-1">✕</button>
                             </div>
                           ))}
-                          <button onClick={() => set({ deductions: [...d.deductions, { name: '', amount: 0, group: '기타' }] })} className="text-[11px] text-sky-300">＋ 공제 항목 추가</button>
+                          <button onClick={() => set({ deductions: [...d.deductions, { name: '', amount: 0, group: '기타' }] })} className="text-[0.6875rem] text-sky-300">＋ 공제 항목 추가</button>
                         </div>
 
                         {(d.refs || []).length > 0 && (
-                          <p className="text-[11px] text-slate-500">참조: {d.refs.map(r => `${r.name} ${r.value}`).join(' · ')}</p>
+                          <p className="text-[0.6875rem] text-slate-500">참조: {d.refs.map(r => `${r.name} ${r.value}`).join(' · ')}</p>
                         )}
                         <div className="grid grid-cols-3 gap-1.5 text-center">
-                          <div className="bg-slate-950 rounded-lg p-1.5 border border-slate-800"><p className="text-[10px] text-slate-400">총지급계</p><p className="font-bold text-slate-100">{t.gross.toLocaleString()}</p></div>
-                          <div className="bg-slate-950 rounded-lg p-1.5 border border-slate-800"><p className="text-[10px] text-slate-400">공제계</p><p className="font-bold text-slate-100">{t.ded.toLocaleString()}</p></div>
-                          <div className="bg-slate-950 rounded-lg p-1.5 border border-emerald-800"><p className="text-[10px] text-slate-400">실지급액</p><p className="font-bold text-emerald-300">{t.net.toLocaleString()}</p></div>
+                          <div className="bg-slate-950 rounded-lg p-1.5 border border-slate-800"><p className="text-[0.625rem] text-slate-400">총지급계</p><p className="font-bold text-slate-100">{t.gross.toLocaleString()}</p></div>
+                          <div className="bg-slate-950 rounded-lg p-1.5 border border-slate-800"><p className="text-[0.625rem] text-slate-400">공제계</p><p className="font-bold text-slate-100">{t.ded.toLocaleString()}</p></div>
+                          <div className="bg-slate-950 rounded-lg p-1.5 border border-emerald-800"><p className="text-[0.625rem] text-slate-400">실지급액</p><p className="font-bold text-emerald-300">{t.net.toLocaleString()}</p></div>
                         </div>
                         {d.read && (mism.length === 0
                           ? <p className="text-emerald-400">✓ 항목 합계가 명세서의 총지급계·공제계·실지급액과 같습니다.</p>
@@ -5813,7 +5869,7 @@
                         <label className="flex items-start gap-2 text-slate-300">
                           <input type="checkbox" checked={!!d.linkIncome} onChange={e => set({ linkIncome: e.target.checked })} className="mt-0.5" />
                           <span>실지급액을 수입(급여 › {isBonusType(d.pay_type) ? '상여/성과급' : '월급'})으로 등록 · 같은 금액의 입금 내역이 있으면 그것과 연결{d.income_id && expenses.some(e => e.id === d.income_id) ? ' (연결됨)' : ''}
-                            {d.income_id && !d.linkIncome && <span className="block text-amber-300 text-[11px]">끄고 저장하면 명세서가 만든 수입은 휴지통으로, 직접 넣은 입금 내역은 연결만 끊깁니다.</span>}</span>
+                            {d.income_id && !d.linkIncome && <span className="block text-amber-300 text-[0.6875rem]">끄고 저장하면 명세서가 만든 수입은 휴지통으로, 직접 넣은 입금 내역은 연결만 끊깁니다.</span>}</span>
                         </label>
                         <input value={d.memo || ''} onChange={e => set({ memo: e.target.value.slice(0, 200) })} placeholder="📝 메모 (선택)" className={inp} />
                         <div className="flex gap-2 pt-1">
@@ -5860,7 +5916,7 @@
                         </label>
                         <button onClick={() => setPsEdit(newPayslipDraft())} className="py-2 rounded-lg font-bold bg-slate-800 text-slate-200">✍️ 직접 입력</button>
                       </div>
-                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                      <p className="text-[0.625rem] text-slate-500 leading-relaxed">
                         사진은 AI(Gemini)가 읽습니다. 결제를 연결하지 않은 무료 등급이면 보낸 내용이 구글 서비스 개선에 쓰일 수 있으니, 그때는 이름·계좌번호를 가리고 찍거나 직접 입력을 쓰세요.
                         여러 장(최대 10장)을 함께 고르면, 한 명세서를 나눠 찍은 사진은 합치고 다른 달·다른 유형 명세서는 따로 읽어 하나씩 확인합니다.
                       </p>
@@ -5892,10 +5948,10 @@
                               return (
                                 <button key={p.id} onClick={() => editPayslip(p)} className="w-full text-left bg-slate-950 rounded-xl border border-slate-800 p-2.5 space-y-0.5">
                                   <div className="flex justify-between">
-                                    <b className="text-slate-100">{p.pay_month}{ptype !== '월급여' && <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 text-[10px]">{ptype}</span>}{p.pay_date ? ` · ${p.pay_date.slice(2).replace(/-/g, '.')} 지급` : ''}</b>
+                                    <b className="text-slate-100">{p.pay_month}{ptype !== '월급여' && <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 text-[0.625rem]">{ptype}</span>}{p.pay_date ? ` · ${p.pay_date.slice(2).replace(/-/g, '.')} 지급` : ''}</b>
                                     <b className="text-emerald-300">{won(p.net)}</b>
                                   </div>
-                                  <p className="text-[10px] text-slate-500">
+                                  <p className="text-[0.625rem] text-slate-500">
                                     총지급 {p.gross.toLocaleString()} · 공제 {p.deduction_total.toLocaleString()}
                                     {t.yearEnd !== 0 && ` · 연말정산 ${t.yearEnd < 0 ? '환급 ' + (-t.yearEnd).toLocaleString() : t.yearEnd.toLocaleString()}`}
                                     {diff !== null && diff !== 0 && <span className={diff > 0 ? 'text-sky-400' : 'text-rose-400'}> · 전달보다 {diff > 0 ? '+' : ''}{diff.toLocaleString()}</span>}
@@ -5944,21 +6000,21 @@
                         <h3 className="font-bold text-white text-sm">🎯 월 예산</h3>
                         <button onClick={() => setBudgetEdit(null)} className="text-slate-400">✕</button>
                       </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">매달 같은 금액을 씁니다. 대출상환·관리비 같은 고정비도 포함한 <b className="text-slate-200">지출 전체</b> 기준입니다. 위 요약 카드의 [전체]는 부부 합산, [남편]·[아내]는 각자 예산으로 보여요.</p>
+                      <p className="text-[0.6875rem] text-slate-400 leading-relaxed">매달 같은 금액을 씁니다. 대출상환·관리비 같은 고정비도 포함한 <b className="text-slate-200">지출 전체</b> 기준입니다. 위 요약 카드의 [전체]는 부부 합산, [남편]·[아내]는 각자 예산으로 보여요.</p>
                       <div>
-                        <label className="text-[11px] text-slate-300 font-bold">부부 합산 예산 (원)</label>
+                        <label className="text-[0.6875rem] text-slate-300 font-bold">부부 합산 예산 (원)</label>
                         <input inputMode="numeric" value={fmt(d.total)} onChange={e => set('total', e.target.value)} placeholder="예: 3,500,000" className={inp + ' mt-0.5'} />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         {['남편', '아내'].map(k => (
                           <div key={k}>
-                            <label className="text-[11px] text-slate-400">{k} 예산 (선택)</label>
+                            <label className="text-[0.6875rem] text-slate-400">{k} 예산 (선택)</label>
                             <input inputMode="numeric" value={fmt(d[k])} onChange={e => set(k, e.target.value)} placeholder="안 정해도 됨" className={inp + ' mt-0.5'} />
                           </div>
                         ))}
                       </div>
                       {sumEach > 0 && numOf(d.total) > 0 && sumEach !== numOf(d.total) && (
-                        <p className="text-[10px] text-slate-500">각자 예산 합 {sumEach.toLocaleString()}원 ≠ 합산 예산 {numOf(d.total).toLocaleString()}원 (같지 않아도 됩니다. 공동 지출이 따로 있으면 보통 합산이 더 큼)</p>
+                        <p className="text-[0.625rem] text-slate-500">각자 예산 합 {sumEach.toLocaleString()}원 ≠ 합산 예산 {numOf(d.total).toLocaleString()}원 (같지 않아도 됩니다. 공동 지출이 따로 있으면 보통 합산이 더 큼)</p>
                       )}
                       <div className="flex gap-2 pt-1">
                         <button onClick={async () => { if (await saveBudget(d)) setBudgetEdit(null); }} className="flex-1 py-2 bg-emerald-600 text-white font-bold rounded-lg">💾 저장</button>
@@ -6012,12 +6068,12 @@
                               <b className="text-slate-100 truncate">{e.store}</b>
                               <b className={`shrink-0 ${inc ? 'text-emerald-300' : amt < 0 ? 'text-rose-300' : 'text-slate-100'}`}>{inc ? '+' : ''}{amt.toLocaleString()}원</b>
                             </div>
-                            <p className="text-[10px] text-slate-500">
+                            <p className="text-[0.625rem] text-slate-500">
                               {normalizeDateString(e.date).slice(5, 16)} · {e.payer}{payLabel(cards, e) ? ` · ${payLabel(cards, e)}` : ''}{d.kind !== 'cat' ? ` · ${e.category}${e.sub_category ? ' › ' + e.sub_category : ''}` : (() => { const subs = [...new Set((parts || []).map(x => x.sub_category).filter(Boolean))]; return subs.length ? ` · ${subs.join(', ')}` : ''; })()}
                               {amt !== e.amount && <span className="text-amber-300"> · 결제 {Number(e.amount).toLocaleString()}원 중 이 분류</span>}
                             </p>
                             {amt !== e.amount && parts && parts.some(x => x.name) && (
-                              <p className="text-[10px] text-slate-400 leading-relaxed">
+                              <p className="text-[0.625rem] text-slate-400 leading-relaxed">
                                 {parts.slice(0, 4).map((x, k) => <span key={k} className="block">• {x.name || '(나머지)'} {Number(x.amount).toLocaleString()}원</span>)}
                                 {parts.length > 4 && <span className="block text-slate-500">… 외 {parts.length - 4}개</span>}
                               </p>
@@ -6028,7 +6084,7 @@
                       {rows.some(r => r.e.source === '대출상환') && (
                         <button onClick={() => { setStatDrill(null); openLoans(); }} className="w-full py-2 rounded-lg font-bold bg-slate-800 text-amber-200 border border-amber-700/60">🏠 대출 관리 ›</button>
                       )}
-                      <p className="text-[10px] text-slate-500 text-center">내역을 누르면 내역 탭의 그 결제로 이동합니다.</p>
+                      <p className="text-[0.625rem] text-slate-500 text-center">내역을 누르면 내역 탭의 그 결제로 이동합니다.</p>
                     </div>
                   </div>
                 );
@@ -6049,7 +6105,7 @@
                     </div>
                   </div>
                 );
-                const field = (label, el) => (<div><label className="text-[11px] text-slate-400">{label}</label><div className="mt-0.5">{el}</div></div>);
+                const field = (label, el) => (<div><label className="text-[0.6875rem] text-slate-400">{label}</label><div className="mt-0.5">{el}</div></div>);
                 const ownerPick = (val, onPick) => (
                   <div className="flex gap-1">
                     {['남편', '아내'].map(o => (
@@ -6073,13 +6129,13 @@
                   </div>
                 );
                 const payLine = (p) => (
-                  <span className="text-[10px] text-slate-500">
+                  <span className="text-[0.625rem] text-slate-500">
                     원금 {Number(p.principal).toLocaleString()} · 이자 {Number(p.interest).toLocaleString()}
                     {Number(p.fee) > 0 && ` · 조기상환수수료 ${Number(p.fee).toLocaleString()}`}
                     {Number(p.late_fee) > 0 && ` · 지연배상금 ${Number(p.late_fee).toLocaleString()}`}
                   </span>
                 );
-                const kindTag = (k) => k === '조기상환' ? <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 text-[10px]">조기상환</span> : null;
+                const kindTag = (k) => k === '조기상환' ? <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 text-[0.625rem]">조기상환</span> : null;
                 const uploadBtn = (targetId, label) => (
                   <label className={`text-center py-2 rounded-lg font-bold ${loanBusy === 'reading' ? 'bg-slate-700 text-slate-400' : 'bg-amber-600 text-white cursor-pointer'}`}>
                     {loanBusy === 'reading' ? '🤖 읽는 중…' : label}
@@ -6103,7 +6159,7 @@
                           {loans.map(l => <option key={l.id} value={l.id}>{l.name}{l.lender ? ` (${l.lender})` : ''}</option>)}
                         </select>
                       ))}
-                      {fromInput && loans.length === 1 && <p className="text-[11px] text-slate-400">🏠 {loans[0].name} 상환 · 은행 앱 화면은 📷 사진으로 등록에 올려도 돼요</p>}
+                      {fromInput && loans.length === 1 && <p className="text-[0.6875rem] text-slate-400">🏠 {loans[0].name} 상환 · 은행 앱 화면은 📷 사진으로 등록에 올려도 돼요</p>}
                       <div className="grid grid-cols-2 gap-2">
                         {field('납부일', <input type="date" value={d.pay_date} onChange={e => set({ pay_date: e.target.value })} className={inp} />)}
                         {field('회차 (선택)', <input inputMode="numeric" value={d.seq ?? ''} onChange={e => set({ seq: e.target.value.replace(/[^0-9]/g, '') })} className={inp} />)}
@@ -6139,7 +6195,7 @@
                   return shell(`🏠 대출 ${d.id ? '정보 고치기' : '직접 등록'}`, () => setLoanEdit(null), (
                     <>
                       {inputReturn === 'loan' && !d.id && renderInputKinds('loan')}
-                      {inputReturn === 'loan' && !d.id && loans.length === 0 && <p className="text-[11px] text-amber-200">등록된 대출이 없어 대출부터 등록합니다. 저장하면 그 대출 화면에서 상환을 넣을 수 있어요.</p>}
+                      {inputReturn === 'loan' && !d.id && loans.length === 0 && <p className="text-[0.6875rem] text-amber-200">등록된 대출이 없어 대출부터 등록합니다. 저장하면 그 대출 화면에서 상환을 넣을 수 있어요.</p>}
                       {txt('name', '대출 이름', '예: 아낌e보금자리론')}
                       <div className="grid grid-cols-2 gap-2">
                         {txt('lender', '취급기관', '예: 국민은행')}
@@ -6156,7 +6212,7 @@
                       </div>
                       {expenseFromPick(d, set)}
                       <input value={d.memo || ''} onChange={e => set({ memo: e.target.value.slice(0, 200) })} placeholder="📝 메모 (선택)" className={inp} />
-                      <p className="text-[10px] text-slate-500">대출계좌번호·자동이체 계좌·담보주택 주소는 넣지 않아도 됩니다.</p>
+                      <p className="text-[0.625rem] text-slate-500">대출계좌번호·자동이체 계좌·담보주택 주소는 넣지 않아도 됩니다.</p>
                       <div className="flex gap-2 pt-1">
                         <button onClick={saveLoan} disabled={loanBusy === 'saving'} className="flex-1 py-2 bg-amber-600 text-white font-bold rounded-lg disabled:opacity-50">{loanBusy === 'saving' ? '저장 중…' : '💾 저장'}</button>
                         {d.id && <button onClick={() => deleteLoan(d)} className="px-3 py-2 bg-slate-800 text-rose-300 rounded-lg">삭제</button>}
@@ -6188,11 +6244,11 @@
                     ['다음 납부', d.next_due?.date && `${d.next_due.date}${d.next_due.total ? ` · ${won(d.next_due.total)}` : ''}`]].filter(([, v]) => v);
                   return shell('🏠 읽은 내용 확인', () => setLoanRead(null), (
                     <>
-                      {R.model && <p className="text-[11px] text-slate-500">🤖 {R.model}로 사진 {R.photos}장 읽음 · 틀린 곳은 저장한 뒤 고칠 수 있어요</p>}
+                      {R.model && <p className="text-[0.6875rem] text-slate-500">🤖 {R.model}로 사진 {R.photos}장 읽음 · 틀린 곳은 저장한 뒤 고칠 수 있어요</p>}
                       <div className="bg-slate-950 rounded-xl border border-slate-800 p-2 space-y-1.5">
                         <div className="flex justify-between items-center">
                           <p className="font-bold text-amber-300">{R.targetId ? '기존 대출에 반영' : '새 대출로 등록'}</p>
-                          {R.hasInfo && <span className="text-[10px] text-sky-300">대출정보 화면 읽음</span>}
+                          {R.hasInfo && <span className="text-[0.625rem] text-sky-300">대출정보 화면 읽음</span>}
                         </div>
                         {field('대출 이름', <input value={d.name || ''} onChange={e => set({ name: e.target.value })} className={inp} />)}
                         {info.length > 0 && (
@@ -6202,17 +6258,17 @@
                         )}
                         {!R.targetId && field('지출은 누구 이름으로', ownerPick(d.owner, o => set({ owner: o })))}
                         {!R.targetId && expenseFromPick(d, set)}
-                        {!R.targetId && !R.hasInfo && <p className="text-[11px] text-amber-300">잔액·금리는 '대출정보 조회' 화면을 올리거나 저장 후 ✏️ 정보 고치기로 넣어주세요.</p>}
+                        {!R.targetId && !R.hasInfo && <p className="text-[0.6875rem] text-amber-300">잔액·금리는 '대출정보 조회' 화면을 올리거나 저장 후 ✏️ 정보 고치기로 넣어주세요.</p>}
                       </div>
                       <div className="bg-slate-950 rounded-xl border border-slate-800 p-2 space-y-1">
-                        <p className="font-bold text-amber-300">상환 기록 {R.pays.length}건 {R.pays.length > fresh.length && <span className="text-[10px] text-slate-500 font-normal">· 이미 있는 {R.pays.length - fresh.length}건은 건너뜀</span>}</p>
+                        <p className="font-bold text-amber-300">상환 기록 {R.pays.length}건 {R.pays.length > fresh.length && <span className="text-[0.625rem] text-slate-500 font-normal">· 이미 있는 {R.pays.length - fresh.length}건은 건너뜀</span>}</p>
                         {R.pays.length === 0 && <p className="text-slate-500">상환내역 화면은 없었습니다. (회차별 원금·이자는 '상환내역 조회' 화면을 캡처해 올리세요)</p>}
                         {R.pays.map((p, i) => (
                           <label key={p.key} className={`flex items-start gap-2 py-1 border-b border-slate-800/60 ${p.dup ? 'opacity-40' : ''}`}>
                             <input type="checkbox" disabled={p.dup} checked={p.on && !p.dup} onChange={e => setPay(i, { on: e.target.checked })} className="mt-0.5" />
                             <span className="flex-1">
                               <span className="flex justify-between">
-                                <span className="text-slate-200">{p.pay_date}{p.seq ? ` · ${p.seq}회` : ''}{kindTag(p.kind)}{p.dup && <span className="ml-1 text-[10px]">(이미 있음)</span>}</span>
+                                <span className="text-slate-200">{p.pay_date}{p.seq ? ` · ${p.seq}회` : ''}{kindTag(p.kind)}{p.dup && <span className="ml-1 text-[0.625rem]">(이미 있음)</span>}</span>
                                 <b className="text-slate-100">{won(p.total)}</b>
                               </span>
                               {payLine(p)}
@@ -6254,13 +6310,13 @@
                     <>
                       <div className="bg-slate-950 rounded-xl border border-amber-800/60 p-2.5 space-y-1.5">
                         <div className="flex justify-between items-end">
-                          <span className="text-slate-400">대출 잔액{open.balance_date ? <span className="text-[10px] text-slate-500"> · {open.balance_date} 기준{bal !== Number(open.balance) ? ' + 이후 상환 반영' : ''}</span> : ''}</span>
+                          <span className="text-slate-400">대출 잔액{open.balance_date ? <span className="text-[0.625rem] text-slate-500"> · {open.balance_date} 기준{bal !== Number(open.balance) ? ' + 이후 상환 반영' : ''}</span> : ''}</span>
                           <b className="text-lg text-amber-300">{won(bal)}</b>
                         </div>
                         {Number(open.principal) > 0 && (
                           <>
                             <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{ width: `${repaid}%` }} /></div>
-                            <p className="text-[11px] text-slate-400">최초 {won(open.principal)} 중 <b className="text-slate-200">{won(Number(open.principal) - bal)}</b> 갚음 ({repaid.toFixed(1)}%)</p>
+                            <p className="text-[0.6875rem] text-slate-400">최초 {won(open.principal)} 중 <b className="text-slate-200">{won(Number(open.principal) - bal)}</b> 갚음 ({repaid.toFixed(1)}%)</p>
                           </>
                         )}
                         <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-slate-300">
@@ -6270,8 +6326,8 @@
                           {open.maturity_date && <><span className="text-slate-400">만기</span><b className="text-right">{open.maturity_date}{left !== null ? ` (남은 ${left}개월)` : ''}</b></>}
                           {nd && <><span className="text-slate-400">다음 납부</span><b className="text-right text-sky-300">{nd.date}{nd.total ? ` · ${won(nd.total)}` : ''}</b></>}
                         </div>
-                        {nd && nd.total > 0 && <p className="text-[10px] text-slate-500 text-right">원금 {Number(nd.principal).toLocaleString()} · 이자 {Number(nd.interest).toLocaleString()}</p>}
-                        <p className="text-[10px] text-slate-500">가계부 지출: {open.expense_from ? `${open.expense_from}부터 상환액 전체를 주거/고정비 › 대출상환으로 (${open.owner})` : '넣지 않음'}</p>
+                        {nd && nd.total > 0 && <p className="text-[0.625rem] text-slate-500 text-right">원금 {Number(nd.principal).toLocaleString()} · 이자 {Number(nd.interest).toLocaleString()}</p>}
+                        <p className="text-[0.625rem] text-slate-500">가계부 지출: {open.expense_from ? `${open.expense_from}부터 상환액 전체를 주거/고정비 › 대출상환으로 (${open.owner})` : '넣지 않음'}</p>
                       </div>
                       <div className="grid grid-cols-3 gap-1.5">
                         {uploadBtn(open.id, '📷 캡처')}
@@ -6287,12 +6343,12 @@
                         </div>
                         <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-slate-300">
                           <span>원금</span><b className="text-right">{won(sum(yp, 'principal'))}</b>
-                          <span>이자 <span className="text-[10px] text-slate-500">(연말정산 참고)</span></span><b className="text-right text-amber-300">{won(sum(yp, 'interest'))}</b>
+                          <span>이자 <span className="text-[0.625rem] text-slate-500">(연말정산 참고)</span></span><b className="text-right text-amber-300">{won(sum(yp, 'interest'))}</b>
                           {sum(yp, 'fee') > 0 && <><span>조기상환수수료</span><b className="text-right">{won(sum(yp, 'fee'))}</b></>}
                           {sum(yp, 'late_fee') > 0 && <><span>지연배상금</span><b className="text-right">{won(sum(yp, 'late_fee'))}</b></>}
                           <span>합계</span><b className="text-right">{won(sum(yp, 'total'))}</b>
                         </div>
-                        {pays.length > yp.length && <p className="text-[10px] text-slate-500">저장된 전체 {pays.length}회: 원금 {won(sum(pays, 'principal'))} · 이자 {won(sum(pays, 'interest'))}{sum(pays, 'fee') > 0 ? ` · 수수료 ${won(sum(pays, 'fee'))}` : ''}</p>}
+                        {pays.length > yp.length && <p className="text-[0.625rem] text-slate-500">저장된 전체 {pays.length}회: 원금 {won(sum(pays, 'principal'))} · 이자 {won(sum(pays, 'interest'))}{sum(pays, 'fee') > 0 ? ` · 수수료 ${won(sum(pays, 'fee'))}` : ''}</p>}
                       </div>
                       <div className="space-y-1.5">
                         {yp.length === 0 && <p className="text-slate-500 text-center py-2">{yr}년 상환 기록이 없습니다.</p>}
@@ -6303,7 +6359,7 @@
                               <b className="text-slate-100">{p.pay_date}{p.seq ? ` · ${p.seq}회` : ''}{kindTag(p.kind)}</b>
                               <b className="text-slate-100">{won(p.total)}</b>
                             </div>
-                            <p>{payLine(p)}{p.expense_id && expenses.some(e => e.id === p.expense_id) ? <span className="text-[10px] text-slate-500"> · 🔗지출</span> : p.expense_id && trash.some(e => e.id === p.expense_id) ? <span className="text-[10px] text-slate-500"> · 🗑️지출 휴지통</span> : ''}{p.memo ? <span className="text-[10px] text-slate-400"> · 📝 {p.memo}</span> : ''}</p>
+                            <p>{payLine(p)}{p.expense_id && expenses.some(e => e.id === p.expense_id) ? <span className="text-[0.625rem] text-slate-500"> · 🔗지출</span> : p.expense_id && trash.some(e => e.id === p.expense_id) ? <span className="text-[0.625rem] text-slate-500"> · 🗑️지출 휴지통</span> : ''}{p.memo ? <span className="text-[0.625rem] text-slate-400"> · 📝 {p.memo}</span> : ''}</p>
                           </button>
                         ))}
                       </div>
@@ -6319,7 +6375,7 @@
                       {uploadBtn(null, '📷 캡처 올리기')}
                       <button onClick={() => setLoanEdit(newLoanDraft())} className="py-2 rounded-lg font-bold bg-slate-800 text-slate-200">✍️ 직접 등록</button>
                     </div>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                    <p className="text-[0.625rem] text-slate-500 leading-relaxed">
                       은행 앱의 '대출정보 조회'와 '상환내역 조회' 화면을 캡처해 함께(최대 10장) 올리면 AI가 잔액·금리와 회차별 원금·이자를 읽습니다. 이미 넣은 회차는 건너뜁니다.
                       계좌번호·주소·담당자는 읽지 않습니다. 상환할 때마다 원금+이자 합계를 지출(주거/고정비 › 대출상환)로 넣습니다.
                     </p>
@@ -6332,11 +6388,11 @@
                       return (
                         <button key={l.id} onClick={() => setLoanOpenId(l.id)} className="w-full text-left bg-slate-950 rounded-xl border border-slate-800 p-2.5 space-y-1">
                           <div className="flex justify-between">
-                            <b className="text-slate-100">{l.name}{l.lender ? <span className="text-[10px] text-slate-500 font-normal"> · {l.lender}</span> : ''}</b>
+                            <b className="text-slate-100">{l.name}{l.lender ? <span className="text-[0.625rem] text-slate-500 font-normal"> · {l.lender}</span> : ''}</b>
                             <b className="text-amber-300">{won(bal)}</b>
                           </div>
                           {Number(l.principal) > 0 && <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{ width: `${repaid}%` }} /></div>}
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-[0.625rem] text-slate-500">
                             {Number(l.principal) > 0 && `${repaid.toFixed(1)}% 상환`}
                             {Number(l.rate) > 0 && ` · ${Number(l.rate)}% ${l.rate_type || ''}`}
                             {left !== null && ` · 남은 ${left}개월`}
@@ -6356,7 +6412,7 @@
                       <h3 className="font-bold text-white text-sm">🗑️ 휴지통 ({trash.length}건)</h3>
                       <button onClick={() => setShowTrash(false)} className="text-slate-400">✕</button>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-[0.6875rem] text-slate-400 leading-relaxed">
                       삭제한 내역은 {TRASH_KEEP_DAYS}일 동안 보관되고 그 뒤 자동으로 영구 삭제됩니다. 휴지통 내역은 통계·엑셀에 들어가지 않습니다.
                     </p>
                     <div className="overflow-y-auto space-y-2 flex-1 min-h-0">
@@ -6369,7 +6425,7 @@
                               <span className="font-bold text-slate-200 truncate">{item.store}</span>
                               <span className={`font-bold shrink-0 ${item.amount < 0 ? 'text-emerald-400' : 'text-slate-200'}`}>{Number(item.amount).toLocaleString()}원</span>
                             </div>
-                            <p className="text-[10px] text-slate-500">
+                            <p className="text-[0.625rem] text-slate-500">
                               {item.date} · {item.payer} · {item.category} › {item.sub_category} · {left}일 뒤 자동 삭제
                             </p>
                             <div className="flex gap-1.5 justify-end">
@@ -6412,18 +6468,18 @@
               )}
 
               <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-30 safe-bottom">
-                <div className="max-w-xl mx-auto grid grid-cols-4 py-2 text-[12px] font-bold">
+                <div className="max-w-xl mx-auto grid grid-cols-4 font-bold" style={{ fontSize: `${0.75 * uiSize.nav}rem`, paddingTop: `${0.5 * uiSize.nav}rem`, paddingBottom: `${0.5 * uiSize.nav}rem` }}>
                   <button onClick={() => setActiveTab('list')} className={activeTab === 'list' ? 'text-indigo-300' : 'text-slate-400'}>
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full ${activeTab === 'list' ? 'bg-indigo-600/90 text-white' : ''}`}>📋 내역</span>
+                    <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'list' ? 'bg-indigo-600/90 text-white' : ''}`}>📋 내역</span>
                   </button>
                   <button onClick={() => setActiveTab('stats')} className={activeTab === 'stats' ? 'text-indigo-300' : 'text-slate-400'}>
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full ${activeTab === 'stats' ? 'bg-indigo-600/90 text-white' : ''}`}>📊 통계</span>
+                    <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'stats' ? 'bg-indigo-600/90 text-white' : ''}`}>📊 통계</span>
                   </button>
                   <button onClick={() => setActiveTab('input')} className={activeTab === 'input' ? 'text-indigo-300' : 'text-slate-400'}>
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full ${activeTab === 'input' ? 'bg-indigo-600/90 text-white' : ''}`}>➕ 입력</span>
+                    <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'input' ? 'bg-indigo-600/90 text-white' : ''}`}>➕ 입력</span>
                   </button>
                   <button onClick={() => setActiveTab('cats')} className={activeTab === 'cats' ? 'text-indigo-300' : 'text-slate-400'}>
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full ${activeTab === 'cats' ? 'bg-indigo-600/90 text-white' : ''}`}>⚙️ 카드·분류</span>
+                    <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'cats' ? 'bg-indigo-600/90 text-white' : ''}`}>⚙️ 설정</span>
                   </button>
                 </div>
               </nav>
