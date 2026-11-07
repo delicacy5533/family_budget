@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.66</title>
+  <title>부부 AI 가계부 v1.67</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -44,7 +44,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.66';
+    const APP_VERSION = 'v1.67';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 16;   // 16: 자산(assets: 부동산·자동차·동산·통장) · 15: 문자 결제자 m1·m2 별칭(payer_key) · 14: 대출 계좌번호(loans.account_no) · 13: 저축 계좌번호(savings.account_no) · 12: 휴지통에 연결 기록 보관(expenses.linked_backup) · 11: 구성원(family_config.members) · 10: 저축(savings, savings_payments) · 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -836,6 +836,17 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.67',
+        date: '2026-11-08',
+        title: '검토 반영: 구성원·저축 연속 저장·자유 저축 잔액·대출 연결',
+        changes: [
+          '[구성원] 자산(통장·자동차 등) 명의로 쓰인 구성원은 지울 수 없음 (이름만 바꾸기)',
+          '[저축] 저축 여러 개를 사진으로 이어서 저장할 때 다음 확인 창 뒤에 앞 저축 자세히 창이 미리 열리지 않음 (두 번째를 취소하면 바로 돌아감)',
+          '[저축] 청약·연금·투자를 새로 등록하며 잔액만 보이는 화면을 올리면 그 잔액을 시작 잔액 1건으로 (지출로는 넣지 않음, 나중에 지출 시작 달을 바꿔도 안 넣음)',
+          '[대출] 대출을 지우면 그 대출을 연결해 둔 집·자동차 자산의 연결도 풂'
+        ]
+      },
       {
         version: 'v1.66',
         date: '2026-11-08',
@@ -3072,11 +3083,17 @@
         const { error } = await supabaseClient.from('loans').delete().eq('id', loan.id);
         if (error) return showToast('⚠️ 삭제 실패: ' + error.message);
         if (both) await trashExpenses(exps);
+        // 이 대출을 연결해 둔 자산(집·자동차)은 연결만 풂
+        const linkedAssets = assets.filter(a => a.loan_id === loan.id);
+        if (linkedAssets.length) {
+          const { error: aErr } = await supabaseClient.from('assets').update({ loan_id: null, updated_by: MY_DEVICE_ID }).eq('loan_id', loan.id);
+          if (!aErr) setAssets(prev => prev.map(a => a.loan_id === loan.id ? { ...a, loan_id: null } : a));
+        }
         setLoans(prev => prev.filter(l => l.id !== loan.id));
         setLoanPays(prev => prev.filter(p => p.loan_id !== loan.id));
         notifyPartner();
         setLoanEdit(null); setLoanOpenId(null);
-        showToast(both ? `🗑️ 대출을 지우고 상환 지출 ${exps.length}건은 휴지통으로 옮겼습니다.` : '🗑️ 대출을 삭제했습니다.');
+        showToast((both ? `🗑️ 대출을 지우고 상환 지출 ${exps.length}건은 휴지통으로 옮겼습니다.` : '🗑️ 대출을 삭제했습니다.') + (linkedAssets.length ? ` (${linkedAssets.map(a => a.name).join('·')}의 대출 연결도 풂)` : ''));
       };
       // 상환 1건 직접 입력·고치기
       const newPayDraft = (loan) => {
@@ -3210,7 +3227,9 @@
         const want = a.kind === '자유' ? (a.sub_category || '투자') : SAV_SUB[a.kind];
         return { category: cat?.name || '기타', sub_category: cat?.subs?.includes(want) ? want : (cat?.subs?.[0] || '기타') };
       };
-      const savWantsExpense = (a, p) => !!a.expense_from && String(p.pay_date).slice(0, 7) >= a.expense_from && Number(p.amount) > 0;
+      // 사진의 잔액으로 만든 '시작 잔액' 납입은 그동안 모인 돈이라 지출로 넣지 않음
+      const SAV_OPENING = '시작 잔액';
+      const savWantsExpense = (a, p) => !!a.expense_from && String(p.pay_date).slice(0, 7) >= a.expense_from && Number(p.amount) > 0 && !String(p.memo || '').startsWith(SAV_OPENING);
       const savExpenseRow = (a, p) => ({
         id: p.expense_id, kind: 'expense', date: `${p.pay_date} 09:00`,
         store: `${a.name || a.kind} ${a.kind === '예금' ? '가입' : '납입'}`.slice(0, 60),
@@ -3252,7 +3271,7 @@
       // 👪 구성원 저장 (가족 설정). 지울 때는 그 사람 이름으로 된 기록이 없을 때만
       const memberUsage = async (key) => {
         const n = { 내역: [...expenses, ...trash].filter(e => e.payer === key).length, 카드: cards.filter(c => c.owner === key).length,
-          대출: loans.filter(l => l.owner === key).length, 저축: savings.filter(a => a.owner === key).length, 예산: budget[key] ? 1 : 0 };
+          대출: loans.filter(l => l.owner === key).length, 저축: savings.filter(a => a.owner === key).length, 자산: assets.filter(a => a.owner === key).length, 예산: budget[key] ? 1 : 0 };
         try { const { count } = await supabaseClient.from('payslips').select('id', { count: 'exact', head: true }).eq('owner', key); n.급여명세서 = count || 0; } catch (e) {}
         return Object.entries(n).filter(([, v]) => v > 0);
       };
@@ -3551,6 +3570,10 @@
           const dup = mine.find(x => (x.pay_date === p.date && Number(x.amount) === Number(p.amount)) || (x.auto && String(x.pay_date).slice(0, 7) === ym && Number(x.amount) === Number(p.amount)));
           return { key: i, pay_date: p.date, amount: Number(p.amount), seq: p.seq || null, dup: !!dup, on: !dup };
         });
+        // 청약·연금·투자처럼 납입일이 없는 저축을 새로 등록하는데 거래내역 없이 잔액만 보이면 → 그 잔액을 '시작 잔액' 1건으로 (지출로는 안 넣음)
+        if (!target && kind === '자유' && pays.length === 0 && Number(info.balance) > 0) {
+          pays.push({ key: 'open', pay_date: draft.start_date || getKSTDateTimeString().slice(0, 10), amount: Number(info.balance), seq: null, dup: false, on: true, opening: true });
+        }
         return { targetId: target?.id || null, draft, info, pays, model: data.model, photos: photoCount, raw: sv };
       };
       // 여러 저축을 한 번에 읽은 결과: 첫 저축을 확인 창에, 나머지는 rest에 (저장·취소하면 다음 저축)
@@ -3682,7 +3705,7 @@
           let id = `sv-${stamp}-${i}`, auto = false;
           if (row.kind === '적금' && !usedMonths.has(ym)) { id = `sv-${row.id}-${ym.replace('-', '')}`; auto = true; usedMonths.add(ym); }
           else if (row.kind === '예금' && p.pay_date === row.start_date && p.amount === row.principal) { id = `sv-${row.id}-dep`; auto = true; }
-          const r = { id, family_code: familyCode, savings_id: row.id, pay_date: p.pay_date, amount: p.amount, seq: p.seq, auto, memo: '', expense_id: null, updated_by: MY_DEVICE_ID };
+          const r = { id, family_code: familyCode, savings_id: row.id, pay_date: p.pay_date, amount: p.amount, seq: p.seq, auto, memo: p.opening ? `${SAV_OPENING} (사진의 잔액)` : '', expense_id: null, updated_by: MY_DEVICE_ID };
           if (savWantsExpense(row, r)) r.expense_id = 'savx-' + id;
           rows.push(r);
         });
@@ -3699,7 +3722,7 @@
         setSavBusy('');
         const nx = nextSavRead(R, accs, merged);
         setSavRead(nx);
-        setSavOpenId(row.id);
+        if (!nx) setSavOpenId(row.id);   // 다음 저축 확인이 남아 있으면 뒤에 자세히 창을 미리 열지 않음
         showToast(`🏦 ${row.name}: ${R.targetId ? '정보 반영' : '새 저축 등록'}${rows.length ? ` · 납입 ${rows.length}건${newEx.length ? ` (지출 ${newEx.length}건)` : ''}` : ''}${nx ? ` · 다음 저축 확인 (${nx.pos}/${nx.total})` : ''}`);
       };
 
@@ -5699,7 +5722,7 @@
                     const gain = Number(a.purchase_price) > 0 ? Number(a.value) - Number(a.purchase_price) : null;
                     const age = a.value_date ? -dayDiff(a.value_date) : null;
                     return (
-                      <button key={a.id} onClick={() => setAssetEdit({ ...a, value: String(a.value), purchase_price: a.purchase_price ? String(a.purchase_price) : '', sold_price: a.sold_price ? String(a.sold_price) : '', loan_id: a.loan_id || '' })}
+                      <button key={a.id} onClick={() => setAssetEdit({ ...a, value: String(a.value), purchase_price: a.purchase_price ? String(a.purchase_price) : '', sold_price: a.sold_price ? String(a.sold_price) : '', loan_id: a.loan_id && loans.some(l => l.id === a.loan_id) ? a.loan_id : '' })}
                         className={`w-full text-left bg-slate-950 rounded-xl border border-slate-800 p-2.5 space-y-0.5 ${a.status === '처분' ? 'opacity-50' : ''}`}>
                         <div className="flex justify-between text-xs gap-2"><b className="text-slate-100">{assetIcon(a.kind)} {a.name}<span className="text-[0.625rem] text-slate-500 font-normal">{a.sub_kind ? ` · ${a.sub_kind}` : ''}{a.kind === '통장' && a.bank ? ` · ${a.bank}` : ''}{a.account_no ? ` …${accountDigits(a.account_no).slice(-4)}` : ''} · {ownerLabel(a.owner)}</span></b><b className="text-violet-200 shrink-0">{won(a.status === '처분' ? a.sold_price : a.value)}</b></div>
                         <p className="text-[0.625rem] text-slate-500">{a.status === '처분' ? `처분 ${a.sold_date}` : [
@@ -8137,11 +8160,12 @@
                       </div>
                       <div className="bg-slate-950 rounded-xl border border-slate-800 p-2 space-y-1">
                         <p className="font-bold text-sky-300">납입 내역 {R.pays.length}건 {R.pays.length > fresh.length && <span className="text-[0.625rem] text-slate-500 font-normal">· 이미 있는 {R.pays.length - fresh.length}건은 건너뜀</span>}</p>
+                        {R.pays.some(p => p.opening) && <p className="text-[0.625rem] text-slate-500">거래내역 화면이 없어 화면의 잔액을 시작 잔액으로 넣습니다. 앞으로 넣는 돈은 ✍️ 납입이나 거래내역 캡처로 더하세요.</p>}
                         {R.pays.length === 0 && <p className="text-slate-500">거래(납입) 내역 화면은 없었어요.{autoRows.length === 0 ? ' 넣은 돈을 맞추려면 거래내역 화면도 캡처해 올리거나 저장한 뒤 ✍️ 납입으로 넣으세요.' : ''}</p>}
                         {R.pays.map((p, i) => (
                           <label key={p.key} className={`flex items-center gap-2 py-1 border-b border-slate-800/60 ${p.dup ? 'opacity-40' : ''}`}>
                             <input type="checkbox" disabled={p.dup} checked={p.on && !p.dup} onChange={e => setPay(i, { on: e.target.checked })} />
-                            <span className="flex-1 text-slate-200">{p.pay_date}{p.seq ? ` · ${p.seq}회` : ''}{p.dup && <span className="ml-1 text-[0.625rem]">(이미 있음)</span>}</span>
+                            <span className="flex-1 text-slate-200">{p.pay_date}{p.seq ? ` · ${p.seq}회` : ''}{p.opening && <span className="ml-1 text-[0.625rem] text-sky-300">시작 잔액 · 지출로 안 넣음</span>}{p.dup && <span className="ml-1 text-[0.625rem]">(이미 있음)</span>}</span>
                             <b className="text-slate-100">{won(p.amount)}</b>
                           </label>
                         ))}
