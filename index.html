@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.61</title>
+  <title>부부 AI 가계부 v1.62</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -36,12 +36,15 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef, useMemo } = React;
+    const { useState, useEffect, useRef, useMemo, useLayoutEffect } = React;
+    // 탭마다 스크롤 위치를 앱이 직접 기억 (브라우저가 뒤로가기 때 멋대로 옮기지 않게)
+    try { if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'; } catch (e) {}
+    const START_TABS = [['list', '📋 내역'], ['input', '➕ 입력'], ['stats', '📊 통계']];
 
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.61';
+    const APP_VERSION = 'v1.62';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 14;   // 14: 대출 계좌번호(loans.account_no) · 13: 저축 계좌번호(savings.account_no) · 12: 휴지통에 연결 기록 보관(expenses.linked_backup) · 11: 구성원(family_config.members) · 10: 저축(savings, savings_payments) · 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -834,6 +837,16 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.62',
+        date: '2026-11-07',
+        title: '탭별 스크롤 위치 · 첫 화면 설정',
+        changes: [
+          '[화면] 탭마다 스크롤 위치를 따로 기억: 내역을 내려 둔 채 통계에 갔다 와도 그 자리, 처음 여는 탭은 맨 위부터 (전에는 앞 탭의 위치를 그대로 써서 통계가 맨 아래로 열리기도 함)',
+          '[화면] 지금 보는 아래 탭을 한 번 더 누르면 맨 위로',
+          '[설정] 🏁 첫 화면: 앱을 열면 먼저 보이는 탭을 내역·입력·통계 중에서 (이 폰에만 저장). 뒤로가기는 어느 탭에서든 내역으로'
+        ]
+      },
+      {
         version: 'v1.61',
         date: '2026-11-07',
         title: '대출 계좌번호',
@@ -1582,6 +1595,33 @@
       const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
       const [incomeCategories, setIncomeCategories] = useState(DEFAULT_INCOME_CATEGORIES);
       const [activeTab, setActiveTab] = useState('list');
+      // 첫 화면 (이 폰에만 저장). 내역이 아니면 앱을 연 뒤 그 탭으로 옮김
+      const [startTab, setStartTab] = useState(() => { try { const t = localStorage.getItem('START_TAB'); return START_TABS.some(([k]) => k === t) ? t : 'list'; } catch (e) { return 'list'; } });
+      const pickStartTab = (t) => { setStartTab(t); try { localStorage.setItem('START_TAB', t); } catch (e) {} };
+      // 첫 화면으로 연 탭은 처음 화면을 만질 때까지 뒤로가기 칸을 쌓지 않음
+      //   (안드로이드 크롬은 터치 없이 쌓은 칸을 뒤로가기에서 건너뛰어 앱이 바로 꺼질 수 있음)
+      const [tabLayerOk, setTabLayerOk] = useState(true);
+      // 탭별 스크롤 위치: 떠날 때 기억, 돌아오면 그 자리. 처음 여는 탭은 맨 위
+      const tabScrollRef = useRef({});
+      const activeTabRef = useRef(activeTab);
+      activeTabRef.current = activeTab;
+      useEffect(() => {
+        const onScroll = () => { tabScrollRef.current[activeTabRef.current] = window.scrollY; };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+      }, []);
+      const shownTabRef = useRef(activeTab);
+      useLayoutEffect(() => {
+        if (shownTabRef.current === activeTab) return;
+        shownTabRef.current = activeTab;
+        window.scrollTo(0, tabScrollRef.current[activeTab] || 0);
+      }, [activeTab]);
+      // 아래 탭 누르기: 다른 탭이면 옮기고, 지금 탭을 한 번 더 누르면 맨 위로
+      const goTab = (t) => {
+        if (t === activeTab) { window.scrollTo({ top: 0, behavior: window.scrollY > 3000 ? 'auto' : 'smooth' }); return; }
+        tabScrollRef.current[activeTab] = window.scrollY;
+        setActiveTab(t);
+      };
       // 🔠 화면 크기 (폰마다 따로): app = 앱 전체(글자·버튼·입력칸), nav = 아래 탭을 거기서 한 번 더
       const [uiSize, setUiSize] = useState(() => {
         try { const v = JSON.parse(localStorage.getItem('UI_SIZE') || '{}'); return { app: Number(v.app) || 1, nav: Number(v.nav) || 1 }; }
@@ -1792,7 +1832,7 @@
         showSavings && inputReturn !== 'savings', savOpenId !== null, savEdit !== null, savPayEdit !== null, savClose !== null, savRead !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null, showPeriod,
         showCodeMigrateModal, choiceDlg !== null, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null),
         // 내역 탭 = 홈: 다른 탭에 있으면 한 칸 (탭을 누를 때 쌓음 → 뒤로가기 = 내역 탭으로. 입력→통계처럼 옮겨 다녀도 한 칸)
-        activeTab !== 'list'].filter(Boolean).length;
+        activeTab !== 'list' && tabLayerOk].filter(Boolean).length;
       closeTopOverlayRef.current = () => {
         if (choiceDlg) { answerChoice(null); return true; }   // 고르기 팝업은 늘 맨 위 → 뒤로가기 = 취소
         if (catAdder) { setCatAdder(null); return true; }   // 열려 있으면 늘 맨 위 (직접 입력 창 안이거나, 다른 창이 없을 때만 남음)
@@ -1870,6 +1910,8 @@
       // 종료 안내 칸을 다시 쌓지 않을 때: 창이 열려 있거나 내역 탭(홈)이 아닐 때 (탭 칸 위에 쌓이지 않게)
       const notHome = overlayOpen || activeTab !== 'list';
       overlayOpenRef.current = notHome;
+      const modalOpenRef = useRef(false);
+      modalOpenRef.current = overlayOpen;
       const skipPopRef = useRef(0);          // 앱이 스스로 부른 history.back()은 '종료 안내'로 치지 않음
       const guardPendingRef = useRef(false); // 창이 열려 있어 종료 안내 칸을 다시 못 쌓은 상태
       const pushExitGuard = () => window.history.pushState({ exitGuard: true }, '');
@@ -1909,6 +1951,15 @@
 
       // 안드로이드 뒤로가기 두 번 눌러 종료: 첫 번째는 안내만, 2.5초 안에 한 번 더 누르면 종료
       //   (방문 기록에 '종료 안내' 칸을 하나 쌓아 두고, 그 칸이 빠지면 안내 → 2.5초 뒤 다시 쌓음)
+      // 첫 화면이 내역이 아니면 그 탭으로 (종료 안내 칸을 쌓은 뒤). 처음 화면을 만지면 그때 뒤로가기 칸을 쌓음
+      useEffect(() => {
+        if (startTab === 'list') return;
+        setTabLayerOk(false);
+        setActiveTab(startTab);
+        const arm = () => setTabLayerOk(true);
+        window.addEventListener('pointerdown', arm, { once: true, capture: true });
+        return () => window.removeEventListener('pointerdown', arm, { capture: true });
+      }, []);
       const EXIT_WINDOW_MS = 2500;
       useEffect(() => {
         pushExitGuard();
@@ -1921,7 +1972,11 @@
             if (!closeTopOverlayRef.current()) { window.history.pushState({ overlay: true }, ''); overlayDepthRef.current++; }
             return;
           }
-          if (overlayOpenRef.current) return;
+          if (overlayOpenRef.current) {
+            // 첫 화면 탭에서 화면을 만지기 전(뒤로가기 칸 없음): 내역으로 가고, 종료 안내 칸은 내역에서 다시 쌓음
+            if (!modalOpenRef.current && activeTabRef.current !== 'list') { guardPendingRef.current = true; setActiveTab('list'); }
+            return;
+          }
           showToast('↩️ 뒤로가기를 한 번 더 누르면 종료됩니다', EXIT_WINDOW_MS);
           clearTimeout(timer);
           timer = setTimeout(() => {
@@ -5549,7 +5604,7 @@
                   return (
                     <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3 mb-3">
                       <div>
-                        <h3 className="font-bold text-white text-base">🔠 화면 크기</h3>
+                        <h3 className="font-bold text-white text-base">🔠 화면 크기 · 첫 화면</h3>
                         <p className="text-xs text-slate-400 mt-0.5">이 폰에만 저장됩니다 (폰마다 따로).</p>
                       </div>
                       <div className="space-y-1.5">
@@ -5563,6 +5618,16 @@
                       {(uiSize.app !== 1 || uiSize.nav !== 1) && (
                         <button onClick={() => setUiSize({ app: 1, nav: 1 })} className="text-[0.6875rem] text-sky-300 underline">처음 크기로 되돌리기</button>
                       )}
+                      <div className="space-y-1.5 pt-2 border-t border-slate-800">
+                        <p className="text-xs text-slate-300 font-bold">🏁 첫 화면 <span className="font-normal text-slate-500">· 앱을 열면 먼저 보이는 탭</span></p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {START_TABS.map(([k, label]) => (
+                            <button key={k} onClick={() => pickStartTab(k)}
+                              className={`py-2 rounded-lg font-bold text-xs ${startTab === k ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`}>{label}</button>
+                          ))}
+                        </div>
+                        <p className="text-[0.625rem] text-slate-500">어느 탭에서든 뒤로가기를 누르면 📋 내역으로 갑니다. 아래 탭을 한 번 더 누르면 맨 위로 올라갑니다.</p>
+                      </div>
                     </div>
                   );
                 })()}
@@ -7882,16 +7947,16 @@
 
               <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-30 safe-bottom">
                 <div className="max-w-xl mx-auto grid grid-cols-4 font-bold" style={{ fontSize: `${0.75 * uiSize.nav}rem`, paddingTop: `${0.5 * uiSize.nav}rem`, paddingBottom: `${0.5 * uiSize.nav}rem` }}>
-                  <button onClick={() => setActiveTab('list')} className={activeTab === 'list' ? 'text-indigo-300' : 'text-slate-400'}>
+                  <button onClick={() => goTab('list')} className={activeTab === 'list' ? 'text-indigo-300' : 'text-slate-400'}>
                     <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'list' ? 'bg-indigo-600/90 text-white' : ''}`}>📋 내역</span>
                   </button>
-                  <button onClick={() => setActiveTab('stats')} className={activeTab === 'stats' ? 'text-indigo-300' : 'text-slate-400'}>
+                  <button onClick={() => goTab('stats')} className={activeTab === 'stats' ? 'text-indigo-300' : 'text-slate-400'}>
                     <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'stats' ? 'bg-indigo-600/90 text-white' : ''}`}>📊 통계</span>
                   </button>
-                  <button onClick={() => setActiveTab('input')} className={activeTab === 'input' ? 'text-indigo-300' : 'text-slate-400'}>
+                  <button onClick={() => goTab('input')} className={activeTab === 'input' ? 'text-indigo-300' : 'text-slate-400'}>
                     <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'input' ? 'bg-indigo-600/90 text-white' : ''}`}>➕ 입력</span>
                   </button>
-                  <button onClick={() => setActiveTab('cats')} className={activeTab === 'cats' ? 'text-indigo-300' : 'text-slate-400'}>
+                  <button onClick={() => goTab('cats')} className={activeTab === 'cats' ? 'text-indigo-300' : 'text-slate-400'}>
                     <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'cats' ? 'bg-indigo-600/90 text-white' : ''}`}>⚙️ 설정</span>
                   </button>
                 </div>
