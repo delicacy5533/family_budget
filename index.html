@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.55</title>
+  <title>부부 AI 가계부 v1.57</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -41,7 +41,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.55';
+    const APP_VERSION = 'v1.57';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 12;   // 12: 휴지통에 연결 기록 보관(expenses.linked_backup) · 11: 구성원(family_config.members) · 10: 저축(savings, savings_payments) · 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -833,6 +833,30 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.57',
+        date: '2026-11-07',
+        title: 'v1.55 검토 반영 (저축 고치기 · 만기 수입 · 복원)',
+        changes: [
+          '[저축] 정보를 고치면 이미 있는 납입 기록도 맞춤: 지출 시작 달을 앞당기면 그 달부터 지출을 만들고, 늦추거나 끄면 자동으로 만든 지출을 지우고 연결도 끊음',
+          '[저축] 예금 원금을 고치면 가입 납입 금액도 같이, 적금 월 납입액을 바꾸면 지난 자동 납입까지 바꿀지(잘못 넣은 금액) 다음부터만일지 물어봄',
+          '[저축] 만기·해지를 다시 처리할 때 수입 등록을 끄거나 0원이면 전에 만든 수입은 휴지통으로',
+          '[저축] 저축을 지울 때 만기·해지 때 넣은 수입도 연결된 내역으로 함께 지울지 물어봄',
+          '[휴지통] 같은 날 두 번 상환(회차 다름) 중 하나를 지웠다가 복원할 때 상환 기록도 복구되게',
+          '[휴지통] 문자 붙여넣기·카드사 파일에서 휴지통 내역을 꺼낼 때 보관해 둔 연결 기록 칸도 비움',
+          '[입력] 직접 입력·문자 붙여넣기·카드사 파일로 등록한 내역이 지금 보는 기간 밖이면 그 달로 이동 (사진 등록과 같게)'
+        ]
+      },
+      {
+        version: 'v1.56',
+        date: '2026-11-07',
+        title: '통계 탭 위쪽 정리',
+        changes: [
+          '[통계] 위쪽 칸은 기간(◀ 📅 ▶)과 [전체·구성원·업무용]만 작게 (내역 탭과 같은 지출 합계 칸을 빼서 겹치지 않게)',
+          '[통계] 💰 수입 · 지출 카드가 맨 위 요약: 수입·지출·남은 돈, 저축률, 여러 달이면 한 달 평균, 한 달이면 🎯 월 예산 막대, 건수, 수입 분류',
+          '[통계] 💼 급여명세서 · 🏠 대출 · 🏦 저축 바로가기는 💰 카드 아래로'
+        ]
+      },
       {
         version: 'v1.55',
         date: '2026-11-07',
@@ -1906,6 +1930,11 @@
         return { kind: 'recent', from, to: today, label };
       };
       const pickMonth = (m) => { setPeriodSel(null); setSelectedMonth(m); };
+      // 등록한 내역이 지금 보는 기간에 하나도 없으면 가장 최근 것의 달로 (등록하고 내역 탭에서 바로 보이게)
+      const showRegistered = (dates) => {
+        const ds = dates.map(d => normalizeDateString(d)).filter(Boolean);
+        if (ds.length && !ds.some(d => inPeriod(d))) pickMonth(ds.sort().pop().slice(0, 7));
+      };
       // 기간 창 열기: '직접 고르기' 칸에는 지금 보는 기간을 넣어 둠 (한 달이면 그 달 1일 ~ 말일)
       const openPeriod = () => {
         const r = periodSel ? { from: periodSel.from, to: periodSel.to }
@@ -2417,7 +2446,7 @@
           memo: manual.memo.trim().slice(0, 200),
           items: []
         }]);
-        if (ok) { showToast(`${inc ? '💰 수입' : '✍️ 지출'} 등록: ${manual.store.trim()} ${amt.toLocaleString()}원`); setManual(null); setActiveTab('list'); }
+        if (ok) { showToast(`${inc ? '💰 수입' : '✍️ 지출'} 등록: ${manual.store.trim()} ${amt.toLocaleString()}원`); showRegistered([manual.date]); setManual(null); setActiveTab('list'); }
       };
       // 📋 붙여넣은 카드 문자: 문자마다 읽어 새 결제 · 이미 있음 · 휴지통에 있음으로 나누고, 광고·안내 문자는 셈만
       const parseSmsPaste = (text) => {
@@ -3111,24 +3140,66 @@
         if (d.kind === '예금' && !numOf(d.principal)) return showToast('⚠️ 예금 원금을 입력해주세요.');
         if (d.kind !== '자유' && !/^\d{4}-\d{2}-\d{2}$/.test(d.start_date || '')) return showToast('⚠️ 가입일을 골라주세요.');
         if (!ensureConnected()) return;
-        setSavBusy('saving');
         const row = savRowOf({ ...d, id: d.id || 'sav-' + Date.now() });
         const before = savings.find(x => x.id === row.id);
+        // 금액을 바꿨을 때 이미 자동으로 넣은 납입: 예금 원금은 1건이라 같이 고침, 적금 월 납입액은 지난 납입까지 바꿀지 물어봄
+        let fixAmounts = false;
+        if (before) {
+          const autoPays = savPays.filter(x => x.savings_id === row.id && x.auto);
+          if (row.kind === '예금' && Number(before.principal) !== row.principal) fixAmounts = true;
+          if (row.kind === '적금' && Number(before.monthly) !== row.monthly && autoPays.length) {
+            const v = await askChoice('🏦 월 납입액 변경', `월 납입액을 ${Number(before.monthly).toLocaleString()}원 → ${row.monthly.toLocaleString()}원으로 바꿉니다.\n이미 자동으로 넣은 납입 ${autoPays.length}건은 어떻게 할까요?`, [
+              { value: 'all', label: `지난 자동 납입 ${autoPays.length}건도 새 금액으로 (잘못 넣은 금액 고치기)` },
+              { value: 'future', label: '다음 납입부터 새 금액 (지난 납입은 그대로)' },
+              { value: null, label: '취소' }
+            ]);
+            if (!v) return;
+            fixAmounts = v === 'all';
+          }
+        }
+        setSavBusy('saving');
         const { error } = await supabaseClient.from('savings').upsert(row);
         if (error) { setSavBusy(''); return showToast('⚠️ 저장 실패: ' + error.message); }
         const accs = [...savings.filter(x => x.id !== row.id), row];
         setSavings(accs);
-        // 이름·주인·지출 시작 달을 바꿨으면 이미 넣은 납입 지출도 맞춤
+        // 이미 있는 납입 기록을 바뀐 정보에 맞춤 (대출의 syncLoanExpenses와 같은 방식)
+        let paysNow = savPays;
         if (before) {
-          for (const p of savPays.filter(x => x.savings_id === row.id && x.expense_id)) {
-            const ex = expenses.find(e => e.id === p.expense_id);
-            if (!ex) continue;
-            if (!savWantsExpense(row, p)) { await supabaseClient.from('expenses').delete().eq('id', ex.id).eq('family_code', familyCode); setExpenses(prev => prev.filter(e => e.id !== ex.id)); continue; }
-            const r = savExpenseRow(row, p);
-            if (ex.store !== r.store || ex.payer !== r.payer || ex.sub_category !== r.sub_category) await updateExpenseRow(ex.id, { store: r.store, payer: r.payer, category: r.category, sub_category: r.sub_category });
+          const changed = [];
+          const newEx = [];
+          for (const p0 of savPays.filter(x => x.savings_id === row.id)) {
+            const p = { ...p0 };
+            const autoAmt = row.kind === '예금' ? row.principal : row.monthly;
+            if (fixAmounts && p.auto && Number(p.amount) !== autoAmt) p.amount = autoAmt;   // ③ 자동 납입 금액
+            const want = savWantsExpense(row, p);
+            const ex = p.expense_id && expenses.find(e => e.id === p.expense_id);
+            const inBin = p.expense_id && trash.find(e => e.id === p.expense_id);
+            if (!want && (ex || inBin)) {   // ② 지출 시작 달을 늦추거나 끔 → 자동으로 만든 지출 지우고 연결도 끊음
+              await supabaseClient.from('expenses').delete().eq('id', p.expense_id).eq('family_code', familyCode);
+              const gone = p.expense_id;
+              setExpenses(prev => prev.filter(e => e.id !== gone));
+              setTrash(prev => prev.filter(e => e.id !== gone));
+              p.expense_id = null;
+            } else if (want && !ex && !inBin) {   // ① 지출 시작 달을 앞당김 → 지출이 없던 납입에 지출 만들기
+              p.expense_id = p.expense_id || 'savx-' + p.id;
+              newEx.push(savExpenseRow(row, p));
+            } else if (want && ex) {
+              const r = savExpenseRow(row, p);
+              if (ex.store !== r.store || ex.payer !== r.payer || ex.sub_category !== r.sub_category || ex.amount !== r.amount) {
+                await updateExpenseRow(ex.id, { store: r.store, payer: r.payer, category: r.category, sub_category: r.sub_category, amount: r.amount });
+              }
+            }
+            if (p.expense_id !== p0.expense_id || Number(p.amount) !== Number(p0.amount)) changed.push({ ...p, family_code: familyCode, updated_by: MY_DEVICE_ID });
+          }
+          if (newEx.length && !(await insertExpenseRows(newEx))) { setSavBusy(''); return; }
+          if (changed.length) {
+            const { error: e2 } = await supabaseClient.from('savings_payments').upsert(changed);
+            if (e2) { setSavBusy(''); return showToast('⚠️ 납입 기록 맞추기 실패: ' + e2.message); }
+            paysNow = savPays.map(x => changed.find(c => c.id === x.id) || x);
+            setSavPays(paysNow);
           }
         }
-        await autoFillSavings(accs, savPays, expenses);
+        await autoFillSavings(accs, paysNow, expenses);
         setSavBusy('');
         setSavEdit(null);
         setSavOpenId(row.id);
@@ -3136,11 +3207,14 @@
       };
       const deleteSavingsAccount = async (a) => {
         const pays = savPays.filter(p => p.savings_id === a.id);
-        const exps = pays.map(p => p.expense_id && expenses.find(e => e.id === p.expense_id)).filter(Boolean);
+        const payExps = pays.map(p => p.expense_id && expenses.find(e => e.id === p.expense_id)).filter(Boolean);
+        const payoutInc = a.payout_income_id && expenses.find(e => e.id === a.payout_income_id);   // 만기·해지 때 넣은 수입
+        const exps = [...payExps, ...(payoutInc ? [payoutInc] : [])];
         let both = false;
         if (exps.length) {
-          const v = await askChoice('🗑️ 저축 삭제', `${a.name}과 납입 기록 ${pays.length}건을 삭제합니다 (휴지통 없음).\n가계부 내역에 이 저축의 납입 지출 ${exps.length}건(${exps.reduce((t, e) => t + e.amount, 0).toLocaleString()}원)이 있어요.`, [
-            { value: 'both', label: `납입 지출 ${exps.length}건도 함께 삭제 (휴지통으로)`, tone: 'danger' },
+          const what = [payExps.length ? `납입 지출 ${payExps.length}건(${payExps.reduce((t, e) => t + e.amount, 0).toLocaleString()}원)` : '', payoutInc ? `${payoutInc.store} 수입(${Number(payoutInc.amount).toLocaleString()}원)` : ''].filter(Boolean).join('과 ');
+          const v = await askChoice('🗑️ 저축 삭제', `${a.name}과 납입 기록 ${pays.length}건을 삭제합니다 (휴지통 없음).\n가계부 내역에 이 저축의 ${what}이 있어요.`, [
+            { value: 'both', label: `연결된 내역 ${exps.length}건도 함께 삭제 (휴지통으로)`, tone: 'danger' },
             { value: 'one', label: '저축만 삭제 (지출 내역은 남김)' },
             { value: null, label: '취소' }
           ]);
@@ -3155,7 +3229,7 @@
         setSavPays(prev => prev.filter(p => p.savings_id !== a.id));
         notifyPartner();
         setSavEdit(null); setSavOpenId(null);
-        showToast(both ? `🗑️ 저축을 지우고 납입 지출 ${exps.length}건은 휴지통으로 옮겼습니다.` : '🗑️ 저축을 삭제했습니다.');
+        showToast(both ? `🗑️ 저축을 지우고 연결된 내역 ${exps.length}건은 휴지통으로 옮겼습니다.` : '🗑️ 저축을 삭제했습니다.');
       };
       const newSavPayDraft = (a) => {
         const today = getKSTDateTimeString().slice(0, 10);
@@ -3232,13 +3306,19 @@
         if (!ensureConnected()) return;
         setSavBusy('saving');
         let income_id = a.payout_income_id || null;
+        const oldInc = income_id && expenses.find(e => e.id === income_id);
+        if ((!d.toIncome || amount <= 0) && oldInc) {   // 수입 등록을 끄거나 0원 → 전에 만든 수입은 휴지통으로
+          if (!(await trashExpenses([oldInc]))) { setSavBusy(''); return; }
+          income_id = null;
+        }
         if (d.toIncome && amount > 0) {
           const incCat = incomeCategories.find(c => c.name === '금융') || incomeCategories[0];
           const sub = incCat?.subs?.includes('적금·예금 만기') ? '적금·예금 만기' : (incCat?.subs?.[0] || '기타');
           const fields = { date: `${d.date} 09:00`, store: `${a.name} ${d.type}`.slice(0, 60), amount, category: incCat?.name || '금융', sub_category: sub, payer: a.owner || '남편' };
           if (income_id && expenses.some(e => e.id === income_id)) await updateExpenseRow(income_id, fields);
           else {
-            income_id = 'savin-' + a.id;
+            // 전에 만든 수입이 휴지통에 있으면 같은 id를 쓸 수 없음 → 새 id
+            income_id = trash.some(e => e.id === 'savin-' + a.id) || expenses.some(e => e.id === 'savin-' + a.id) ? `savin-${a.id}-${Date.now()}` : 'savin-' + a.id;
             if (!(await insertExpenseRows([{ id: income_id, kind: 'income', ...fields, tax: 0, ...payFieldsOf('none'), is_business: false, source: '저축', verified: true, memo: '', items: [] }]))) { setSavBusy(''); return; }
           }
         }
@@ -3252,7 +3332,7 @@
         showToast(`🏦 ${a.name} ${d.type} 처리${d.toIncome && amount ? ` · 수입 ${amount.toLocaleString()}원` : ''}`);
       };
       const reopenSavings = async (a) => {
-        if (!window.confirm(`${a.name}을 다시 진행 중으로 돌릴까요? (만기·해지 때 넣은 수입 내역은 그대로 남습니다)`)) return;
+        if (!window.confirm(`${a.name}을 다시 진행 중으로 돌릴까요? (만기·해지 때 넣은 수입 내역은 그대로 남고, 다시 만기·해지할 때 고치거나 지울 수 있어요)`)) return;
         const row = savRowOf({ ...a, status: '진행', closed_date: '' });
         const { error } = await supabaseClient.from('savings').upsert(row);
         if (error) return showToast('⚠️ 저장 실패: ' + error.message);
@@ -3303,7 +3383,9 @@
         }
         if (b.type === 'loan_payment') {
           if (!loans.some(l => l.id === row.loan_id)) return '대출이 지워져서 상환 기록은 복구하지 못했어요';
-          if (loanPays.some(x => x.id !== row.id && x.loan_id === row.loan_id && x.pay_date === row.pay_date && Number(x.total) === Number(row.total))) return '같은 상환 기록을 이미 다시 넣어서 복구하지 않았어요';
+          // 같은 날·같은 합계라도 회차가 둘 다 있고 다르면 다른 상환 (같은 날 두 번 조기상환)
+          if (loanPays.some(x => x.id !== row.id && x.loan_id === row.loan_id && x.pay_date === row.pay_date && Number(x.total) === Number(row.total)
+            && (!x.seq || !row.seq || Number(x.seq) === Number(row.seq)))) return '같은 상환 기록을 이미 다시 넣어서 복구하지 않았어요';
           const r = { ...row, expense_id: item.id };
           const { error } = await supabaseClient.from('loan_payments').upsert(r);
           if (error) return '상환 기록 복구 실패: ' + error.message;
@@ -3362,10 +3444,10 @@
           return { total: uniq.length, restored: 0 };
         }
         const ids = uniq.map(e => e.id);
-        const { error } = await supabaseClient.from('expenses').update({ deleted_at: null, updated_by: MY_DEVICE_ID }).in('id', ids).eq('family_code', familyCode);
+        const { error } = await supabaseClient.from('expenses').update({ deleted_at: null, linked_backup: null, updated_by: MY_DEVICE_ID }).in('id', ids).eq('family_code', familyCode);
         if (error) { showToast('⚠️ 휴지통에서 꺼내기 실패: ' + error.message); return { total: uniq.length, restored: 0 }; }
         setTrash(prev => prev.filter(e => !ids.includes(e.id)));
-        setExpenses(prev => [...prev, ...uniq.map(e => ({ ...e, deleted_at: null }))].sort((a, b) => b.date.localeCompare(a.date)));
+        setExpenses(prev => [...prev, ...uniq.map(e => ({ ...e, deleted_at: null, linked_backup: null }))].sort((a, b) => b.date.localeCompare(a.date)));
         notifyPartner();
         return { total: uniq.length, restored: uniq.length };
       };
@@ -4139,6 +4221,7 @@
             spamIgnoredCount > 0 ? `광고/설문 ${spamIgnoredCount}건 차단` : ''
           ].filter(Boolean).join(', ');
           showToast(`🎉 총 ${parsedRows.length}건 등록 완료!${extra ? ` (${extra})` : ''}`);
+          showRegistered(parsedRows.map(r => r.date));
           setActiveTab('list');
         }
       };
@@ -4400,6 +4483,7 @@
               autoIgnoredCancelCount > 0 ? `단독취소 ${autoIgnoredCancelCount}건 자동제외` : ''
             ].filter(Boolean).join(', ');
             showToast(`📥 총 ${newRows.length}건 등록 완료!${extraMsg ? ` (${extraMsg})` : ''}`);
+            showRegistered(newRows.map(r => r.date));
             setActiveTab('list');
           }
         };
@@ -4592,6 +4676,44 @@
         setTimeout(() => setFlashId(cur => (cur === id ? null : cur)), 3000);
       };
       const uncategorizedSum = categoryParts.filter(x => !knownCatNames.includes(x.category)).reduce((s, x) => s + x.amount, 0);
+      // 월 예산 막대 · 여러 달 평균 줄: 내역 탭 요약 칸과 통계 탭 💰 카드가 같이 씀
+      const budgetJsx = (budgetView && (budgetView.none ? (
+                    <button onClick={() => setBudgetEdit(budgetDraft())} className="w-full text-left text-[0.6875rem] text-slate-400 bg-slate-950/60 border border-dashed border-slate-700 rounded-lg px-2.5 py-1.5">
+                      🎯 월 예산을 정하면 이번 달 얼마나 썼는지 막대로 보여드려요 ›
+                    </button>
+                  ) : budgetView.share ? (
+                    <button onClick={() => setBudgetEdit(budgetDraft())} className="w-full text-left text-[0.6875rem] text-slate-300 bg-slate-950/60 border border-slate-700 rounded-lg px-2.5 py-1.5">
+                      🎯 {mName(filterUser)} 지출은 합산 예산 {budgetView.total.toLocaleString()}원의 <b className="text-white">{budgetView.pctOfTotal}%</b> <span className="text-slate-500">· {mName(filterUser)} 예산 정하기 ›</span>
+                    </button>
+                  ) : (() => {
+                    const b = budgetView;
+                    const over = b.pct > 100, fast = !over && b.current && b.pct > b.pace + 5;
+                    const bar = over ? 'bg-rose-500' : fast ? 'bg-amber-400' : 'bg-emerald-500';
+                    return (
+                      <button onClick={() => setBudgetEdit(budgetDraft())} className="w-full text-left space-y-1">
+                        <div className="flex justify-between text-[0.6875rem]">
+                          <span className="text-slate-300">🎯 {filterUser === '전체' ? (b.derived ? members.map(m => m.name).join('+') : '합산') : mName(filterUser)} 예산 {b.budget.toLocaleString()}원 중 <b className={over ? 'text-rose-300' : fast ? 'text-amber-300' : 'text-emerald-300'}>{b.pct}%</b></span>
+                          <span className={b.remain >= 0 ? 'text-slate-300' : 'text-rose-300 font-bold'}>{b.remain >= 0 ? `남은 ${b.remain.toLocaleString()}원` : `${(-b.remain).toLocaleString()}원 초과`}</span>
+                        </div>
+                        <div className="relative w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div className={`h-full ${bar}`} style={{ width: `${Math.min(100, Math.max(0, b.pct))}%` }} />
+                          {b.current && <div className="absolute top-0 h-full w-0.5 bg-white/70" style={{ left: `${b.pace}%` }} />}
+                        </div>
+                        {b.current && (
+                          <p className="text-[0.625rem] text-slate-500">
+                            오늘까지 적정 {b.pace}% (흰 선){b.perDay > 0 ? ` · 남은 ${b.daysLeft}일 동안 하루 ${b.perDay.toLocaleString()}원` : ''}{fast ? ' · 지출 속도가 빨라요' : ''}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })()));
+      const avgJsx = (periodRange && !singleMonth && (
+                    <p className="text-[0.6875rem] text-slate-400">
+                      📆 {periodDays}일 · 한 달 평균 지출 <b className="text-slate-200">{Math.round(totalAmount / periodDays * 30.4).toLocaleString()}원</b>
+                      {incomeTotal > 0 && <> · 수입 <b className="text-emerald-300">{Math.round(incomeTotal / periodDays * 30.4).toLocaleString()}원</b></>}
+                      <span className="text-slate-500"> · 월 예산 막대는 한 달씩 볼 때</span>
+                    </p>
+                  ));
 
       return (
         <div className="min-h-screen pb-24 safe-page max-w-xl mx-auto bg-slate-950">
@@ -4772,7 +4894,7 @@
 
                 {/* 달 이동·지출 합계·예산·결제자 필터: 내역·통계 탭에서만 (입력·설정 탭에서는 쓰지 않음) */}
                 {(activeTab === 'list' || activeTab === 'stats') && (
-                <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-700 space-y-3">
+                <div className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700 ${activeTab === 'stats' ? 'p-2.5 space-y-2' : 'p-4 space-y-3'}`}>
                   <div className="flex justify-between items-center bg-slate-950/70 px-2 py-1.5 rounded-xl border border-slate-800 gap-1">
                     <button onClick={() => moveMonth(-1)} className="text-xs font-bold text-slate-300 px-1.5 py-0.5 hover:text-white whitespace-nowrap shrink-0">
                       ◀ {periodSel ? (periodSel.kind === 'year' ? '이전 해' : '이전') : '이전달'}
@@ -4794,6 +4916,7 @@
                     </button>
                   </div>
 
+                  {activeTab === 'list' && (<>
                   <div className="flex justify-between items-end">
                     <div>
                       <p className="text-xs text-slate-400">지출 합계 ({memberKeys.includes(filterUser) ? mName(filterUser) : filterUser})</p>
@@ -4809,46 +4932,12 @@
                       총 {monthFiltered.length}건 (전체 {expenses.length}건)
                     </span>
                   </div>
-                  {periodRange && !singleMonth && (
-                    <p className="text-[0.6875rem] text-slate-400 -mt-1">
-                      📆 {periodDays}일 · 한 달 평균 지출 <b className="text-slate-200">{Math.round(totalAmount / periodDays * 30.4).toLocaleString()}원</b>
-                      {incomeTotal > 0 && <> · 수입 <b className="text-emerald-300">{Math.round(incomeTotal / periodDays * 30.4).toLocaleString()}원</b></>}
-                      <span className="text-slate-500"> · 월 예산 막대는 한 달씩 볼 때</span>
-                    </p>
-                  )}
+                  <div className="-mt-1">{avgJsx}</div>
 
-                  {budgetView && (budgetView.none ? (
-                    <button onClick={() => setBudgetEdit(budgetDraft())} className="w-full text-left text-[0.6875rem] text-slate-400 bg-slate-950/60 border border-dashed border-slate-700 rounded-lg px-2.5 py-1.5">
-                      🎯 월 예산을 정하면 이번 달 얼마나 썼는지 막대로 보여드려요 ›
-                    </button>
-                  ) : budgetView.share ? (
-                    <button onClick={() => setBudgetEdit(budgetDraft())} className="w-full text-left text-[0.6875rem] text-slate-300 bg-slate-950/60 border border-slate-700 rounded-lg px-2.5 py-1.5">
-                      🎯 {mName(filterUser)} 지출은 합산 예산 {budgetView.total.toLocaleString()}원의 <b className="text-white">{budgetView.pctOfTotal}%</b> <span className="text-slate-500">· {mName(filterUser)} 예산 정하기 ›</span>
-                    </button>
-                  ) : (() => {
-                    const b = budgetView;
-                    const over = b.pct > 100, fast = !over && b.current && b.pct > b.pace + 5;
-                    const bar = over ? 'bg-rose-500' : fast ? 'bg-amber-400' : 'bg-emerald-500';
-                    return (
-                      <button onClick={() => setBudgetEdit(budgetDraft())} className="w-full text-left space-y-1">
-                        <div className="flex justify-between text-[0.6875rem]">
-                          <span className="text-slate-300">🎯 {filterUser === '전체' ? (b.derived ? members.map(m => m.name).join('+') : '합산') : mName(filterUser)} 예산 {b.budget.toLocaleString()}원 중 <b className={over ? 'text-rose-300' : fast ? 'text-amber-300' : 'text-emerald-300'}>{b.pct}%</b></span>
-                          <span className={b.remain >= 0 ? 'text-slate-300' : 'text-rose-300 font-bold'}>{b.remain >= 0 ? `남은 ${b.remain.toLocaleString()}원` : `${(-b.remain).toLocaleString()}원 초과`}</span>
-                        </div>
-                        <div className="relative w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div className={`h-full ${bar}`} style={{ width: `${Math.min(100, Math.max(0, b.pct))}%` }} />
-                          {b.current && <div className="absolute top-0 h-full w-0.5 bg-white/70" style={{ left: `${b.pace}%` }} />}
-                        </div>
-                        {b.current && (
-                          <p className="text-[0.625rem] text-slate-500">
-                            오늘까지 적정 {b.pace}% (흰 선){b.perDay > 0 ? ` · 남은 ${b.daysLeft}일 동안 하루 ${b.perDay.toLocaleString()}원` : ''}{fast ? ' · 지출 속도가 빨라요' : ''}
-                          </p>
-                        )}
-                      </button>
-                    );
-                  })())}
+                  {budgetJsx}
+                  </>)}
 
-                  <div className={`grid ${members.length <= 2 ? 'grid-cols-4' : members.length <= 4 ? 'grid-cols-3' : 'grid-cols-4'} gap-1.5 pt-2 border-t border-slate-700/60 text-xs`}>
+                  <div className={`grid ${members.length <= 2 ? 'grid-cols-4' : members.length <= 4 ? 'grid-cols-3' : 'grid-cols-4'} gap-1.5 ${activeTab === 'stats' ? '' : 'pt-2 border-t border-slate-700/60'} text-xs`}>
                     {['전체', ...memberKeys, '업무용'].map(f => (
                       <button
                         key={f}
@@ -5810,18 +5899,12 @@
                   </div>
                 )}
 
-                {activeTab === 'stats' && (
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    <button onClick={openPayslips} className="py-2.5 bg-slate-900 border border-emerald-800/60 rounded-xl text-xs font-bold text-emerald-300 whitespace-nowrap">💼 급여명세서 ›</button>
-                    <button onClick={openLoans} className="py-2.5 bg-slate-900 border border-amber-800/60 rounded-xl text-xs font-bold text-amber-200 whitespace-nowrap">🏠 대출 ›</button>
-                    <button onClick={openSavings} className="py-2.5 bg-slate-900 border border-sky-800/60 rounded-xl text-xs font-bold text-sky-300 whitespace-nowrap">🏦 저축 ›</button>
-                  </div>
-                )}
 
                 {activeTab === 'stats' && (
                   <div className="bg-slate-900 p-4 rounded-2xl border border-emerald-800/60 space-y-2.5 mb-3">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-white text-base">💰 수입 · 지출 ({periodShort})</h3>
+                    <div className="flex justify-between items-end gap-2">
+                      <h3 className="font-bold text-white text-base">💰 수입 · 지출{filterUser !== '전체' ? <span className="text-sm text-indigo-300"> · {memberKeys.includes(filterUser) ? mName(filterUser) : filterUser}</span> : ''}</h3>
+                      <span className="text-[0.6875rem] text-slate-500 shrink-0">{monthFiltered.length}건</span>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="bg-slate-950 rounded-xl p-2 border border-slate-800">
@@ -5840,6 +5923,9 @@
                     {incomeTotal > 0 && (
                       <p className="text-[0.6875rem] text-slate-400">저축률(남은 돈 ÷ 수입): <b className="text-slate-200">{Math.round((incomeTotal - totalAmount) / incomeTotal * 100)}%</b></p>
                     )}
+                    {avgJsx}
+                    {budgetJsx}
+                    {monthIncome.length > 0 && <p className="text-[0.6875rem] text-slate-400 font-bold pt-1 border-t border-slate-800">수입 분류</p>}
                     {(() => {
                       const rows = incomeCategories.map(c => ({ c, sum: monthIncome.filter(e => e.category === c.name).reduce((t, e) => t + e.amount, 0) }))
                         .filter(r => r.sum !== 0).sort((x, y) => y.sum - x.sum);
@@ -5852,6 +5938,14 @@
                         </button>
                       )), other ? <button key="other" onClick={() => setStatDrill({ kind: 'income', key: '__other', title: '💰 기타 분류 수입', sub: null })} className="text-[0.6875rem] text-slate-400">기타 분류 +{other.toLocaleString()}원 ›</button> : null];
                     })()}
+                  </div>
+                )}
+
+                {activeTab === 'stats' && (
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <button onClick={openPayslips} className="py-2.5 bg-slate-900 border border-emerald-800/60 rounded-xl text-xs font-bold text-emerald-300 whitespace-nowrap">💼 급여명세서 ›</button>
+                    <button onClick={openLoans} className="py-2.5 bg-slate-900 border border-amber-800/60 rounded-xl text-xs font-bold text-amber-200 whitespace-nowrap">🏠 대출 ›</button>
+                    <button onClick={openSavings} className="py-2.5 bg-slate-900 border border-sky-800/60 rounded-xl text-xs font-bold text-sky-300 whitespace-nowrap">🏦 저축 ›</button>
                   </div>
                 )}
 
