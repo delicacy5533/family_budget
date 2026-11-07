@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.64</title>
+  <title>부부 AI 가계부 v1.65</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -39,12 +39,12 @@
     const { useState, useEffect, useRef, useMemo, useLayoutEffect } = React;
     // 탭마다 스크롤 위치를 앱이 직접 기억 (브라우저가 뒤로가기 때 멋대로 옮기지 않게)
     try { if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'; } catch (e) {}
-    const START_TABS = [['list', '📋 내역'], ['input', '➕ 입력'], ['stats', '📊 통계']];
+    const START_TABS = [['list', '📋 내역'], ['input', '➕ 입력'], ['stats', '📊 통계'], ['assets', '🏦 자산']];
 
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.64';
+    const APP_VERSION = 'v1.65';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 15;   // 15: 문자 결제자 m1·m2 별칭(payer_key) · 14: 대출 계좌번호(loans.account_no) · 13: 저축 계좌번호(savings.account_no) · 12: 휴지통에 연결 기록 보관(expenses.linked_backup) · 11: 구성원(family_config.members) · 10: 저축(savings, savings_payments) · 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -836,6 +836,19 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.65',
+        date: '2026-11-07',
+        title: '🏦 자산 탭',
+        changes: [
+          '[자산] 아래 탭에 🏦 자산 추가 (내역 · 통계 · 입력 · 자산 · 설정): 순자산(저축 − 대출) 요약',
+          '[자산] 💼 급여명세서: 구성원마다 최근 실수령과 올해 실수령 합계 · 📷 명세서 사진 · ✍️ 직접 입력',
+          '[자산] 🏠 대출: 대출마다 남은 잔액 · 갚은 비율 · 금리 · 다음 납부일(D-day) · 📷 대출 화면 캡처 · ＋ 대출 등록',
+          '[자산] 🏦 저축: 만기 가까운 순으로 넣은 돈 · 납입 회차 · 만기 D-day · 예상 수령액 · 📷 저축 화면 캡처 · ＋ 저축 등록',
+          '[통계] 위쪽 급여명세서·대출·저축 버튼은 자산 탭으로 옮김 (통계에는 자산 탭 바로가기 한 줄)',
+          '[설정] 🏁 첫 화면에 🏦 자산 추가'
+        ]
+      },
       {
         version: 'v1.64',
         date: '2026-11-07',
@@ -1835,6 +1848,8 @@
 
       const familyCode = `fam_${familyPass}`;
       const supabaseClient = useMemo(() => createSecuredClient(familyCode), [familyCode]);
+      // 🏦 자산 탭을 열면 급여명세서를 불러옴 (대출·저축은 앱을 열 때 이미 불러옴)
+      useEffect(() => { if (activeTab === 'assets' && supabaseClient) loadPayslips(); }, [activeTab, supabaseClient]);   // eslint-disable-line
       const syncTimerRef = useRef(null);
       const broadcastChannelRef = useRef(null);
 
@@ -2648,7 +2663,7 @@
         if (drafts.length > 1) showToast(`💼 명세서 ${drafts.length}개를 읽었습니다. 하나씩 확인해 저장하세요.`);
       };
       // 사진(여러 장 가능)을 AI로 읽어 편집 화면에
-      const readPayslipPhotos = async (fileList) => {
+      const readPayslipPhotos = async (fileList, owner = psOwner) => {
         const files = Array.from(fileList || []).slice(0, 10);
         if (files.length === 0 || !ensureConnected()) return;
         setPsBusy('reading');
@@ -2668,7 +2683,7 @@
           if (error) throw new Error(await describeScanError(error));
           if (data?.status === 'not_receipt') throw new Error('급여명세서가 아닌 사진 같습니다. 지급·공제 내역이 보이게 다시 찍어주세요.');
           if (data?.status !== 'success' || !data.payslip) throw new Error(data?.message || '명세서를 읽지 못했습니다.');
-          showPayslipDrafts(payslipDraftsFrom(data));
+          showPayslipDrafts(payslipDraftsFrom(data, owner));
         } catch (err) {
           showToast('⚠️ ' + (err.message || String(err)));
         } finally {
@@ -5565,6 +5580,121 @@
                   </div>
                 )}
 
+                {activeTab === 'assets' && (() => {
+                  const won = (n) => `${Number(n || 0).toLocaleString()}원`;
+                  const today = getKSTDateTimeString().slice(0, 10);
+                  const dayDiff = (d) => Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
+                  const who = (k) => `${memberOf(k).emoji || ''} ${mName(k)}`.trim();
+                  const actSav = savings.filter(a => a.status === '진행');
+                  const saveSum = actSav.reduce((t, a) => t + savPaidSum(a.id), 0);
+                  const loanRows = loans.map(l => ({ l, bal: loanBalanceNow(l, loanPays) }));
+                  const loanSum = loanRows.reduce((t, r) => t + r.bal, 0);
+                  const card = (cls, children) => <div className={`bg-slate-900 p-3.5 rounded-2xl border ${cls} space-y-2 mb-3`}>{children}</div>;
+                  const head = (title, onOpen, color) => (
+                    <button onClick={onOpen} className="w-full flex justify-between items-center">
+                      <h3 className={`font-bold text-base ${color}`}>{title}</h3><span className="text-xs text-slate-400">전체 보기 ›</span>
+                    </button>
+                  );
+                  const capLabel = (busy, label, onFiles, cls) => (
+                    <label className={`flex-1 text-center py-2 rounded-lg text-xs font-bold ${busy ? 'bg-slate-700 text-slate-400' : `${cls} cursor-pointer`}`}>
+                      {busy ? '🤖 읽는 중…' : label}
+                      <input type="file" accept="image/*" multiple className="hidden" disabled={busy} onChange={e => { onFiles(e.target.files); e.target.value = ''; }} />
+                    </label>
+                  );
+                  // 급여: 구성원마다 가장 최근 명세서 + 올해 실수령 합계
+                  const year = today.slice(0, 4);
+                  const psByOwner = members.map(m => {
+                    const mine = payslips.filter(p => p.owner === m.key);
+                    if (mine.length === 0) return null;
+                    const last = mine.slice().sort((x, y) => (y.pay_month + (y.pay_date || '')).localeCompare(x.pay_month + (x.pay_date || '')))[0];
+                    const yearNet = mine.filter(p => String(p.pay_month).startsWith(year)).reduce((t, p) => t + (Number(p.net) || 0), 0);
+                    return { m, last, yearNet };
+                  }).filter(Boolean);
+                  return (
+                    <>
+                      {card('border-violet-800/60', (
+                        <>
+                          <h3 className="font-bold text-white text-base">🏦 순자산</h3>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="bg-slate-950 rounded-xl p-2 border border-slate-800"><p className="text-[0.625rem] text-slate-400">저축 (넣은 돈)</p><p className="text-sm font-extrabold text-sky-300">{saveSum.toLocaleString()}</p></div>
+                            <div className="bg-slate-950 rounded-xl p-2 border border-slate-800"><p className="text-[0.625rem] text-slate-400">대출 잔액</p><p className="text-sm font-extrabold text-amber-300">−{loanSum.toLocaleString()}</p></div>
+                            <div className="bg-slate-950 rounded-xl p-2 border border-slate-800"><p className="text-[0.625rem] text-slate-400">순자산</p><p className={`text-sm font-extrabold ${saveSum - loanSum >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{(saveSum - loanSum).toLocaleString()}</p></div>
+                          </div>
+                          <p className="text-[0.625rem] text-slate-500">저축은 넣은 돈(이자는 만기 때 받은 돈으로), 대출은 지금 남은 원금입니다. 통장 잔고·집·자동차는 아직 들어가지 않아요.</p>
+                        </>
+                      ))}
+
+                      {card('border-emerald-800/60', (
+                        <>
+                          {head('💼 급여명세서', openPayslips, 'text-emerald-300')}
+                          {psState === 'loading' && payslips.length === 0 && <p className="text-xs text-slate-500">불러오는 중…</p>}
+                          {psState === 'missing' && <p className="text-xs text-amber-300">서버에 급여명세서 표가 없습니다 (v1.31 업데이트 SQL).</p>}
+                          {!psState && psByOwner.length === 0 && <p className="text-xs text-slate-500">아직 등록된 명세서가 없습니다.</p>}
+                          {psByOwner.map(({ m, last, yearNet }) => (
+                            <button key={m.key} onClick={() => { openPayslips(); setPsOwner(m.key); }} className="w-full text-left bg-slate-950 rounded-xl border border-slate-800 p-2.5 space-y-0.5">
+                              <div className="flex justify-between text-xs"><b className="text-slate-100">{who(m.key)}</b><b className="text-emerald-300">{won(last.net)}</b></div>
+                              <p className="text-[0.625rem] text-slate-500">최근 {last.pay_month} {payslipTypeOf(last.pay_type)} 실수령 · {year}년 실수령 합계 {won(yearNet)}</p>
+                            </button>
+                          ))}
+                          <div className="flex gap-2">
+                            {capLabel(psBusy === 'reading', '📷 명세서 사진', (f) => { setPsOwner(currentUser); setShowPayslips(true); loadPayslips(); readPayslipPhotos(f, currentUser); }, 'bg-emerald-700 text-white')}
+                            <button onClick={() => { openPayslips(); setPsEdit(newPayslipDraft()); }} className="flex-1 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-200">✍️ 직접 입력</button>
+                          </div>
+                        </>
+                      ))}
+
+                      {card('border-amber-800/60', (
+                        <>
+                          {head(`🏠 대출${loans.length ? ` · 남은 ${won(loanSum)}` : ''}`, openLoans, 'text-amber-200')}
+                          {loans.length === 0 && <p className="text-xs text-slate-500">등록된 대출이 없습니다.</p>}
+                          {loanRows.map(({ l, bal }) => {
+                            const prin = Number(l.principal) || 0;
+                            const prog = prin > 0 ? Math.min(100, Math.max(0, Math.round((prin - bal) / prin * 100))) : null;
+                            const nd = l.next_due && l.next_due.date >= today ? l.next_due : null;
+                            return (
+                              <button key={l.id} onClick={() => { openLoans(); setLoanOpenId(l.id); }} className="w-full text-left bg-slate-950 rounded-xl border border-slate-800 p-2.5 space-y-1">
+                                <div className="flex justify-between text-xs"><b className="text-slate-100">{l.name}<span className="text-[0.625rem] text-slate-500 font-normal">{l.lender ? ` · ${l.lender}` : ''} · {mName(l.owner)}</span></b><b className="text-amber-300">{won(bal)}</b></div>
+                                {prog !== null && <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{ width: `${prog}%` }} /></div>}
+                                <p className="text-[0.625rem] text-slate-500">{[prog !== null ? `${prog}% 갚음` : '', Number(l.rate) > 0 ? `금리 ${Number(l.rate)}%` : '', nd ? `다음 납부 ${nd.date.slice(5).replace('-', '/')}${Number(nd.total) > 0 ? ` ${won(nd.total)}` : ''} (D-${dayDiff(nd.date)})` : '', l.maturity_date ? `만기 ${l.maturity_date}` : ''].filter(Boolean).join(' · ')}</p>
+                              </button>
+                            );
+                          })}
+                          <div className="flex gap-2">
+                            {capLabel(loanBusy === 'reading', '📷 대출 화면 캡처', (f) => { setShowLoans(true); readLoanPhotos(f); }, 'bg-amber-700 text-white')}
+                            <button onClick={() => { openLoans(); setLoanEdit(newLoanDraft()); }} className="flex-1 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-200">＋ 대출 등록</button>
+                          </div>
+                        </>
+                      ))}
+
+                      {card('border-sky-800/60', (
+                        <>
+                          {head(`🏦 저축${actSav.length ? ` · ${won(saveSum)}` : ''}`, openSavings, 'text-sky-300')}
+                          {actSav.length === 0 && <p className="text-xs text-slate-500">진행 중인 저축이 없습니다.</p>}
+                          {actSav.slice().sort((x, y) => (x.maturity_date || '9999').localeCompare(y.maturity_date || '9999')).map(a => {
+                            const paid = savPaidSum(a.id);
+                            const exp = savingsExpected(a);
+                            const n = savPays.filter(p => p.savings_id === a.id).length;
+                            const prog = exp && exp.n > 0 && a.kind === '적금' ? Math.min(100, Math.round(n / exp.n * 100)) : null;
+                            const dd = a.maturity_date ? dayDiff(a.maturity_date) : null;
+                            return (
+                              <button key={a.id} onClick={() => { openSavings(); setSavOpenId(a.id); }} className="w-full text-left bg-slate-950 rounded-xl border border-slate-800 p-2.5 space-y-1">
+                                <div className="flex justify-between text-xs"><b className="text-slate-100">{a.name}<span className="text-[0.625rem] text-slate-500 font-normal"> · {a.kind === '자유' ? (a.sub_category || '자유 입금') : a.kind} · {mName(a.owner)}</span></b><b className="text-sky-300">{won(paid)}</b></div>
+                                {prog !== null && <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-sky-500" style={{ width: `${prog}%` }} /></div>}
+                                <p className="text-[0.625rem] text-slate-500">{[prog !== null ? `${n}/${exp.n}회` : '', a.kind === '적금' && Number(a.monthly) ? `월 ${Number(a.monthly).toLocaleString()}원` : '', a.maturity_date ? `만기 ${a.maturity_date}${dd !== null && dd >= 0 ? ` (D-${dd})` : ' (만기 지남)'}` : '', exp ? `예상 ${won(exp.afterTax)}` : ''].filter(Boolean).join(' · ')}</p>
+                              </button>
+                            );
+                          })}
+                          {savings.length > actSav.length && <p className="text-[0.625rem] text-slate-500">만기·해지된 저축 {savings.length - actSav.length}개는 [전체 보기]에서</p>}
+                          <div className="flex gap-2">
+                            {capLabel(savBusy === 'reading', '📷 저축 화면 캡처', (f) => { setShowSavings(true); readSavingsPhotos(f, null); }, 'bg-sky-700 text-white')}
+                            <button onClick={() => { openSavings(); setSavEdit(newSavDraft('적금')); }} className="flex-1 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-200">＋ 저축 등록</button>
+                          </div>
+                        </>
+                      ))}
+                    </>
+                  );
+                })()}
+
                 {activeTab === 'cats' && (() => {
                   const list = memDraft || members;
                   const editing = !!memDraft;
@@ -5644,7 +5774,7 @@
                       )}
                       <div className="space-y-1.5 pt-2 border-t border-slate-800">
                         <p className="text-xs text-slate-300 font-bold">🏁 첫 화면 <span className="font-normal text-slate-500">· 앱을 열면 먼저 보이는 탭</span></p>
-                        <div className="grid grid-cols-3 gap-1.5">
+                        <div className="grid grid-cols-4 gap-1.5">
                           {START_TABS.map(([k, label]) => (
                             <button key={k} onClick={() => pickStartTab(k)}
                               className={`py-2 rounded-lg font-bold text-xs ${startTab === k ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`}>{label}</button>
@@ -6222,11 +6352,7 @@
                 )}
 
                 {activeTab === 'stats' && (
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    <button onClick={openPayslips} className="py-2.5 bg-slate-900 border border-emerald-800/60 rounded-xl text-xs font-bold text-emerald-300 whitespace-nowrap">💼 급여명세서 ›</button>
-                    <button onClick={openLoans} className="py-2.5 bg-slate-900 border border-amber-800/60 rounded-xl text-xs font-bold text-amber-200 whitespace-nowrap">🏠 대출 ›</button>
-                    <button onClick={openSavings} className="py-2.5 bg-slate-900 border border-sky-800/60 rounded-xl text-xs font-bold text-sky-300 whitespace-nowrap">🏦 저축 ›</button>
-                  </div>
+                  <button onClick={() => goTab('assets')} className="w-full mb-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-[0.6875rem] text-slate-400">💼 급여명세서 · 🏠 대출 · 🏦 저축은 아래 <b className="text-sky-300">🏦 자산</b> 탭에서 ›</button>
                 )}
 
                 {activeTab === 'stats' && (() => {
@@ -8075,18 +8201,21 @@
               )}
 
               <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-30 safe-bottom">
-                <div className="max-w-xl mx-auto grid grid-cols-4 font-bold" style={{ fontSize: `${0.75 * uiSize.nav}rem`, paddingTop: `${0.5 * uiSize.nav}rem`, paddingBottom: `${0.5 * uiSize.nav}rem` }}>
+                <div className="max-w-xl mx-auto grid grid-cols-5 font-bold" style={{ fontSize: `${0.75 * uiSize.nav}rem`, paddingTop: `${0.5 * uiSize.nav}rem`, paddingBottom: `${0.5 * uiSize.nav}rem` }}>
                   <button onClick={() => goTab('list')} className={activeTab === 'list' ? 'text-indigo-300' : 'text-slate-400'}>
-                    <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'list' ? 'bg-indigo-600/90 text-white' : ''}`}>📋 내역</span>
+                    <span className={`inline-block whitespace-nowrap px-[0.45em] py-[0.15em] rounded-full ${activeTab === 'list' ? 'bg-indigo-600/90 text-white' : ''}`}>📋 내역</span>
                   </button>
                   <button onClick={() => goTab('stats')} className={activeTab === 'stats' ? 'text-indigo-300' : 'text-slate-400'}>
-                    <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'stats' ? 'bg-indigo-600/90 text-white' : ''}`}>📊 통계</span>
+                    <span className={`inline-block whitespace-nowrap px-[0.45em] py-[0.15em] rounded-full ${activeTab === 'stats' ? 'bg-indigo-600/90 text-white' : ''}`}>📊 통계</span>
                   </button>
                   <button onClick={() => goTab('input')} className={activeTab === 'input' ? 'text-indigo-300' : 'text-slate-400'}>
-                    <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'input' ? 'bg-indigo-600/90 text-white' : ''}`}>➕ 입력</span>
+                    <span className={`inline-block whitespace-nowrap px-[0.45em] py-[0.15em] rounded-full ${activeTab === 'input' ? 'bg-indigo-600/90 text-white' : ''}`}>➕ 입력</span>
+                  </button>
+                  <button onClick={() => goTab('assets')} className={activeTab === 'assets' ? 'text-indigo-300' : 'text-slate-400'}>
+                    <span className={`inline-block whitespace-nowrap px-[0.45em] py-[0.15em] rounded-full ${activeTab === 'assets' ? 'bg-indigo-600/90 text-white' : ''}`}>🏦 자산</span>
                   </button>
                   <button onClick={() => goTab('cats')} className={activeTab === 'cats' ? 'text-indigo-300' : 'text-slate-400'}>
-                    <span className={`inline-block whitespace-nowrap px-[0.6em] py-[0.15em] rounded-full ${activeTab === 'cats' ? 'bg-indigo-600/90 text-white' : ''}`}>⚙️ 설정</span>
+                    <span className={`inline-block whitespace-nowrap px-[0.45em] py-[0.15em] rounded-full ${activeTab === 'cats' ? 'bg-indigo-600/90 text-white' : ''}`}>⚙️ 설정</span>
                   </button>
                 </div>
               </nav>
