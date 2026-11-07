@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.49</title>
+  <title>부부 AI 가계부 v1.50</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.49';
+    const APP_VERSION = 'v1.50';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 9;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -738,6 +738,17 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.50',
+        date: '2026-11-07',
+        title: '뒤로가기 = 내역 탭(홈)으로 · 탭 순서',
+        changes: [
+          '[뒤로가기] ➕ 입력·📊 통계·⚙️ 카드·분류 탭에서 뒤로가기를 누르면 📋 내역 탭으로 (열린 창이 있으면 창부터 닫음)',
+          '[뒤로가기] 내역 탭에서 뒤로가기를 누르면 지금처럼 "한 번 더 누르면 종료" 안내',
+          '[뒤로가기] 입력 → 통계처럼 다른 탭끼리 옮겨 다녀도 뒤로가기 한 번이면 내역 탭',
+          '[화면] 아래 탭 순서: 📋 내역 · 📊 통계 · ➕ 입력 · ⚙️ 카드·분류 (지출 합계를 보여주는 탭끼리 나란히)'
+        ]
+      },
       {
         version: 'v1.49',
         date: '2026-11-07',
@@ -1490,7 +1501,9 @@
       // ➕ 입력 탭에서 연 급여·대출 입력 창은 뒤에 깔린 목록 창을 세지 않음 (입력 창을 닫으면 목록도 함께 닫히므로 한 칸만)
       overlayLayersRef.current = [showVersionModal, showWebhookModal, showInbox, showTrash, manual !== null, showPayslips && inputReturn !== 'payslip', psEdit !== null,
         showLoans && inputReturn !== 'loan', loanOpenId !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null,
-        showCodeMigrateModal, choiceDlg !== null, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null)].filter(Boolean).length;
+        showCodeMigrateModal, choiceDlg !== null, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null),
+        // 내역 탭 = 홈: 다른 탭에 있으면 한 칸 (탭을 누를 때 쌓음 → 뒤로가기 = 내역 탭으로. 입력→통계처럼 옮겨 다녀도 한 칸)
+        activeTab !== 'list'].filter(Boolean).length;
       closeTopOverlayRef.current = () => {
         if (choiceDlg) { answerChoice(null); return true; }   // 고르기 팝업은 늘 맨 위 → 뒤로가기 = 취소
         if (catAdder) { setCatAdder(null); return true; }   // 열려 있으면 늘 맨 위 (직접 입력 창 안이거나, 다른 창이 없을 때만 남음)
@@ -1512,6 +1525,8 @@
         // 내역 카드 안의 입력은 다른 창이 없을 때만 남아 있음 (아래 정리 참고) → 맨 마지막
         if (memoEdit) { setMemoEdit(null); return true; }
         if (editingId !== null) { setEditingId(null); return true; }
+        // 창이 다 닫혀 있고 다른 탭이면 내역 탭(홈)으로
+        if (activeTab !== 'list') { setActiveTab('list'); return true; }
         return true;
       };
       // 맨 위 창이 입력하는 창인지 (바깥 터치로 닫지 않음). 순서는 위 closeTopOverlayRef와 같음
@@ -1554,7 +1569,9 @@
         if (manual === null) setCatAdder(ca => (ca && ca.where === 'manual' ? null : ca));
       }, [manual === null]);
       const overlayOpenRef = useRef(false);
-      overlayOpenRef.current = overlayOpen;
+      // 종료 안내 칸을 다시 쌓지 않을 때: 창이 열려 있거나 내역 탭(홈)이 아닐 때 (탭 칸 위에 쌓이지 않게)
+      const notHome = overlayOpen || activeTab !== 'list';
+      overlayOpenRef.current = notHome;
       const skipPopRef = useRef(0);          // 앱이 스스로 부른 history.back()은 '종료 안내'로 치지 않음
       const guardPendingRef = useRef(false); // 창이 열려 있어 종료 안내 칸을 다시 못 쌓은 상태
       const pushExitGuard = () => window.history.pushState({ exitGuard: true }, '');
@@ -1577,12 +1594,12 @@
       }, [overlayLayerCount]);
       // 창이 다 닫힌 뒤, 못 쌓았던 종료 안내 칸을 다시 쌓음
       useEffect(() => {
-        if (overlayOpen || !guardPendingRef.current) return;
+        if (notHome || !guardPendingRef.current) return;
         const t = setTimeout(() => {
           if (!overlayOpenRef.current && guardPendingRef.current) { guardPendingRef.current = false; pushExitGuard(); }
         }, 300);
         return () => clearTimeout(t);
-      }, [overlayOpen]);
+      }, [notHome]);
 
       // 이전 알림의 타이머가 새 알림을 일찍 지우지 않도록 타이머를 하나만 유지
       const toastTimerRef = useRef(null);
@@ -6399,11 +6416,11 @@
                   <button onClick={() => setActiveTab('list')} className={activeTab === 'list' ? 'text-indigo-300' : 'text-slate-400'}>
                     <span className={`inline-block px-2.5 py-0.5 rounded-full ${activeTab === 'list' ? 'bg-indigo-600/90 text-white' : ''}`}>📋 내역</span>
                   </button>
-                  <button onClick={() => setActiveTab('input')} className={activeTab === 'input' ? 'text-indigo-300' : 'text-slate-400'}>
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full ${activeTab === 'input' ? 'bg-indigo-600/90 text-white' : ''}`}>➕ 입력</span>
-                  </button>
                   <button onClick={() => setActiveTab('stats')} className={activeTab === 'stats' ? 'text-indigo-300' : 'text-slate-400'}>
                     <span className={`inline-block px-2.5 py-0.5 rounded-full ${activeTab === 'stats' ? 'bg-indigo-600/90 text-white' : ''}`}>📊 통계</span>
+                  </button>
+                  <button onClick={() => setActiveTab('input')} className={activeTab === 'input' ? 'text-indigo-300' : 'text-slate-400'}>
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full ${activeTab === 'input' ? 'bg-indigo-600/90 text-white' : ''}`}>➕ 입력</span>
                   </button>
                   <button onClick={() => setActiveTab('cats')} className={activeTab === 'cats' ? 'text-indigo-300' : 'text-slate-400'}>
                     <span className={`inline-block px-2.5 py-0.5 rounded-full ${activeTab === 'cats' ? 'bg-indigo-600/90 text-white' : ''}`}>⚙️ 카드·분류</span>
