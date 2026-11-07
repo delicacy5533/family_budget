@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.57</title>
+  <title>부부 AI 가계부 v1.58</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -41,7 +41,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.57';
+    const APP_VERSION = 'v1.58';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 12;   // 12: 휴지통에 연결 기록 보관(expenses.linked_backup) · 11: 구성원(family_config.members) · 10: 저축(savings, savings_payments) · 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -834,6 +834,20 @@
     // =====================================================================
     const VERSION_HISTORY = [
       {
+        version: 'v1.58',
+        date: '2026-11-07',
+        title: '저축 화면 사진 등록 · 입력 탭에서 새 계좌 등록',
+        changes: [
+          '[입력] 📷 사진으로 등록이 은행·증권 앱의 적금·예금·청약·연금·투자 화면도 알아봄 (가입 정보·거래내역 → 금리·만기·월 납입액·납입 내역)',
+          '[저축] 읽은 내용 확인: 이름이 같은 저축이 있으면 그 저축에 반영(다른 저축·새 저축으로 바꿀 수 있음), 이미 있는 납입은 건너뜀, 통장 잔액과 넣은 돈 비교',
+          '[저축] 사진으로 넣은 적금 납입은 그 달 자동 납입으로 쳐서 자동 채우기와 겹치지 않음',
+          '[저축] 🏦 저축 화면에 [📷 캡처 올리기], 저축 자세히 화면에 [📷 캡처]',
+          '[입력] 급여·대출·저축 화면이 함께 섞여 있으면 명세서 → 대출 → 저축 순서로 하나씩 확인',
+          '[입력] 직접 입력 [🏦 저축]에 [＋ 새 저축 등록]·[📷 저축 화면 캡처], [🏠 대출]에 [＋ 새 대출 등록] (이미 계좌가 있어도 입력 탭에서 새로 등록)',
+          '[서버] scan-receipt v1.58: 저축 화면 읽기 (mode: savings, 자동 구분 reason: savings)'
+        ]
+      },
+      {
         version: 'v1.57',
         date: '2026-11-07',
         title: 'v1.55 검토 반영 (저축 고치기 · 만기 수입 · 복원)',
@@ -1590,7 +1604,7 @@
       // ➕ 입력 탭에서 연 급여명세서·대출 입력 창: 닫으면 목록 창까지 닫고 입력 탭으로 돌아옴 ('payslip' | 'loan' | null)
       const [inputReturn, setInputReturn] = useState(null);
       const [showFileImport, setShowFileImport] = useState(false);   // ➕ 입력 탭의 카드사 파일 올리기 칸
-      const pendingLoanReadRef = useRef(null);   // 사진에서 급여명세서와 대출 화면이 함께 나오면 명세서 다음에 보여줄 대출 내용
+      const pendingDocsRef = useRef([]);   // 사진에서 급여명세서·대출·저축 화면이 함께 나오면 차례로 보여줄 확인 창 [{type, read}]
       // 💼 급여명세서
       const [showPayslips, setShowPayslips] = useState(false);
       const [payslips, setPayslips] = useState([]);
@@ -1619,6 +1633,7 @@
       const [savEdit, setSavEdit] = useState(null);             // 저축 정보 입력·고치기
       const [savPayEdit, setSavPayEdit] = useState(null);       // 납입 1건 입력·고치기
       const [savClose, setSavClose] = useState(null);           // 만기·해지 처리
+      const [savRead, setSavRead] = useState(null);             // 📷 저축 화면 캡처 읽은 결과 확인
       const [savBusy, setSavBusy] = useState('');
       const [showLoans, setShowLoans] = useState(false);
       const [loans, setLoans] = useState([]);
@@ -1738,7 +1753,7 @@
       // ➕ 입력 탭에서 연 급여·대출 입력 창은 뒤에 깔린 목록 창을 세지 않음 (입력 창을 닫으면 목록도 함께 닫히므로 한 칸만)
       overlayLayersRef.current = [showVersionModal, showWebhookModal, showInbox, showTrash, manual !== null, showPayslips && inputReturn !== 'payslip', psEdit !== null,
         showLoans && inputReturn !== 'loan', loanOpenId !== null,
-        showSavings && inputReturn !== 'savings', savOpenId !== null, savEdit !== null, savPayEdit !== null, savClose !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null, showPeriod,
+        showSavings && inputReturn !== 'savings', savOpenId !== null, savEdit !== null, savPayEdit !== null, savClose !== null, savRead !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null, showPeriod,
         showCodeMigrateModal, choiceDlg !== null, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null),
         // 내역 탭 = 홈: 다른 탭에 있으면 한 칸 (탭을 누를 때 쌓음 → 뒤로가기 = 내역 탭으로. 입력→통계처럼 옮겨 다녀도 한 칸)
         activeTab !== 'list'].filter(Boolean).length;
@@ -1753,6 +1768,7 @@
         if (loanRead) { setLoanRead(null); return true; }
         if (loanOpenId) { setLoanOpenId(null); return true; }
         if (showLoans) { setShowLoans(false); return true; }
+        if (savRead) { setSavRead(null); return true; }
         if (savClose) { setSavClose(null); return true; }
         if (savPayEdit) { setSavPayEdit(null); return true; }
         if (savEdit) { setSavEdit(null); return true; }
@@ -1780,7 +1796,7 @@
         : showPayslips ? false
         : payEdit || loanEdit || loanRead ? true
         : loanOpenId || showLoans ? false
-        : savClose || savPayEdit || savEdit ? true
+        : savRead || savClose || savPayEdit || savEdit ? true
         : savOpenId || showSavings || statDrill || showPeriod ? false
         : budgetEdit ? true
         : showInbox || showTrash || showVersionModal || showWebhookModal ? false
@@ -2747,16 +2763,17 @@
         if (loans.length === 0) setLoanEdit(newLoanDraft()); else setPayEdit(newPayDraft(loans[0]));
       };
       useEffect(() => {
-        if (inputReturn === 'payslip' && !psEdit) {
-          setShowPayslips(false);
+        let closed = false;
+        if (inputReturn === 'payslip' && !psEdit) { setShowPayslips(false); closed = true; }
+        if (inputReturn === 'loan' && !payEdit && !loanEdit && !loanRead && !loanOpenId) { setShowLoans(false); closed = true; }
+        if (inputReturn === 'savings' && !savPayEdit && !savEdit && !savOpenId && !savClose && !savRead) { setShowSavings(false); closed = true; }
+        if (closed) {
           setInputReturn(null);
-          // 같이 올린 사진에 대출 화면도 있었으면 이어서 보여줌
-          const lr = pendingLoanReadRef.current;
-          if (lr) { pendingLoanReadRef.current = null; setShowLoans(true); setLoanOpenId(null); setLoanRead(lr); setInputReturn('loan'); }
+          // 같이 올린 사진에 대출·저축 화면도 있었으면 이어서 보여줌
+          const next = pendingDocsRef.current.shift();
+          if (next) openDoc(next);
         }
-        if (inputReturn === 'loan' && !payEdit && !loanEdit && !loanRead && !loanOpenId) { setShowLoans(false); setInputReturn(null); }
-        if (inputReturn === 'savings' && !savPayEdit && !savEdit && !savOpenId && !savClose) { setShowSavings(false); setInputReturn(null); }
-      }, [inputReturn, psEdit, payEdit, loanEdit, loanRead, loanOpenId, savPayEdit, savEdit, savOpenId, savClose]);
+      }, [inputReturn, psEdit, payEdit, loanEdit, loanRead, loanOpenId, savPayEdit, savEdit, savOpenId, savClose, savRead]);
       // 입력 창 맨 위의 종류 고르기 (직접 입력·급여명세서·대출 상환 입력 창이 함께 씀)
       const renderInputKinds = (cur) => (
         <div className="grid grid-cols-5 gap-1">
@@ -3340,6 +3357,105 @@
         notifyPartner();
       };
 
+      // 📷 저축 화면 캡처 (상품 정보·납입 내역) → 확인 화면용. 이름이 같은 저축이 있으면 그 저축에 반영
+      const savReadFrom = (sv, data, photoCount, targetId = null) => {
+        const info = sv.account || {};
+        const norm = (x) => String(x || '').replace(/[\s()（）·\-]/g, '').toLowerCase();
+        // targetId: 'new' = 새 저축으로 (이름이 같아도 기존 저축과 맞추지 않음)
+        const target = targetId === 'new' ? null : savings.find(a => a.id === targetId)
+          || (info.name && savings.find(a => norm(a.name) === norm(info.name) || (norm(a.name) && norm(info.name).includes(norm(a.name))) || (norm(info.name) && norm(a.name).includes(norm(info.name)))))
+          || null;
+        const kind = info.kind === '적금' || info.kind === '예금' ? info.kind : '자유';
+        const base = target ? { ...target } : newSavDraft(kind);
+        const draft = { ...base };
+        if (!target && kind === '자유') draft.sub_category = ['청약', '연금', '투자'].includes(info.kind) ? info.kind : '투자';
+        const fill = (k, v) => { if (v !== null && v !== undefined && v !== '' && v !== 0) draft[k] = v; };
+        // 기존 저축: 이름·은행·납입일·가입일은 비어 있을 때만 채움 (직접 붙인 이름과 자동 납입 일정을 지킴)
+        const fillEmpty = (k, v) => { if (!target || !draft[k]) fill(k, v); };
+        fillEmpty('name', info.name); fillEmpty('bank', info.bank); fill('rate', info.rate); fill('maturity_date', info.maturity_date); fillEmpty('pay_day', info.pay_day);
+        if (!target || !Number(target.monthly)) fill('monthly', info.monthly);
+        if (!target || !Number(target.principal)) fill('principal', info.principal);
+        if (info.start_date && (!target || !target.start_date)) draft.start_date = info.start_date;
+        else if (!target && sv.payments?.length) draft.start_date = sv.payments[0].date;   // 가입일이 안 보이면 첫 납입일
+        if (!target && !info.maturity_date && /^\d{4}-\d{2}-\d{2}$/.test(draft.start_date || '') && kind !== '자유') {   // 만기가 안 보이면 가입일부터 1년
+          draft.maturity_date = `${Number(draft.start_date.slice(0, 4)) + 1}${draft.start_date.slice(4)}`;
+        }
+        const mine = target ? savPays.filter(p => p.savings_id === target.id) : [];
+        const pays = (sv.payments || []).map((p, i) => {
+          const ym = String(p.date).slice(0, 7);
+          // 이미 있는 납입: 같은 날·같은 금액, 또는 적금 자동 납입이 그 달에 같은 금액으로 들어가 있음
+          const dup = mine.find(x => (x.pay_date === p.date && Number(x.amount) === Number(p.amount)) || (x.auto && String(x.pay_date).slice(0, 7) === ym && Number(x.amount) === Number(p.amount)));
+          return { key: i, pay_date: p.date, amount: Number(p.amount), seq: p.seq || null, dup: !!dup, on: !dup };
+        });
+        return { targetId: target?.id || null, draft, info, pays, model: data.model, photos: photoCount };
+      };
+      const readSavingsPhotos = async (fileList, targetId = null) => {
+        const files = Array.from(fileList || []).slice(0, 10);
+        if (files.length === 0 || !ensureConnected()) return;
+        setSavBusy('reading');
+        try {
+          const photos = await Promise.all(files.map(resizeImage));
+          let timer;
+          const limitMs = Math.min(SCAN_TIMEOUT_MS + (photos.length - 1) * SCAN_EXTRA_MS, SCAN_LIMIT_MAX_MS);
+          const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('⏱️ AI 응답이 너무 늦습니다. 사진을 나눠서 다시 올려주세요.')), limitMs); });
+          const { data, error } = await Promise.race([
+            supabaseClient.functions.invoke('scan-receipt', { body: {
+              ...(photos.length === 1 ? { image: photos[0].base64, mimeType: photos[0].mimeType } : { images: photos.map(ph => ({ image: ph.base64, mimeType: ph.mimeType })) }),
+              mode: 'savings'
+            } }),
+            timeout
+          ]).finally(() => clearTimeout(timer));
+          if (error) throw new Error(await describeScanError(error));
+          if (data?.status === 'not_receipt') throw new Error('저축 상품 화면이 아닌 사진 같습니다. 적금·예금의 가입 정보나 거래내역 화면을 캡처해주세요.');
+          if (data?.status !== 'success' || !data.savings) throw new Error(data?.message || '저축 화면을 읽지 못했습니다. (서버 함수 scan-receipt를 v1.58로 배포했는지 확인해주세요)');
+          setSavRead(savReadFrom(data.savings, data, photos.length, targetId));
+        } catch (err) {
+          showToast('⚠️ ' + (err.message || String(err)));
+        } finally {
+          setSavBusy('');
+        }
+      };
+      const saveSavRead = async () => {
+        const R = savRead;
+        const d = R.draft;
+        if (!String(d.name || '').trim()) return showToast('⚠️ 저축 이름을 입력해주세요.');
+        if (d.kind !== '자유' && !/^\d{4}-\d{2}-\d{2}$/.test(d.start_date || '')) return showToast('⚠️ 가입일을 입력해주세요.');
+        if (!ensureConnected()) return;
+        setSavBusy('saving');
+        const row = savRowOf({ ...d, id: R.targetId || 'sav-' + Date.now() });
+        const { error } = await supabaseClient.from('savings').upsert(row);
+        if (error) { setSavBusy(''); return showToast('⚠️ 저장 실패: ' + error.message); }
+        const accs = [...savings.filter(x => x.id !== row.id), row];
+        setSavings(accs);
+        // 읽은 납입: 적금은 그 달 첫 납입을 자동 납입 자리(sv-저축-연월)에 → 자동 채우기와 겹치지 않음. 예금 가입 원금은 가입 납입 자리
+        const usedMonths = new Set(savPays.filter(p => p.savings_id === row.id && p.auto).map(p => String(p.pay_date).slice(0, 7)));
+        const stamp = Date.now();
+        const rows = [];
+        R.pays.filter(p => p.on && !p.dup).forEach((p, i) => {
+          const ym = p.pay_date.slice(0, 7);
+          let id = `sv-${stamp}-${i}`, auto = false;
+          if (row.kind === '적금' && !usedMonths.has(ym)) { id = `sv-${row.id}-${ym.replace('-', '')}`; auto = true; usedMonths.add(ym); }
+          else if (row.kind === '예금' && p.pay_date === row.start_date && p.amount === row.principal) { id = `sv-${row.id}-dep`; auto = true; }
+          const r = { id, family_code: familyCode, savings_id: row.id, pay_date: p.pay_date, amount: p.amount, seq: p.seq, auto, memo: '', expense_id: null, updated_by: MY_DEVICE_ID };
+          if (savWantsExpense(row, r)) r.expense_id = 'savx-' + id;
+          rows.push(r);
+        });
+        const newEx = rows.filter(r => r.expense_id && !expenses.some(e => e.id === r.expense_id) && !trash.some(e => e.id === r.expense_id)).map(r => savExpenseRow(row, r));
+        if (newEx.length && !(await insertExpenseRows(newEx))) { setSavBusy(''); return; }
+        if (rows.length) {
+          const { error: e2 } = await supabaseClient.from('savings_payments').upsert(rows);
+          if (e2) { setSavBusy(''); return showToast('⚠️ 납입 기록 저장 실패: ' + e2.message); }
+        }
+        const merged = [...rows, ...savPays.filter(x => !rows.some(r => r.id === x.id))].sort((a, b) => b.pay_date.localeCompare(a.pay_date));
+        setSavPays(merged);
+        await autoFillSavings(accs, merged, [...expenses, ...newEx]);
+        notifyPartner();
+        setSavBusy('');
+        setSavRead(null);
+        setSavOpenId(row.id);
+        showToast(`🏦 ${row.name}: ${R.targetId ? '정보 반영' : '새 저축 등록'}${rows.length ? ` · 납입 ${rows.length}건${newEx.length ? ` (지출 ${newEx.length}건)` : ''}` : ''}`);
+      };
+
       const exportLoan = (loan) => {
         const rows = loanPays.filter(p => p.loan_id === loan.id).sort((a, b) => a.pay_date.localeCompare(b.pay_date));
         if (rows.length === 0) return showToast('ℹ️ 저장할 상환 기록이 없습니다.');
@@ -3786,7 +3902,7 @@
         return '서버 함수에 연결할 수 없습니다. 인터넷 연결과 함수 배포 상태를 확인해주세요.';
       };
 
-      // 사진 고르기: 고른 사진을 한 번에 보내면 AI가 영수증·결제 앱·문자 캡처·입금·급여명세서·대출 화면을 구분하고,
+      // 사진 고르기: 고른 사진을 한 번에 보내면 AI가 영수증·결제 앱·문자 캡처·입금·급여명세서·대출·저축 화면을 구분하고,
       //   같은 영수증을 나눠 찍은 사진끼리 묶음 (긴 영수증 3장 + 앱 화면 2장 → 결제 3건) → 확인 화면에서 한 건씩 등록
       const handleReceiptFile = async (e) => {
         const files = Array.from(e.target.files || []);
@@ -3948,7 +4064,7 @@
               return;
             }
             const notes = [notReceipt > 0 ? `영수증이 아닌 사진 ${notReceipt}장은 건너뜁니다.` : '', unread.length ? unreadMessage(unread) : '',
-              opened ? '함께 올린 급여명세서·대출 화면을 먼저 확인한 뒤 결제를 등록하세요.' : ''].filter(Boolean);
+              opened ? '함께 올린 급여명세서·대출·저축 화면을 먼저 확인한 뒤 결제를 등록하세요.' : ''].filter(Boolean);
             if (notes.length) showToast('ℹ️ ' + notes.join(' '), 6000);
             setScanQueue(okGroups.slice(1));
             setQueueInfo({ pos: 1, total: okGroups.length });
@@ -3972,26 +4088,37 @@
         }
       };
 
-      // 📷 사진으로 등록에서 급여명세서·대출 화면이 나오면 그 확인 창을 엶 (닫으면 입력 탭으로). 연 게 있으면 true
-      const openDetectedDocs = (data) => {
-        const hasPs = Array.isArray(data.payslips) && data.payslips.length > 0;
-        const lr = data.loan && data.loan.is_loan !== false ? loanReadFrom(data.loan, data, (data.loanPhotos || []).length || 1) : null;
-        if (!hasPs && !lr) return false;
-        setManual(null); setPsQueue([]); setPayEdit(null); setLoanEdit(null); setLoanOpenId(null); setLoanRead(null);
-        setShowPayslips(false); setShowLoans(false);
-        if (hasPs) {
+      // 📷 사진으로 등록에서 급여명세서·대출·저축 화면이 나오면 그 확인 창을 엶 (닫으면 입력 탭으로). 연 게 있으면 true
+      // 확인 창 하나 열기 (닫으면 위 효과가 다음 것을 엶)
+      const openDoc = (doc) => {
+        if (doc.type === 'payslip') {
           setPsOwner(currentUser); loadPayslips(); setShowPayslips(true);
-          showPayslipDrafts(payslipDraftsFrom(data, currentUser));
+          showPayslipDrafts(doc.read);
           setInputReturn('payslip');
-          pendingLoanReadRef.current = lr;   // 대출 화면도 있었으면 명세서를 닫은 뒤에
-        } else {
-          setShowLoans(true); setLoanRead(lr); setInputReturn('loan');
+        } else if (doc.type === 'loan') {
+          setShowLoans(true); setLoanOpenId(null); setLoanRead(doc.read); setInputReturn('loan');
+        } else if (doc.type === 'savings') {
+          setShowSavings(true); setSavOpenId(null); setSavRead(doc.read); setInputReturn('savings');
         }
+      };
+      const openDetectedDocs = (data) => {
+        const docs = [];
+        if (Array.isArray(data.payslips) && data.payslips.length > 0) docs.push({ type: 'payslip', read: payslipDraftsFrom(data, currentUser) });
+        if (data.loan && data.loan.is_loan !== false) docs.push({ type: 'loan', read: loanReadFrom(data.loan, data, (data.loanPhotos || []).length || 1) });
+        if (data.savings && data.savings.is_savings !== false) docs.push({ type: 'savings', read: savReadFrom(data.savings, data, (data.savingsPhotos || []).length || 1) });
+        if (docs.length === 0) return false;
+        setManual(null); setPsQueue([]); setPayEdit(null); setLoanEdit(null); setLoanOpenId(null); setLoanRead(null);
+        setSavPayEdit(null); setSavEdit(null); setSavOpenId(null); setSavClose(null); setSavRead(null);
+        setShowPayslips(false); setShowLoans(false); setShowSavings(false);
+        pendingDocsRef.current = docs.slice(1);   // 명세서 → 대출 → 저축 순서로 하나씩
+        openDoc(docs[0]);
         return true;
       };
       const unreadMessage = (list) => {
-        const ps = list.filter(x => x.kind === 'payslip').map(x => x.photo), ln = list.filter(x => x.kind === 'loan').map(x => x.photo);
-        return [ps.length ? `급여명세서로 보이는 사진(${ps.join('·')}번)` : '', ln.length ? `대출 화면으로 보이는 사진(${ln.join('·')}번)` : ''].filter(Boolean).join('과 ')
+        const of = (k) => list.filter(x => x.kind === k).map(x => x.photo);
+        const ps = of('payslip'), ln = of('loan'), sv = of('savings');
+        return [ps.length ? `급여명세서로 보이는 사진(${ps.join('·')}번)` : '', ln.length ? `대출 화면으로 보이는 사진(${ln.join('·')}번)` : '',
+          sv.length ? `저축 화면으로 보이는 사진(${sv.join('·')}번)` : ''].filter(Boolean).join(', ')
           + '을 읽지 못했어요. 그 사진만 다시 올려주세요.';
       };
       // 여러 장을 한 번에 읽은 결과 중 다음 결제를 확인 화면에. 남은 게 없으면 false
@@ -5852,7 +5979,7 @@
                           <div className="text-[0.6875rem] text-indigo-100 mt-0.5">찍거나 앨범에서 여러 장(최대 {SCAN_MAX_AUTO}장) · 긴 영수증 나눠 찍은 것도 알아서 합침</div>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-1 mt-3 text-[0.625rem]">{['🧾 영수증', '📱 결제 앱 화면', '📩 카드 문자 캡처', '💰 입금 화면', '💼 급여명세서', '🏠 대출 화면'].map(t => <span key={t} className="bg-white/15 rounded-full px-2 py-0.5">{t}</span>)}</div>
+                      <div className="flex flex-wrap gap-1 mt-3 text-[0.625rem]">{['🧾 영수증', '📱 결제 앱 화면', '📩 카드 문자 캡처', '💰 입금 화면', '💼 급여명세서', '🏠 대출 화면', '🏦 적금·예금 화면'].map(t => <span key={t} className="bg-white/15 rounded-full px-2 py-0.5">{t}</span>)}</div>
                       <input type="file" accept="image/*" multiple className="hidden" disabled={isScanning} onChange={handleReceiptFile} />
                     </label>
                     <button onClick={() => openManual('expense')} className="block w-full bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-5 text-left text-white shadow-lg border border-slate-500/50 active:opacity-80">
@@ -5863,7 +5990,7 @@
                           <div className="text-[0.6875rem] text-slate-300 mt-0.5">사진이 없을 때 · 카드 문자를 붙여넣으면 자동으로 채움</div>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-1 mt-3 text-[0.625rem]">{['💸 지출', '💰 수입', '💼 급여명세서', '🏠 대출 상환', '🏦 저축 납입', '📋 문자 붙여넣기'].map(t => <span key={t} className="bg-white/10 rounded-full px-2 py-0.5">{t}</span>)}</div>
+                      <div className="flex flex-wrap gap-1 mt-3 text-[0.625rem]">{['💸 지출', '💰 수입', '💼 급여명세서', '🏠 대출 상환·등록', '🏦 저축 납입·등록', '📋 문자 붙여넣기'].map(t => <span key={t} className="bg-white/10 rounded-full px-2 py-0.5">{t}</span>)}</div>
                     </button>
                     <div className="bg-slate-900 border border-slate-800 rounded-xl text-xs">
                       <button onClick={() => setShowFileImport(v => !v)} className="w-full flex items-center justify-between px-3 py-2.5 text-slate-300">
@@ -7014,6 +7141,7 @@
                         </select>
                       ))}
                       {fromInput && loans.length === 1 && <p className="text-[0.6875rem] text-slate-400">🏠 {loans[0].name} 상환 · 은행 앱 화면은 📷 사진으로 등록에 올려도 돼요</p>}
+                      {fromInput && <button onClick={() => { setPayEdit(null); setLoanEdit(newLoanDraft()); }} className="w-full py-1.5 rounded-lg bg-slate-800 text-amber-200 text-[0.6875rem] font-bold">＋ 새 대출 등록</button>}
                       <div className="grid grid-cols-2 gap-2">
                         {field('납부일', <input type="date" value={d.pay_date} onChange={e => set({ pay_date: e.target.value })} className={inp} />)}
                         {field('회차 (선택)', <input inputMode="numeric" value={d.seq ?? ''} onChange={e => set({ seq: e.target.value.replace(/[^0-9]/g, '') })} className={inp} />)}
@@ -7277,6 +7405,13 @@
                 const field = (label, el) => (<div><label className="text-[0.6875rem] text-slate-400">{label}</label><div className="mt-0.5">{el}</div></div>);
                 const ownerPick = (val, onPick) => memberButtons(val, onPick, { full: members.length <= 3, cls: 'py-1.5 px-2 rounded-lg font-bold' });
                 const kindLabel = (a) => a.kind === '자유' ? (a.sub_category || '자유 입금') : a.kind;
+                const capBtn = (targetId, label, cls = '') => (
+                  <label className={`text-center py-2 rounded-lg font-bold ${cls} ${savBusy === 'reading' ? 'bg-slate-700 text-slate-400' : 'bg-slate-800 text-sky-200 border border-sky-800/60 cursor-pointer'}`}>
+                    {savBusy === 'reading' ? '🤖 읽는 중…' : label}
+                    <input type="file" accept="image/*" multiple className="hidden" disabled={savBusy === 'reading'}
+                      onChange={e => { readSavingsPhotos(e.target.files, targetId); e.target.value = ''; }} />
+                  </label>
+                );
                 const summaryOf = (a) => {
                   const paid = savPaidSum(a.id);
                   const exp = savingsExpected(a);
@@ -7284,6 +7419,86 @@
                   const prog = a.kind === '적금' && exp && exp.n ? Math.min(100, Math.round(n / exp.n * 100)) : null;
                   return { paid, exp, n, prog };
                 };
+
+                // ── 📷 캡처 읽은 결과 확인
+                if (savRead) {
+                  const R = savRead;
+                  const d = R.draft;
+                  const set = (patch) => setSavRead(prev => ({ ...prev, draft: { ...prev.draft, ...patch } }));
+                  const setPay = (i, patch) => setSavRead(prev => ({ ...prev, pays: prev.pays.map((p, k) => k === i ? { ...p, ...patch } : p) }));
+                  const fresh = R.pays.filter(p => !p.dup);
+                  const picked = fresh.filter(p => p.on);
+                  const info = R.info || {};
+                  const after = (R.targetId ? savPaidSum(R.targetId) : 0) + picked.reduce((t, p) => t + p.amount, 0);
+                  const rows = [['은행', d.bank], ['월 납입액', d.kind === '적금' && Number(d.monthly) ? `${Number(d.monthly).toLocaleString()}원` : ''], ['원금', d.kind === '예금' && Number(d.principal) ? `${Number(d.principal).toLocaleString()}원` : ''],
+                    ['금리', Number(d.rate) ? `${Number(d.rate)}%` : ''], ['기간', d.start_date ? `${d.start_date} ~ ${d.maturity_date || ''}` : ''], ['납입일', d.kind === '적금' && d.pay_day ? `매달 ${d.pay_day}일` : ''],
+                    ['납입 회차', info.paid_count ? `${info.paid_count}${info.total_count ? ` / ${info.total_count}` : ''}회` : ''], ['통장 잔액', info.balance ? `${Number(info.balance).toLocaleString()}원` : '']].filter(([, v]) => v);
+                  return shell('🏦 읽은 내용 확인', () => setSavRead(null), (
+                    <>
+                      {R.model && <p className="text-[0.6875rem] text-slate-500">🤖 {R.model}로 사진 {R.photos}장 읽음 · 틀린 곳은 저장한 뒤 ✏️ 정보에서 고칠 수 있어요</p>}
+                      <div className="bg-slate-950 rounded-xl border border-slate-800 p-2 space-y-1.5">
+                        <div className="flex justify-between items-center gap-2">
+                          <p className="font-bold text-sky-300 shrink-0">{R.targetId ? '기존 저축에 반영' : '새 저축으로 등록'}</p>
+                          {savings.length > 0 && (
+                            <select value={R.targetId || ''} onChange={e => setSavRead(savReadFrom({ account: R.info, payments: R.pays.map(p => ({ date: p.pay_date, amount: p.amount, seq: p.seq })) }, { model: R.model }, R.photos, e.target.value || 'new'))}
+                              className="min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-1 text-[0.6875rem] text-slate-200">
+                              <option value="">＋ 새 저축으로</option>
+                              {savings.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                          )}
+                        </div>
+                        {field('저축 이름', <input value={d.name || ''} onChange={e => set({ name: e.target.value })} className={inp} />)}
+                        {!R.targetId && (
+                          <div className="flex gap-1">
+                            {[['적금', '적금'], ['예금', '예금'], ['자유', '청약·연금·투자']].map(([k, label]) => (
+                              <button key={k} onClick={() => set({ kind: k, auto: k === '적금', sub_category: k === '자유' ? (d.sub_category || '투자') : '' })}
+                                className={`flex-1 py-1 rounded-lg font-bold ${d.kind === k ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{label}</button>
+                            ))}
+                          </div>
+                        )}
+                        {rows.length > 0 && (
+                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-slate-300">
+                            {rows.map(([k, v]) => <React.Fragment key={k}><span className="text-slate-400">{k}</span><b className="text-right">{v}</b></React.Fragment>)}
+                          </div>
+                        )}
+                        {!R.targetId && field('누구 돈', ownerPick(d.owner, o => set({ owner: o })))}
+                        {!R.targetId && d.kind !== '자유' && !d.start_date && field('가입일 (화면에 없어요)', <input type="date" value={d.start_date || ''} onChange={e => set({ start_date: e.target.value })} className={inp} />)}
+                        {!R.targetId && d.kind === '적금' && (
+                          <label className="flex items-start gap-2 text-slate-300">
+                            <input type="checkbox" checked={!!d.auto} onChange={e => set({ auto: e.target.checked })} className="mt-0.5" />
+                            <span>앞으로 매달 납입일에 자동으로 납입 기록 (사진에 없는 지난 달도 가입일부터 채움)</span>
+                          </label>
+                        )}
+                        {!R.targetId && (
+                          <label className="flex items-center gap-2 text-slate-300">
+                            <input type="checkbox" checked={!!d.expense_from} onChange={e => set({ expense_from: e.target.checked ? today.slice(0, 7) : '' })} />
+                            <span>납입액을 지출(저축/투자)로 {d.expense_from ? <input type="month" value={d.expense_from} onChange={e => set({ expense_from: e.target.value })} className="bg-slate-950 border border-slate-700 rounded px-1 text-[0.6875rem]" /> : ''}{d.expense_from ? '부터' : ''}</span>
+                          </label>
+                        )}
+                      </div>
+                      <div className="bg-slate-950 rounded-xl border border-slate-800 p-2 space-y-1">
+                        <p className="font-bold text-sky-300">납입 내역 {R.pays.length}건 {R.pays.length > fresh.length && <span className="text-[0.625rem] text-slate-500 font-normal">· 이미 있는 {R.pays.length - fresh.length}건은 건너뜀</span>}</p>
+                        {R.pays.length === 0 && <p className="text-slate-500">거래(납입) 내역 화면은 없었습니다. 넣은 돈을 맞추려면 거래내역 화면도 캡처해 올리세요.</p>}
+                        {R.pays.map((p, i) => (
+                          <label key={p.key} className={`flex items-center gap-2 py-1 border-b border-slate-800/60 ${p.dup ? 'opacity-40' : ''}`}>
+                            <input type="checkbox" disabled={p.dup} checked={p.on && !p.dup} onChange={e => setPay(i, { on: e.target.checked })} />
+                            <span className="flex-1 text-slate-200">{p.pay_date}{p.seq ? ` · ${p.seq}회` : ''}{p.dup && <span className="ml-1 text-[0.625rem]">(이미 있음)</span>}</span>
+                            <b className="text-slate-100">{won(p.amount)}</b>
+                          </label>
+                        ))}
+                        {info.balance > 0 && (after === Number(info.balance)
+                          ? <p className="text-emerald-400">✓ 저장하면 넣은 돈 {won(after)} = 통장 잔액</p>
+                          : <p className="text-amber-300">저장하면 넣은 돈 {won(after)} · 통장 잔액 {won(info.balance)} (이자가 붙었거나 안 보인 납입이 있을 수 있어요)</p>)}
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={saveSavRead} disabled={savBusy === 'saving'} className="flex-1 py-2 bg-sky-600 text-white font-bold rounded-lg disabled:opacity-50">
+                          {savBusy === 'saving' ? '저장 중…' : `💾 저장${picked.length ? ` (납입 ${picked.length}건)` : ''}`}
+                        </button>
+                        <button onClick={() => setSavRead(null)} className="px-3 py-2 bg-slate-800 text-slate-300 rounded-lg">취소</button>
+                      </div>
+                    </>
+                  ));
+                }
 
                 // ── 만기·해지 처리
                 if (savClose) {
@@ -7331,6 +7546,12 @@
                         </select>
                       ))}
                       {(!fromInput || act.length === 1) && <p className="text-[0.6875rem] text-slate-400">🏦 {a.name} · {kindLabel(a)}</p>}
+                      {fromInput && (
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button onClick={() => { setSavPayEdit(null); setSavEdit(newSavDraft('적금')); }} className="py-1.5 rounded-lg bg-slate-800 text-sky-300 text-[0.6875rem] font-bold">＋ 새 저축 등록</button>
+                          {capBtn(null, '📷 저축 화면 캡처', 'text-[0.6875rem] !py-1.5')}
+                        </div>
+                      )}
                       {!d.id && a.kind === '적금' && a.auto && <p className="text-[0.6875rem] text-sky-200">매달 {a.pay_day}일 납입은 자동으로 들어가요. 그 밖에 추가로 넣은 돈만 입력하세요.</p>}
                       <div className="grid grid-cols-2 gap-2">
                         {field('넣은 날', <input type="date" value={d.pay_date} onChange={e => set({ pay_date: e.target.value })} className={inp} />)}
@@ -7443,7 +7664,8 @@
                         </div>
                         <p className="text-[0.625rem] text-slate-500">가계부 지출: {open.expense_from ? `${open.expense_from}부터 납입액을 저축/투자 › ${savingsCat(open).sub_category}로 (${mName(open.owner)})` : '넣지 않음'}</p>
                       </div>
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {capBtn(open.id, '📷 캡처')}
                         <button onClick={() => setSavPayEdit(newSavPayDraft(open))} disabled={open.status !== '진행'} className="py-2 rounded-lg font-bold bg-sky-600 text-white disabled:opacity-40">✍️ 납입</button>
                         <button onClick={() => setSavEdit({ ...open, monthly: String(open.monthly || ''), principal: String(open.principal || ''), pay_day: String(open.pay_day || ''), rate: String(open.rate || '') })} className="py-2 rounded-lg font-bold bg-slate-800 text-slate-200">✏️ 정보</button>
                         {open.status === '진행'
@@ -7497,7 +7719,11 @@
                       </div>
                       <p className="text-[0.625rem] text-slate-500">이자는 만기 때 받은 돈으로 반영됩니다. 통장 잔고·집값은 들어가지 않아요.</p>
                     </div>
-                    <button onClick={() => setSavEdit(newSavDraft('적금'))} className="w-full py-2 rounded-lg font-bold bg-sky-600 text-white">＋ 저축 등록 (적금 · 예금 · 청약·연금·투자)</button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => setSavEdit(newSavDraft('적금'))} className="py-2 rounded-lg font-bold bg-sky-600 text-white">＋ 저축 등록</button>
+                      {capBtn(null, '📷 캡처 올리기')}
+                    </div>
+                    <p className="text-[0.625rem] text-slate-500">은행 앱의 적금·예금 가입 정보와 거래내역 화면을 캡처해 함께(최대 10장) 올리면 AI가 금리·만기·납입 내역을 읽습니다. 📷 사진으로 등록(➕ 입력)에 올려도 알아봐요.</p>
                     {savState === 'loading' && <p className="text-slate-400 text-center py-4">불러오는 중…</p>}
                     {savState === 'missing' && <p className="text-amber-300 py-2">서버에 저축 표가 아직 없습니다. Supabase SQL Editor에서 <b>v1.53 업데이트 SQL</b>을 실행해주세요.</p>}
                     {savState && !['loading', 'missing'].includes(savState) && <p className="text-rose-300 py-2">{savState}</p>}
