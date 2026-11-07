@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.48</title>
+  <title>부부 AI 가계부 v1.49</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -37,7 +37,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.48';
+    const APP_VERSION = 'v1.49';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 9;   // 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -738,6 +738,15 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.49',
+        date: '2026-11-07',
+        title: '입력·카드 탭에서 요약 칸 숨김',
+        changes: [
+          '[화면] 달 이동·지출 합계·예산·결제자 필터 칸은 📋 내역·📊 통계 탭에서만 보임 (➕ 입력 탭은 📷 버튼이 맨 위로)',
+          '[카드] 카드별 사용액 옆에 몇 년 몇 월 기준인지 표시 (달은 내역·통계 탭에서 바꿈)'
+        ]
+      },
       {
         version: 'v1.48',
         date: '2026-11-07',
@@ -4102,6 +4111,8 @@
                   </div>
                 )}
 
+                {/* 달 이동·지출 합계·예산·결제자 필터: 내역·통계 탭에서만 (입력·카드·분류 탭에서는 쓰지 않음) */}
+                {(activeTab === 'list' || activeTab === 'stats') && (
                 <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-700 space-y-3">
                   <div className="flex justify-between items-center bg-slate-950/70 px-3 py-1.5 rounded-xl border border-slate-800">
                     <button onClick={() => moveMonth(-1)} className="text-xs font-bold text-slate-300 px-2 py-0.5 hover:text-white">
@@ -4184,6 +4195,7 @@
                     ))}
                   </div>
                 </div>
+                )}
 
                 {activeTab === 'list' && (
                   <div className="space-y-2.5">
@@ -4592,7 +4604,7 @@
                             ))}
                           </div>
                           <p className="text-slate-500">
-                            사용 {rows.length}건 · {selectedMonth === 'ALL' ? '전체' : `${selectedMonth.slice(5)}월`} {monthSum.toLocaleString()}원
+                            사용 {rows.length}건 · {selectedMonth === 'ALL' ? '전체 기간' : `${Number(selectedMonth.slice(0, 4))}년 ${Number(selectedMonth.slice(5))}월`} {monthSum.toLocaleString()}원
                             {root.first_seen ? ` · 처음 확인 ${root.first_seen}` : ''}
                           </p>
                           {mismatch.length > 0 && (
