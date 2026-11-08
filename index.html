@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.74</title>
+  <title>밑빠진독 v1.76</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="부부가계부" />
+  <meta name="apple-mobile-web-app-title" content="밑빠진독" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <!-- 라이브러리 버전 고정: 오프라인 캐시가 엉뚱한 새 버전으로 바뀌지 않도록 -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -50,7 +50,9 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.74';
+    const APP_VERSION = 'v1.76';
+    // 🐸 앱 아이콘 (밑 빠진 독을 막는 두꺼비, 128px) — 내려받은 html 파일에서도 보이게 그림을 코드에 넣어 둠
+    const APP_ICON_URI = 'data:image/webp;base64,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';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 18;   // 18: 저축 납입·대출 상환·부조 기록·우리 경조사 시간(pay_time·rec_time·event_time) · 17: 경조사 장부(gift_people·gift_events·gift_records) · 16: 자산(assets: 부동산·자동차·동산·통장) · 15: 문자 결제자 m1·m2 별칭(payer_key) · 14: 대출 계좌번호(loans.account_no) · 13: 저축 계좌번호(savings.account_no) · 12: 휴지통에 연결 기록 보관(expenses.linked_backup) · 11: 구성원(family_config.members) · 10: 저축(savings, savings_payments) · 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -843,7 +845,7 @@
       const blob = new Blob([cleanHtml], { type: 'text/html;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `부부가계부_${APP_VERSION}.html`;
+      link.download = `밑빠진독_${APP_VERSION}.html`;
       link.click();
     };
 
@@ -860,6 +862,25 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.76',
+        date: '2026-11-08',
+        title: '🐸 새 아이콘 (3D 두꺼비)',
+        changes: [
+          '[아이콘] 엽전이 가득한 옹기의 금 간 자리를 두꺼비가 몸으로 막는 3D 아이콘으로 바꿈 (홈 화면·앱 목록·브라우저 탭·잠금 화면·상단 이름 옆)',
+          '[아이콘] 동그랗게 자르는 안드로이드 아이콘도 엽전·두꺼비가 잘리지 않게 따로 맞춤'
+        ]
+      },
+      {
+        version: 'v1.75',
+        date: '2026-11-08',
+        title: '🐸 이름을 밑빠진독으로',
+        changes: [
+          "[이름] '부부 AI 가계부' → '밑빠진독' (어디로 새는지 막아보자). 화면 제목·잠금 화면·홈 화면 이름·내려받는 파일 이름(밑빠진독_…)",
+          '[아이콘] 밑 빠진 독을 막아 주는 두꺼비 아이콘 (홈 화면·앱 목록·브라우저 탭)',
+          '[알림] 홈 화면 아이콘과 이름은 폰이 manifest를 다시 읽을 때 바뀜 → 바로 바꾸려면 홈 화면 아이콘을 지우고 다시 추가'
+        ]
+      },
       {
         version: 'v1.74',
         date: '2026-11-08',
@@ -4210,7 +4231,7 @@
         const next = addDaysYmd(r.rec_date, 1).replace(/-/g, '');
         const { title, details } = giftCalendarText(r);
         const tt = giftCalTimes(r);
-        window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${tt ? tt.join('/') : `${d}/${next}`}&details=${encodeURIComponent(details + '\n(부부 가계부 경조사 장부)')}`, '_blank');
+        window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${tt ? tt.join('/') : `${d}/${next}`}&details=${encodeURIComponent(details + '\n(밑빠진독 경조사 장부)')}`, '_blank');
       };
       const downloadIcs = (r) => {
         const d = r.rec_date.replace(/-/g, '');
@@ -5626,7 +5647,7 @@
             (e.items || []).length, (e.items || []).map(i => i.name).join(' / '), userMemo(e.memo)
           ]);
         }
-        const fileBase = `부부가계부_${periodSel ? periodKey.replace('~', '_') : selectedMonth === 'ALL' ? '전체' : selectedMonth}_${onlyBiz ? '업무경비_' : ''}${sheetName}`;
+        const fileBase = `밑빠진독_${periodSel ? periodKey.replace('~', '_') : selectedMonth === 'ALL' ? '전체' : selectedMonth}_${onlyBiz ? '업무경비_' : ''}${sheetName}`;
         if (window.XLSX) {
           const ws = window.XLSX.utils.aoa_to_sheet([header, ...rows]);
           ws['!cols'] = header.map(h => ({ wch: /상호|품목$|메모/.test(h) ? 24 : /일시/.test(h) ? 17 : 11 }));
@@ -5824,10 +5845,11 @@
           {!isUnlocked ? (
             <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full space-y-4 text-center">
-                <div className="text-3xl">🛡️</div>
-                <h2 className="text-lg font-bold text-white">부부 전용 가계부 보안 잠금 ({APP_VERSION})</h2>
+                <img src={APP_ICON_URI} alt="" className="w-20 h-20 mx-auto drop-shadow-lg" />
+                <h2 className="text-lg font-bold text-white">밑빠진독 보안 잠금 ({APP_VERSION})</h2>
+                <p className="text-[0.6875rem] text-emerald-300 -mt-2">어디로 새는지 막아보자 · 가족이 함께 쓰는 가계부</p>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  부부가 함께 쓰는 <b>가족 보안 코드({MIN_CODE_LENGTH}자 이상)</b>를 입력하세요. 처음이면 아래 버튼으로 코드를 만들고, 배우자 폰에도 같은 코드를 입력하면 됩니다.
+                  가족이 함께 쓰는 <b>가족 보안 코드({MIN_CODE_LENGTH}자 이상)</b>를 입력하세요. 처음이면 아래 버튼으로 코드를 만들고, 배우자 폰에도 같은 코드를 입력하면 됩니다.
                 </p>
                 <div className="space-y-2">
                   <input
@@ -5872,8 +5894,8 @@
                     <span className="bg-emerald-600 text-white text-[0.6875rem] font-extrabold px-2 py-0.5 rounded-full whitespace-nowrap">
                       {APP_VERSION}
                     </span>
-                    <h1 className="font-bold text-sm sm:text-base text-white whitespace-nowrap">
-                      부부 AI 가계부
+                    <h1 className="font-bold text-sm sm:text-base text-white whitespace-nowrap flex items-center gap-1" title="어디로 새는지 막아보자">
+                      <img src={APP_ICON_URI} alt="" className="w-6 h-6 shrink-0 rounded-md" />밑빠진독
                     </h1>
                   </div>
 
