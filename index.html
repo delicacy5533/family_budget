@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>부부 AI 가계부 v1.71</title>
+  <title>부부 AI 가계부 v1.72</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -50,7 +50,7 @@
     const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
 
-    const APP_VERSION = 'v1.71';
+    const APP_VERSION = 'v1.72';
     // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
     const REQUIRED_SCHEMA_VERSION = 18;   // 18: 저축 납입·대출 상환·부조 기록·우리 경조사 시간(pay_time·rec_time·event_time) · 17: 경조사 장부(gift_people·gift_events·gift_records) · 16: 자산(assets: 부동산·자동차·동산·통장) · 15: 문자 결제자 m1·m2 별칭(payer_key) · 14: 대출 계좌번호(loans.account_no) · 13: 저축 계좌번호(savings.account_no) · 12: 휴지통에 연결 기록 보관(expenses.linked_backup) · 11: 구성원(family_config.members) · 10: 저축(savings, savings_payments) · 3: 휴지통(expenses.deleted_at), 4: 지출 분류 정리(v1.29), 5: 수입(kind), 6: 급여명세서(payslips), 7: 명세서 유형(payslips.pay_type), 8: 대출(loans, loan_payments), 9: 월 예산(family_config.budget)
     const TRASH_KEEP_DAYS = 30;          // 휴지통 보관 기간 (지나면 앱을 열 때 영구 삭제)
@@ -847,6 +847,18 @@
     // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
     // =====================================================================
     const VERSION_HISTORY = [
+      {
+        version: 'v1.72',
+        date: '2026-11-08',
+        title: '검토 반영 (뒤로가기 · 부조 삭제 복원 · 구성원 · 적금 사진)',
+        changes: [
+          '[뒤로가기] 잔액·저축 캡처를 여러 개 확인하다(1/2) 뒤로가기로 다음 것(2/2)으로 넘어가도 뒤로가기 칸이 어긋나지 않음',
+          '[경조사] 장부에서 부조 기록을 지우며 지출도 휴지통으로 보내면, 휴지통에서 그 지출을 복원할 때 부조 기록도 함께 되살림 (내역 탭에서 지울 때와 같게)',
+          '[구성원] 경조사 장부(인맥·우리 경조사·간 사람)에 쓰인 구성원은 지울 수 없음 (이름만 바꾸기)',
+          '[저축] 적금 사진: 한 달에 납입이 여러 건이면 월 납입액과 같은 건을 그 달 자동 납입 자리로 (추가로 넣은 돈은 따로)',
+          '[경조사] 우리 경조사 한꺼번에 입력에서 금액 없이 화환·선물만 받은 줄도 기록'
+        ]
+      },
       {
         version: 'v1.71',
         date: '2026-11-08',
@@ -1993,8 +2005,9 @@
         if (giftPersonId) { setGiftPersonId(null); setGiftPersonForm(null); return true; }
         if (giftEventId) { setGiftEventId(null); return true; }
         if (showGifts) { setShowGifts(false); return true; }
-        if (assetEdit) { setAssetEdit(nextBal(assetEdit)); return true; }
-        if (savRead) { setSavRead(nextSavRead(savRead)); return true; }
+        // 여러 개 확인 중(1/2): 다음 것으로 넘어가 창은 그대로 → false (뒤로가기 칸을 다시 채움)
+        if (assetEdit) { const nx = nextBal(assetEdit); setAssetEdit(nx); return !nx; }
+        if (savRead) { const nx = nextSavRead(savRead); setSavRead(nx); return !nx; }
         if (savClose) { setSavClose(null); return true; }
         if (savPayEdit) { setSavPayEdit(null); return true; }
         if (savEdit) { setSavEdit(null); return true; }
@@ -3395,7 +3408,8 @@
       // 👪 구성원 저장 (가족 설정). 지울 때는 그 사람 이름으로 된 기록이 없을 때만
       const memberUsage = async (key) => {
         const n = { 내역: [...expenses, ...trash].filter(e => e.payer === key).length, 카드: cards.filter(c => c.owner === key).length,
-          대출: loans.filter(l => l.owner === key).length, 저축: savings.filter(a => a.owner === key).length, 자산: assets.filter(a => a.owner === key).length, 예산: budget[key] ? 1 : 0 };
+          대출: loans.filter(l => l.owner === key).length, 저축: savings.filter(a => a.owner === key).length, 자산: assets.filter(a => a.owner === key).length, 예산: budget[key] ? 1 : 0,
+          경조사: giftPeople.filter(p => p.side === key).length + giftEvents.filter(e => e.owner === key).length + giftRecs.filter(r => r.who === key).length };
         try { const { count } = await supabaseClient.from('payslips').select('id', { count: 'exact', head: true }).eq('owner', key); n.급여명세서 = count || 0; } catch (e) {}
         return Object.entries(n).filter(([, v]) => v > 0);
       };
@@ -4041,7 +4055,10 @@
         if (!v || !ensureConnected()) return;
         const { error } = await supabaseClient.from('gift_records').delete().eq('id', r.id);
         if (error) return showToast('⚠️ 삭제 실패: ' + error.message);
-        if (v === 'both' && linked) await trashExpenses([linked]);
+        if (v === 'both' && linked) {   // 내역 탭에서 지울 때처럼 부조 기록을 보관 → 휴지통에서 지출을 복원하면 기록도 함께
+          const gp = giftPerson(r.person_id);
+          await trashExpenses([linked], { [linked.id]: { type: 'gift_record', label: `${gp?.name || ''} ${r.event_type} 부조 기록`, row: stripRow(giftRecs.find(x => x.id === r.id) || r), person: gp ? stripRow(gp) : null } });
+        }
         const recs = giftRecs.filter(x => x.id !== r.id);
         setGiftRecs(recs);
         if (r.event_id) await syncGiftIncome(giftEvents.find(e => e.id === r.event_id), recs);
@@ -4096,7 +4113,7 @@
         const stamp = Date.now();
         const people = [...giftPeople];
         const newPeople = [], newRecs = [];
-        (d.rows || []).filter(r => String(r.name || '').trim() && numOf(r.amount) > 0).forEach((r, i) => {
+        (d.rows || []).filter(r => String(r.name || '').trim() && (numOf(r.amount) > 0 || r.method === '화환')).forEach((r, i) => {
           const name = String(r.name).trim();
           let person = r.person_id ? people.find(p => p.id === r.person_id) : people.find(p => p.name === name);
           if (!person) { person = giftPersonRow({ id: `gp-${stamp}-${i}`, name, grp: d.defGrp || '기타', side: d.defSide || '공동' }); people.push(person); newPeople.push(person); }
@@ -4189,10 +4206,19 @@
         const usedMonths = new Set(savPays.filter(p => p.savings_id === row.id && p.auto).map(p => String(p.pay_date).slice(0, 7)));
         const stamp = Date.now();
         const rows = [];
-        R.pays.filter(p => p.on && !p.dup).forEach((p, i) => {
+        //   한 달에 여러 건이면 월 납입액과 같은 건을 자동 납입 자리로 (없으면 그 달 첫 건). 자동 납입을 나중에 켜도 그 달이 두 번 들어가지 않게 적금은 늘 한 건을 자리에
+        const savPicked = R.pays.filter(p => p.on && !p.dup);
+        const slotOf = {};
+        for (const p of savPicked) {
+          const ym = p.pay_date.slice(0, 7);
+          if (row.kind !== '적금' || usedMonths.has(ym)) continue;
+          const cur = slotOf[ym];
+          if (!cur || (Number(cur.amount) !== Number(row.monthly) && Number(p.amount) === Number(row.monthly))) slotOf[ym] = p;
+        }
+        savPicked.forEach((p, i) => {
           const ym = p.pay_date.slice(0, 7);
           let id = `sv-${stamp}-${i}`, auto = false;
-          if (row.kind === '적금' && !usedMonths.has(ym)) { id = `sv-${row.id}-${ym.replace('-', '')}`; auto = true; usedMonths.add(ym); }
+          if (slotOf[ym] === p) { id = `sv-${row.id}-${ym.replace('-', '')}`; auto = true; usedMonths.add(ym); }
           else if (row.kind === '예금' && p.pay_date === row.start_date && p.amount === row.principal) { id = `sv-${row.id}-dep`; auto = true; }
           const r = { id, family_code: familyCode, savings_id: row.id, pay_date: p.pay_date, pay_time: p.pay_time || '', amount: p.amount, seq: p.seq, auto, memo: p.opening ? `${SAV_OPENING} (사진의 잔액)` : '', expense_id: null, updated_by: MY_DEVICE_ID };
           if (savWantsExpense(row, r)) r.expense_id = 'savx-' + id;
@@ -8938,7 +8964,7 @@
                     if (last && String(last.name || '').trim() && numOf(last.amount) > 0) rows.push({ key: Date.now(), name: '', person_id: '', amount: '', method: last.method || '직접' });
                     return { ...prev, rows };
                   });
-                  const filled = (d.rows || []).filter(r => String(r.name || '').trim() && numOf(r.amount) > 0);
+                  const filled = (d.rows || []).filter(r => String(r.name || '').trim() && (numOf(r.amount) > 0 || r.method === '화환'));
                   out.push(<React.Fragment key="evedit">{shell(`🎉 ${d.id ? d.title : '우리 경조사 만들기'}`, () => setGiftEventEdit(null), (
                     <>
                       {field('행사 이름', <input value={d.title} onChange={e => set({ title: e.target.value })} placeholder="예: 우리 결혼식, 아버지 칠순" className={inp} />)}
