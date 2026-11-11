@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>밑빠진독 v1.80</title>
+  <title>밑빠진독 v1.81</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -57,7 +57,7 @@ const START_TABS = [['list', '📋 내역'], ['stats', '📊 통계'], ['input',
 
 const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
-const APP_VERSION = 'v1.80';
+const APP_VERSION = 'v1.81';
 // 🐸 앱 아이콘 (밑 빠진 독을 막는 두꺼비, v1.75 그림) — 내려받은 html 파일에서도 보이게 그림을 코드에 넣어 둠
 const APP_ICON_URI = `data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"%3E%3Cdefs%3E%3ClinearGradient id="bg" x1="0" y1="0" x2="0" y2="1"%3E%3Cstop offset="0" stop-color="%23312e81"/%3E%3Cstop offset="1" stop-color="%235b21b6"/%3E%3C/linearGradient%3E%3ClinearGradient id="jar" x1="0" y1="0" x2="1" y2="1"%3E%3Cstop offset="0" stop-color="%23b8693a"/%3E%3Cstop offset="1" stop-color="%237a3b1c"/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width="512" height="512" rx="112" fill="url(%23bg)"/%3E%3Cg transform="translate(256 262) scale(0.86) translate(-256 -262)"%3E%3Cg%3E%3Ccircle cx="256" cy="74" r="38" fill="%23fbbf24"/%3E%3Ccircle cx="256" cy="74" r="30" fill="none" stroke="%23f59e0b" stroke-width="5"/%3E%3Ctext x="256" y="90" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="44" fill="%2392400e"%3E%E2%82%A9%3C/text%3E%3C/g%3E%3Cpath d="M 198 138 C 146 156, 110 196, 112 254 C 114 322, 156 378, 194 404 L 318 404 C 356 378, 398 322, 400 254 C 402 196, 366 156, 314 138 Z" fill="url(%23jar)"/%3E%3Cpath d="M 150 214 C 176 202, 196 226, 222 214 C 248 202, 264 226, 290 214 C 316 202, 336 226, 362 214" fill="none" stroke="%23e9c49a" stroke-width="7" stroke-linecap="round" opacity="0.85"/%3E%3Cpath d="M 150 196 C 140 240, 146 300, 178 352" fill="none" stroke="%23f3d3ad" stroke-width="12" stroke-linecap="round" opacity="0.35"/%3E%3Crect x="178" y="112" width="156" height="34" rx="16" fill="%236b3518"/%3E%3Cellipse cx="256" cy="118" rx="64" ry="9" fill="%232a1408"/%3E%3Cg%3E%3Cellipse cx="180" cy="452" rx="34" ry="18" fill="%233f6212"/%3E%3Cellipse cx="332" cy="452" rx="34" ry="18" fill="%233f6212"/%3E%3Cellipse cx="256" cy="414" rx="100" ry="56" fill="%2365a30d"/%3E%3Cellipse cx="256" cy="430" rx="64" ry="28" fill="%23d9f99d" opacity="0.6"/%3E%3Ccircle cx="208" cy="366" r="30" fill="%2365a30d"/%3E%3Ccircle cx="304" cy="366" r="30" fill="%2365a30d"/%3E%3Ccircle cx="208" cy="364" r="18" fill="%23fff"/%3E%3Ccircle cx="304" cy="364" r="18" fill="%23fff"/%3E%3Ccircle cx="212" cy="366" r="9" fill="%230f172a"/%3E%3Ccircle cx="300" cy="366" r="9" fill="%230f172a"/%3E%3Cpath d="M 214 410 Q 256 444 298 410" fill="none" stroke="%231a2e05" stroke-width="7" stroke-linecap="round"/%3E%3Ccircle cx="196" cy="414" r="10" fill="%23f9a8d4" opacity="0.8"/%3E%3Ccircle cx="316" cy="414" r="10" fill="%23f9a8d4" opacity="0.8"/%3E%3Ccircle cx="236" cy="392" r="4" fill="%23365314"/%3E%3Ccircle cx="280" cy="392" r="4" fill="%23365314"/%3E%3Ccircle cx="176" cy="392" r="7" fill="%234d7c0f"/%3E%3Ccircle cx="336" cy="392" r="7" fill="%234d7c0f"/%3E%3Ccircle cx="170" cy="428" r="6" fill="%234d7c0f"/%3E%3Ccircle cx="342" cy="428" r="6" fill="%234d7c0f"/%3E%3Ccircle cx="256" cy="376" r="5" fill="%234d7c0f"/%3E%3Ccircle cx="190" cy="342" r="5" fill="%234d7c0f"/%3E%3Ccircle cx="322" cy="342" r="5" fill="%234d7c0f"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E `;
 // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
@@ -1230,6 +1230,11 @@ const EMBEDDED_SQL_SCRIPT = "-- ================================================
 // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
 // =====================================================================
 const VERSION_HISTORY = [{
+  version: 'v1.81',
+  date: '2026-11-11',
+  title: '🧮 합계 조건 (분류·결제수단 골라 보기)',
+  changes: ['[합계] 내역·통계 탭 위 카드의 [🧮 합계 조건]: 분류와 결제수단을 여러 개 골라 "고른 것만" 또는 "고른 것 빼고" 지출 합계·목록·통계를 봄 (예: 대출상환·저축 빼고, 특정 카드들만)', '[합계] 세부 분류까지 고를 수 있음 · 여러 분류가 섞인 영수증은 조건에 맞는 품목 금액만 합계에 · 수입은 조건과 상관없이 그대로', '[합계] 조건은 이 휴대폰에 기억, [켜짐/꺼짐]으로 고른 내용을 지우지 않고 잠깐 끌 수 있음 · 조건이 켜져 있는 동안 예산 막대는 숨김']
+}, {
   version: 'v1.80',
   date: '2026-11-11',
   title: '⚡ 빠른 실행 · 카드 문자 재승인 · 우체국 영수증 합치기',
@@ -1771,6 +1776,40 @@ function App() {
     } catch (e) {}
   };
   const [filterUser, setFilterUser] = useState('전체');
+  // 🧮 합계 조건 (폰마다 기억): 분류·결제수단을 골라 '고른 것만(in)' 또는 '고른 것 빼고(ex)' 봄
+  //   cats: '식비' 또는 '식비›외식/회식' · pays: 결제 수단 묶음 키(카드 대표 id / cash / transfer / none)
+  const [cond, setCondRaw] = useState(() => {
+    const d = {
+      on: true,
+      catMode: 'ex',
+      cats: [],
+      payMode: 'in',
+      pays: []
+    };
+    try {
+      const v = JSON.parse(localStorage.getItem('SUM_COND') || 'null');
+      return v && typeof v === 'object' ? {
+        ...d,
+        ...v,
+        cats: Array.isArray(v.cats) ? v.cats : [],
+        pays: Array.isArray(v.pays) ? v.pays : []
+      } : d;
+    } catch (e) {
+      return d;
+    }
+  });
+  const setCond = patch => setCondRaw(prev => {
+    const next = {
+      ...prev,
+      ...patch
+    };
+    try {
+      localStorage.setItem('SUM_COND', JSON.stringify(next));
+    } catch (e) {}
+    return next;
+  });
+  const [condOpen, setCondOpen] = useState(false);
+  const [condSubs, setCondSubs] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => getKSTDateTimeString().slice(0, 7));
   // 📅 기간: null이면 위 selectedMonth(한 달 또는 'ALL'), 아니면 { kind: 'year' | 'recent' | 'range', from, to, label }
   const [periodSel, setPeriodSel] = useState(null);
@@ -7681,20 +7720,51 @@ function App() {
   const periodKey = periodSel ? `${periodSel.from}~${periodSel.to}` : selectedMonth;
   // 여러 달 기간이면 한 달 평균 (오늘 이후 날짜는 빼고 셈)
   const periodDays = periodRange ? Math.max(1, daysBetween(periodRange.from, [periodRange.to, getKSTDateTimeString().slice(0, 10)].sort()[0]) + 1) : 0;
-  const userFilterOk = e => {
-    if (memberKeys.includes(filterUser)) return e.payer === filterUser;
-    if (filterUser === '업무용') return e.is_business && !isIncome(e);
-    return true;
+  // 결제 수단 묶음 키: 카드(같은 카드로 합친 묶음) / 현금 / 계좌이체 / 모름
+  const payGroupKey = e => {
+    const rootId = expenseRootMap.get(e.id);
+    return e.pay_method === '현금' ? 'cash' : e.pay_method === '계좌이체' ? 'transfer' : rootId || (e.card_issuer || e.card_num ? `raw:${e.card_issuer}|${e.card_num}` : 'none');
   };
-  const monthFiltered = expenses.filter(e => {
-    if (!inPeriod(e.date)) return false;
-    if (memberKeys.includes(filterUser)) return e.payer === filterUser;
-    if (filterUser === '업무용') return e.is_business && !isIncome(e);
-    return true;
-  });
+  // 🧮 합계 조건: 지출에만 적용 (수입은 그대로). condView(e) = 조건에 맞는 부분만 남긴 내역 (하나도 안 맞으면 null)
+  //   여러 분류가 섞인 영수증은 맞는 품목 금액만 남김 → 합계·통계는 이 금액으로, 목록에는 원래 내역을 보여 줌
+  const condCatOn = cond.on && cond.cats.length > 0,
+    condPayOn = cond.on && cond.pays.length > 0;
+  const condActive = condCatOn || condPayOn;
+  const condCatOk = (cat, sub) => {
+    const hit = cond.cats.includes(cat) || cond.cats.includes(`${cat}›${sub || ''}`);
+    return cond.catMode === 'in' ? hit : !hit;
+  };
+  const condView = e => {
+    if (!condActive || isIncome(e)) return e;
+    if (condPayOn && cond.payMode === 'in' !== cond.pays.includes(payGroupKey(e))) return null;
+    if (!condCatOn) return e;
+    const its = (e.items || []).filter(it => it.category);
+    if (its.length === 0) return condCatOk(e.category, e.sub_category) ? e : null;
+    const keep = its.filter(it => condCatOk(it.category, it.sub_category));
+    const rest = e.amount - its.reduce((t, it) => t + (Number(it.price) || 0), 0);
+    const restOk = rest !== 0 && condCatOk(e.category, e.sub_category);
+    if (keep.length === its.length && (rest === 0 || restOk)) return e;
+    if (keep.length === 0 && !restOk) return null;
+    return {
+      ...e,
+      items: keep,
+      amount: keep.reduce((t, it) => t + (Number(it.price) || 0), 0) + (restOk ? rest : 0),
+      _partOf: e.amount
+    };
+  };
+  const condAmt = e => {
+    const v = condView(e);
+    return v ? v.amount : 0;
+  };
+  const userFilterOk = e => {
+    if (memberKeys.includes(filterUser) && e.payer !== filterUser) return false;
+    if (filterUser === '업무용' && !(e.is_business && !isIncome(e))) return false;
+    return condView(e) !== null;
+  };
+  const monthFiltered = expenses.filter(e => inPeriod(e.date) && userFilterOk(e));
 
-  // 지출과 수입을 나눠 계산 (목록에는 둘 다, 지출 통계·결제수단 통계에는 지출만)
-  const monthSpend = monthFiltered.filter(e => !isIncome(e));
+  // 지출과 수입을 나눠 계산 (목록에는 둘 다, 지출 통계·결제수단 통계에는 지출만). 지출은 합계 조건에 맞는 금액으로
+  const monthSpend = monthFiltered.filter(e => !isIncome(e)).map(condView);
   const monthIncome = monthFiltered.filter(isIncome);
   const totalAmount = monthSpend.reduce((s, e) => s + e.amount, 0);
   const incomeTotal = monthIncome.reduce((s, e) => s + e.amount, 0);
@@ -7702,11 +7772,6 @@ function App() {
   const knownCatNames = categories.map(c => c.name);
   // 통계는 품목 분류대로 나눠서 합산 (영수증 한 건에 식비·생필품이 섞여 있으면 각각에)
   const categoryParts = monthSpend.flatMap(splitExpenseByCategory);
-  // 결제 수단 묶음 키: 카드(같은 카드로 합친 묶음) / 현금 / 계좌이체 / 모름
-  const payGroupKey = e => {
-    const rootId = expenseRootMap.get(e.id);
-    return e.pay_method === '현금' ? 'cash' : e.pay_method === '계좌이체' ? 'transfer' : rootId || (e.card_issuer || e.card_num ? `raw:${e.card_issuer}|${e.card_num}` : 'none');
-  };
   // 📊 통계 항목을 눌렀을 때 보여줄 내역 (카테고리는 품목 분류대로 나눈 금액)
   const NO_SUB = '(세부 없음)';
   const drillRows = !statDrill ? [] : statDrill.kind === 'pay' ? monthSpend.filter(e => payGroupKey(e) === statDrill.key).map(e => ({
@@ -7740,7 +7805,7 @@ function App() {
     ...Object.fromEntries(memberKeys.map(k => [k, budget[k] || '']))
   });
   const budgetView = (() => {
-    if (!singleMonth || filterUser === '업무용') return null;
+    if (!singleMonth || filterUser === '업무용' || condActive) return null; // 합계 조건이 켜져 있으면 예산과 비교하지 않음
     // 합산 예산을 비워 두고 각자 예산만 넣었으면 합산 = 남편 + 아내
     const eachSum = memberKeys.reduce((t, k) => t + (Number(budget[k]) || 0), 0);
     const total = Number(budget.total) || eachSum;
@@ -8022,7 +8087,7 @@ function App() {
     className: "flex justify-between items-end"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-slate-400"
-  }, "\uC9C0\uCD9C \uD569\uACC4 (", memberKeys.includes(filterUser) ? mName(filterUser) : filterUser, ")"), /*#__PURE__*/React.createElement("h2", {
+  }, "\uC9C0\uCD9C \uD569\uACC4 (", memberKeys.includes(filterUser) ? mName(filterUser) : filterUser, condActive ? ' · 🧮 조건' : '', ")"), /*#__PURE__*/React.createElement("h2", {
     className: "text-2xl font-extrabold text-white mt-0.5"
   }, totalAmount.toLocaleString(), "\uC6D0"), hasIncome && /*#__PURE__*/React.createElement("p", {
     className: "text-[0.6875rem] mt-0.5"
@@ -8040,7 +8105,79 @@ function App() {
     key: f,
     onClick: () => setFilterUser(f),
     className: `py-1.5 rounded-lg font-bold whitespace-nowrap overflow-hidden text-ellipsis ${filterUser === f ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`
-  }, memberKeys.includes(f) ? mName(f) : f)))), activeTab === 'list' && (() => {
+  }, memberKeys.includes(f) ? mName(f) : f))), (() => {
+    // 🧮 합계 조건: 분류·결제수단을 골라 고른 것만 / 고른 것 빼고
+    const payList = [...cardRootsList.map(r => [r.id, `💳 ${cardDisplayName(r, cards)}`]), ['cash', '💵 현금'], ['transfer', '🏦 계좌이체'], ['none', '모름/기타']];
+    const nameOfPay = k => (payList.find(p => p[0] === k) || [k, '카드'])[1];
+    const toggle = (key, list, v) => setCond({
+      [key]: list.includes(v) ? list.filter(x => x !== v) : [...list, v]
+    });
+    const short = arr => arr.length <= 2 ? arr.join('·') : `${arr.slice(0, 2).join('·')} 외 ${arr.length - 2}`;
+    const summary = [cond.cats.length ? `${short(cond.cats.map(c => c.split('›').pop()))} ${cond.catMode === 'in' ? '만' : '제외'}` : '', cond.pays.length ? `${short(cond.pays.map(nameOfPay))} ${cond.payMode === 'in' ? '만' : '제외'}` : ''].filter(Boolean).join(' / ');
+    const has = cond.cats.length + cond.pays.length > 0;
+    const modeBtns = key => /*#__PURE__*/React.createElement("span", {
+      className: "inline-flex bg-slate-800 rounded-md p-0.5 ml-auto shrink-0"
+    }, [['in', '고른 것만'], ['ex', '고른 것 빼고']].map(([v, l]) => /*#__PURE__*/React.createElement("button", {
+      key: v,
+      onClick: () => setCond({
+        [key]: v
+      }),
+      className: `px-2 py-0.5 rounded font-bold ${cond[key] === v ? 'bg-indigo-600 text-white' : 'text-slate-400'}`
+    }, l)));
+    const chip = (on, label, onClick, key, small) => /*#__PURE__*/React.createElement("button", {
+      key: key,
+      onClick: onClick,
+      className: `${small ? 'px-1.5 py-0.5 text-[0.625rem]' : 'px-2 py-1'} rounded-full border whitespace-nowrap ${on ? 'bg-indigo-600 border-indigo-400 text-white font-bold' : 'bg-slate-900 border-slate-700 text-slate-300'}`
+    }, label);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "text-xs space-y-2"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setCondOpen(o => !o),
+      className: `flex-1 min-w-0 text-left px-2.5 py-1.5 rounded-lg border overflow-hidden text-ellipsis whitespace-nowrap ${condActive ? 'bg-indigo-950/70 border-indigo-600 text-indigo-100 font-bold' : 'bg-slate-900 border-slate-700 text-slate-400'}`
+    }, "\uD83E\uDDEE \uD569\uACC4 \uC870\uAC74", has ? `: ${summary}${cond.on ? '' : ' (꺼짐)'}` : ' · 분류·결제수단 골라 보기', " ", condOpen ? '▴' : '▾'), has && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setCond({
+        on: !cond.on
+      }),
+      className: `px-2 py-1.5 rounded-lg font-bold whitespace-nowrap ${cond.on ? 'bg-emerald-700 text-white' : 'bg-slate-800 text-slate-400'}`
+    }, cond.on ? '켜짐' : '꺼짐')), condOpen && /*#__PURE__*/React.createElement("div", {
+      className: "bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-2.5"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "space-y-1.5"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("b", {
+      className: "text-slate-200"
+    }, "\uBD84\uB958"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setCondSubs(v => !v),
+      className: "text-[0.625rem] text-sky-300 underline"
+    }, condSubs ? '큰 분류만' : '세부 분류까지'), modeBtns('catMode')), !condSubs ? /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap gap-1"
+    }, categories.map(c => chip(cond.cats.includes(c.name), `${c.name}${cond.cats.some(x => x.startsWith(c.name + '›')) ? ' ·세부' : ''}`, () => toggle('cats', cond.cats, c.name), c.name))) : categories.map(c => /*#__PURE__*/React.createElement("div", {
+      key: c.name,
+      className: "flex flex-wrap gap-1 items-center"
+    }, chip(cond.cats.includes(c.name), c.name, () => toggle('cats', cond.cats, c.name), c.name), !cond.cats.includes(c.name) && (c.subs || []).map(sb => chip(cond.cats.includes(`${c.name}›${sb}`), sb, () => toggle('cats', cond.cats, `${c.name}›${sb}`), sb, true))))), /*#__PURE__*/React.createElement("div", {
+      className: "space-y-1.5"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("b", {
+      className: "text-slate-200"
+    }, "\uACB0\uC81C\uC218\uB2E8"), modeBtns('payMode')), /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap gap-1"
+    }, payList.map(([k, l]) => chip(cond.pays.includes(k), l, () => toggle('pays', cond.pays, k), k)))), /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between items-center gap-2"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "text-[0.625rem] text-slate-500 leading-snug"
+    }, "\uC9C0\uCD9C \uD569\uACC4\xB7\uBAA9\uB85D\xB7\uD1B5\uACC4\uC5D0 \uC801\uC6A9 (\uC218\uC785\uC740 \uADF8\uB300\uB85C). \uBD84\uB958\uAC00 \uC11E\uC778 \uC601\uC218\uC99D\uC740 \uB9DE\uB294 \uD488\uBAA9 \uAE08\uC561\uB9CC \uD569\uACC4\uC5D0. \uCF1C\uC838 \uC788\uB294 \uB3D9\uC548 \uC608\uC0B0 \uB9C9\uB300\uB294 \uC228\uAE40."), has && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setCond({
+        cats: [],
+        pays: [],
+        on: true
+      }),
+      className: "px-2 py-1 rounded bg-slate-800 text-rose-300 font-bold whitespace-nowrap shrink-0"
+    }, "\uBAA8\uB450 \uC9C0\uC6B0\uAE30"))));
+  })()), activeTab === 'list' && (() => {
     // 💐 다가오는 경조사 (예정: 오늘부터 14일 안) · 날짜가 지났는데 아직 예정인 것 (7일 안)
     const today = getKSTDateTimeString().slice(0, 10);
     const soon = giftRecs.filter(r => r.status === '예정' && r.rec_date >= addDaysYmd(today, -7) && r.rec_date <= addDaysYmd(today, 14)).sort((a, b) => a.rec_date.localeCompare(b.rec_date));
@@ -8100,7 +8237,7 @@ function App() {
     onClick: () => setSearchInPeriod(v),
     className: `px-2 py-1 rounded-lg ${searchInPeriod === v ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-900 border border-slate-800 text-slate-400'}`
   }, label))), searching && (() => {
-    const sp = listSource.filter(e => !isIncome(e)).reduce((t, e) => t + e.amount, 0);
+    const sp = listSource.filter(e => !isIncome(e)).reduce((t, e) => t + condAmt(e), 0);
     const ic = listSource.filter(isIncome).reduce((t, e) => t + e.amount, 0);
     return /*#__PURE__*/React.createElement("p", {
       className: "text-[0.6875rem] text-slate-400 px-1"
@@ -8339,7 +8476,9 @@ function App() {
       className: `font-extrabold text-base whitespace-nowrap ${isIncome(item) ? 'text-emerald-300' : item.amount < 0 ? 'text-emerald-400' : 'text-white'}`
     }, isIncome(item) && item.amount > 0 ? '+' : '', item.amount.toLocaleString(), "\uC6D0"), !isIncome(item) && /*#__PURE__*/React.createElement("p", {
       className: "text-[0.6875rem] text-slate-500 whitespace-nowrap"
-    }, "\uC138\uC561 ", (item.tax || 0).toLocaleString(), "\uC6D0"))), item.items && item.items.length > 0 && (() => {
+    }, "\uC138\uC561 ", (item.tax || 0).toLocaleString(), "\uC6D0"), condActive && !isIncome(item) && condAmt(item) !== item.amount && /*#__PURE__*/React.createElement("p", {
+      className: "text-[0.625rem] text-indigo-300 whitespace-nowrap"
+    }, "\uD83E\uDDEE \uD569\uACC4\uC5D0\uB294 ", condAmt(item).toLocaleString(), "\uC6D0"))), item.items && item.items.length > 0 && (() => {
       const isOpen = openItemIds.has(item.id);
       const shown = isOpen ? item.items : item.items.slice(0, ITEMS_PREVIEW);
       const toggle = () => setOpenItemIds(prev => {
@@ -9587,7 +9726,7 @@ function App() {
       for (let i = n - 1; i >= 0; i--) months.push(addMonthsYmd(`${end}-01`, -i).slice(0, 7));
     }
     if (months.length < 2) return null;
-    const base = expenses.filter(userFilterOk);
+    const base = expenses.filter(userFilterOk).map(condView);
     const rows = months.map(m => {
       // 여러 달 기간이면 첫·끝 달은 기간 안의 날짜만
       const es = base.filter(e => String(e.date || '').startsWith(m) && (singleMonth || !periodRange || inPeriod(e.date)));
