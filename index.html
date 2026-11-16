@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>밑빠진독 v1.84</title>
+  <title>밑빠진독 v1.86</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -57,7 +57,7 @@ const START_TABS = [['list', '📋 내역'], ['stats', '📊 통계'], ['input',
 
 const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
-const APP_VERSION = 'v1.84';
+const APP_VERSION = 'v1.86';
 // 🐸 앱 아이콘 (밑 빠진 독을 막는 두꺼비, v1.75 그림) — 내려받은 html 파일에서도 보이게 그림을 코드에 넣어 둠
 const APP_ICON_URI = `data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"%3E%3Cdefs%3E%3ClinearGradient id="bg" x1="0" y1="0" x2="0" y2="1"%3E%3Cstop offset="0" stop-color="%23312e81"/%3E%3Cstop offset="1" stop-color="%235b21b6"/%3E%3C/linearGradient%3E%3ClinearGradient id="jar" x1="0" y1="0" x2="1" y2="1"%3E%3Cstop offset="0" stop-color="%23b8693a"/%3E%3Cstop offset="1" stop-color="%237a3b1c"/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width="512" height="512" rx="112" fill="url(%23bg)"/%3E%3Cg transform="translate(256 262) scale(0.86) translate(-256 -262)"%3E%3Cg%3E%3Ccircle cx="256" cy="74" r="38" fill="%23fbbf24"/%3E%3Ccircle cx="256" cy="74" r="30" fill="none" stroke="%23f59e0b" stroke-width="5"/%3E%3Ctext x="256" y="90" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="44" fill="%2392400e"%3E%E2%82%A9%3C/text%3E%3C/g%3E%3Cpath d="M 198 138 C 146 156, 110 196, 112 254 C 114 322, 156 378, 194 404 L 318 404 C 356 378, 398 322, 400 254 C 402 196, 366 156, 314 138 Z" fill="url(%23jar)"/%3E%3Cpath d="M 150 214 C 176 202, 196 226, 222 214 C 248 202, 264 226, 290 214 C 316 202, 336 226, 362 214" fill="none" stroke="%23e9c49a" stroke-width="7" stroke-linecap="round" opacity="0.85"/%3E%3Cpath d="M 150 196 C 140 240, 146 300, 178 352" fill="none" stroke="%23f3d3ad" stroke-width="12" stroke-linecap="round" opacity="0.35"/%3E%3Crect x="178" y="112" width="156" height="34" rx="16" fill="%236b3518"/%3E%3Cellipse cx="256" cy="118" rx="64" ry="9" fill="%232a1408"/%3E%3Cg%3E%3Cellipse cx="180" cy="452" rx="34" ry="18" fill="%233f6212"/%3E%3Cellipse cx="332" cy="452" rx="34" ry="18" fill="%233f6212"/%3E%3Cellipse cx="256" cy="414" rx="100" ry="56" fill="%2365a30d"/%3E%3Cellipse cx="256" cy="430" rx="64" ry="28" fill="%23d9f99d" opacity="0.6"/%3E%3Ccircle cx="208" cy="366" r="30" fill="%2365a30d"/%3E%3Ccircle cx="304" cy="366" r="30" fill="%2365a30d"/%3E%3Ccircle cx="208" cy="364" r="18" fill="%23fff"/%3E%3Ccircle cx="304" cy="364" r="18" fill="%23fff"/%3E%3Ccircle cx="212" cy="366" r="9" fill="%230f172a"/%3E%3Ccircle cx="300" cy="366" r="9" fill="%230f172a"/%3E%3Cpath d="M 214 410 Q 256 444 298 410" fill="none" stroke="%231a2e05" stroke-width="7" stroke-linecap="round"/%3E%3Ccircle cx="196" cy="414" r="10" fill="%23f9a8d4" opacity="0.8"/%3E%3Ccircle cx="316" cy="414" r="10" fill="%23f9a8d4" opacity="0.8"/%3E%3Ccircle cx="236" cy="392" r="4" fill="%23365314"/%3E%3Ccircle cx="280" cy="392" r="4" fill="%23365314"/%3E%3Ccircle cx="176" cy="392" r="7" fill="%234d7c0f"/%3E%3Ccircle cx="336" cy="392" r="7" fill="%234d7c0f"/%3E%3Ccircle cx="170" cy="428" r="6" fill="%234d7c0f"/%3E%3Ccircle cx="342" cy="428" r="6" fill="%234d7c0f"/%3E%3Ccircle cx="256" cy="376" r="5" fill="%234d7c0f"/%3E%3Ccircle cx="190" cy="342" r="5" fill="%234d7c0f"/%3E%3Ccircle cx="322" cy="342" r="5" fill="%234d7c0f"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E `;
 // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
@@ -1273,6 +1273,16 @@ const EMBEDDED_SQL_SCRIPT = "-- ================================================
 // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
 // =====================================================================
 const VERSION_HISTORY = [{
+  version: 'v1.86',
+  date: '2026-11-16',
+  title: '💳 입력 화면에서 바로 카드 추가',
+  changes: ['[카드] ➕ 직접 입력·영수증 확인·내역 ✏️ 수정의 결제 수단 목록 맨 아래 [＋ 카드 직접 추가…]: 설정으로 가지 않고 그 자리에서 카드를 등록하고, 등록한 카드가 바로 선택됨 (주인을 정하면 결제자도 맞춰짐)', '[카드] 이미 등록된 카드사·번호를 넣으면 새로 만들지 않고 그 카드를 선택']
+}, {
+  version: 'v1.85',
+  date: '2026-11-16',
+  title: '💳 카드 직접 추가',
+  changes: ['[카드] 설정 › 카드 관리 [＋ 카드 직접 추가]: 문자 알림이 오지 않는 카드(체크카드 등)를 카드사·뒤 4자리·이름·주인으로 직접 등록 → 직접 입력·내역 수정의 결제 수단에서 고를 수 있음', '[카드] 번호를 모르면 비워 두고 등록 가능 (이름으로 구분). 나중에 영수증에서 같은 카드번호가 보이면 카드 관리에서 [합치기]']
+}, {
   version: 'v1.84',
   date: '2026-11-14',
   title: '시각 없는 취소 문자 (NH카드)',
@@ -2054,6 +2064,7 @@ function App() {
   // 카드 목록 (가족 공용): 처음 보는 카드번호는 자동 등록, 같은 카드 연결·주인 지정
   const [cards, setCards] = useState([]);
   const [cardNameDrafts, setCardNameDrafts] = useState({});
+  const [cardAdd, setCardAdd] = useState(null); // 💳 카드 직접 추가 입력값 { issuer, num, name, owner, at } · at: 없음=설정 화면, 'manual'·'scan'·'edit:내역id'=그 입력 화면의 결제 수단 아래
   const [importPay, setImportPay] = useState('auto'); // 카드사 파일 가져올 때 이 파일의 카드
 
   // 안드로이드 크롬: 설치 가능하면 이벤트를 받아 두었다가 [📲앱 설치] 버튼으로 띄움
@@ -6564,6 +6575,73 @@ function App() {
     ...c,
     ...patch
   } : c));
+  // 💳 카드 직접 추가 (문자 알림이 없는 카드). 번호를 모르면 'm' + 숫자 3자리로 만든 자리표시 번호 (다른 카드 번호와 맞지 않음)
+  // 입력 화면에서 연 추가 칸은 그 화면이 닫히면 같이 닫음
+  useEffect(() => {
+    const at = cardAdd && cardAdd.at;
+    if (at === 'manual' && !manual || at === 'scan' && !scanResult || at && at.startsWith('edit:') && String(editingId) !== at.slice(5)) setCardAdd(null);
+  }, [manual, scanResult, editingId]);
+  const addCardManually = async () => {
+    const d = cardAdd || {};
+    const issuer = normalizeCardIssuer(d.issuer) || String(d.issuer || '').trim().slice(0, 12);
+    const rawNum = String(d.num || '').trim().replace(/＊/g, '*');
+    const name = String(d.name || '').trim().slice(0, 20);
+    if (!issuer) return showToast('⚠️ 카드사를 입력해주세요. (예: 국민, 카카오뱅크)');
+    if (rawNum && !/^[0-9*]{4}$/.test(rawNum)) return showToast('⚠️ 카드번호는 뒤 4자리 숫자로 입력하거나 비워 두세요.');
+    if (!rawNum && !name) return showToast('⚠️ 번호를 비우려면 카드 이름을 입력해주세요. (예: 생활비 체크)');
+    if (!ensureConnected()) return;
+    let dup = false,
+      usedNum = rawNum;
+    // 입력 화면에서 추가했으면 그 화면의 결제 수단을 이 카드로 (주인이 있으면 결제자도)
+    const pick = owner => {
+      const v = `card:${issuer}|${usedNum}`,
+        at = d.at;
+      const set = f => f ? {
+        ...f,
+        pay: v,
+        payer: owner || f.payer
+      } : f;
+      if (at === 'manual') setManual(set);else if (at === 'scan') setScanResult(set);else if (at) setEditForm(set);
+    };
+    const ok = await saveCards(cur => {
+      let num = rawNum;
+      if (!num) {
+        for (let k = 1; k < 1000; k++) {
+          num = 'm' + String(k).padStart(3, '0');
+          if (!cur.some(c => c.num === num)) break;
+        }
+      }
+      usedNum = num;
+      if (cur.some(c => c.issuer === issuer && c.num === num)) {
+        dup = true;
+        return null;
+      }
+      return [...cur, {
+        id: cardKey(issuer, num),
+        issuer,
+        num,
+        name,
+        owner: d.owner || '',
+        link_to: null,
+        auto_linked: false,
+        manual: true,
+        first_seen: getKSTDateTimeString().slice(0, 10)
+      }];
+    });
+    if (dup) {
+      if (d.at) {
+        pick(cardOwner(cards, issuer, usedNum));
+        setCardAdd(null);
+        return showToast('ℹ️ 이미 등록된 카드라서 그 카드를 선택했습니다.');
+      }
+      return showToast('ℹ️ 이미 등록된 카드입니다.');
+    }
+    if (ok) {
+      if (d.at) pick(d.owner || '');
+      setCardAdd(null);
+      showToast(d.at ? `💳 ${name || `${issuer} ${rawNum}`} 카드를 추가하고 선택했습니다.` : `💳 ${name || `${issuer} ${rawNum}`} 카드를 추가했습니다. 결제 수단에서 고를 수 있어요.`);
+    }
+  };
 
   // 카드 A(묶음 전체)를 카드 B의 묶음으로 합침. 이름·주인은 B에 없을 때만 A 것을 가져감
   const mergeCardInto = (id, targetId) => saveCards(cur => {
@@ -7817,6 +7895,69 @@ function App() {
     }
     return m;
   }, [cards, expenses]);
+  // 💳 카드 직접 추가 칸 (설정 › 카드 관리, 그리고 입력 화면의 결제 수단 아래에서 같이 씀)
+  const cardAddFormEl = () => /*#__PURE__*/React.createElement("div", {
+    className: `bg-slate-950 p-3 rounded-xl border border-sky-800/70 space-y-2 text-xs ${cardAdd.at ? 'mt-1.5' : ''}`,
+    "data-card-add": cardAdd.at || 'settings'
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "font-bold text-sky-200"
+  }, "\uD83D\uDCB3 \uCE74\uB4DC \uC9C1\uC811 \uCD94\uAC00"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: cardAdd.issuer,
+    onChange: e => setCardAdd({
+      ...cardAdd,
+      issuer: e.target.value
+    }),
+    placeholder: "\uCE74\uB4DC\uC0AC (\uC608: \uAD6D\uBBFC, \uCE74\uCE74\uC624\uBC45\uD06C)",
+    className: "bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+  }), /*#__PURE__*/React.createElement("input", {
+    value: cardAdd.num,
+    onChange: e => setCardAdd({
+      ...cardAdd,
+      num: e.target.value.replace(/[^0-9*＊]/g, '').slice(0, 4)
+    }),
+    inputMode: "numeric",
+    placeholder: "\uB4A4 4\uC790\uB9AC (\uBAA8\uB974\uBA74 \uBE44\uC6C0)",
+    className: "bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white tracking-wider"
+  })), /*#__PURE__*/React.createElement("input", {
+    value: cardAdd.name,
+    onChange: e => setCardAdd({
+      ...cardAdd,
+      name: e.target.value
+    }),
+    placeholder: "\uCE74\uB4DC \uC774\uB984 (\uC608: \uC0DD\uD65C\uBE44 \uCCB4\uD06C) \u2014 \uBC88\uD638\uB97C \uBE44\uC6B0\uBA74 \uAF2D \uC785\uB825",
+    className: "w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1 items-center"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-400 mr-1"
+  }, "\uC8FC\uC778"), [['', '미지정'], ...members.map(m => [m.key, `${m.emoji || ''} ${m.name}`.trim()])].map(([v, label]) => /*#__PURE__*/React.createElement("button", {
+    key: v || 'none',
+    onClick: () => setCardAdd({
+      ...cardAdd,
+      owner: v
+    }),
+    className: `px-2 py-1 rounded-md font-bold whitespace-nowrap ${(cardAdd.owner || '') === v ? v ? mOn(v) : 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400'}`
+  }, label))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: addCardManually,
+    className: "flex-1 py-1.5 rounded-lg bg-indigo-600 text-white font-bold"
+  }, "\uCD94\uAC00"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCardAdd(null),
+    className: "px-4 py-1.5 rounded-lg bg-slate-800 text-slate-300"
+  }, "\uCDE8\uC18C")), /*#__PURE__*/React.createElement("p", {
+    className: "text-[0.625rem] text-slate-500"
+  }, cardAdd.at ? '추가하면 이 내역의 결제 수단으로 바로 선택돼요. 번호를 모르면 비우고 이름만 넣어도 됩니다.' : "추가한 카드는 ➕ 직접 입력과 내역 ✏️ 수정의 '결제 수단'에서 고를 수 있어요. 주인을 정하면 그 카드로 넣은 내역의 결제자가 자동으로 정해집니다."));
+  const PAY_ADD = '__add'; // 결제 수단 목록의 [＋ 카드 직접 추가…]
+  const openCardAddAt = (at, payer) => setCardAdd({
+    issuer: '',
+    num: '',
+    name: '',
+    owner: payer || currentUser,
+    at
+  });
   const payOptions = current => {
     const opts = cardRootsList.map(r => ({
       value: `card:${r.issuer}|${r.num}`,
@@ -8469,8 +8610,9 @@ function App() {
     }, "\uACB0\uC81C \uC218\uB2E8"), /*#__PURE__*/React.createElement("select", {
       value: editForm.pay,
       onChange: e => {
-        const v = e.target.value,
-          f = payFieldsOf(v);
+        const v = e.target.value;
+        if (v === PAY_ADD) return openCardAddAt('edit:' + item.id, editForm.payer);
+        const f = payFieldsOf(v);
         setEditForm({
           ...editForm,
           pay: v,
@@ -8481,7 +8623,9 @@ function App() {
     }, payOptions(editForm.pay).map(o => /*#__PURE__*/React.createElement("option", {
       key: o.value,
       value: o.value
-    }, o.label)))), !isIncome(item) && (() => {
+    }, o.label)), /*#__PURE__*/React.createElement("option", {
+      value: PAY_ADD
+    }, "\uFF0B \uCE74\uB4DC \uC9C1\uC811 \uCD94\uAC00\u2026")), cardAdd && cardAdd.at === 'edit:' + item.id && cardAddFormEl()), !isIncome(item) && (() => {
       const its = editForm.items || [];
       const setIts = next => setEditForm({
         ...editForm,
@@ -9263,7 +9407,17 @@ function App() {
     className: "font-bold text-white text-base"
   }, "\uD83D\uDCB3 \uCE74\uB4DC \uAD00\uB9AC"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-slate-400 mt-0.5 leading-relaxed"
-  }, "\uCE74\uB4DC \uBB38\uC790\xB7\uC601\uC218\uC99D\xB7\uCE74\uB4DC\uC0AC \uD30C\uC77C\uC5D0\uC11C \uCC98\uC74C \uBCF4\uB294 \uCE74\uB4DC\uBC88\uD638(\uB4A4 4\uC790\uB9AC)\uB294 \uC790\uB3D9\uC73C\uB85C \uB4F1\uB85D\uB429\uB2C8\uB2E4. ", /*#__PURE__*/React.createElement("b", null, "*"), "\uB294 \uCE74\uB4DC\uC0AC\uAC00 \uAC00\uB9B0 \uC22B\uC790\uC608\uC694. \uAC19\uC740 \uCE74\uB4DC\uB294 \uD569\uCE58\uACE0 \uC8FC\uC778\uC744 \uC815\uD558\uBA74, \uADF8 \uCE74\uB4DC\uB85C \uACB0\uC81C\uD55C \uB0B4\uC5ED\uC758 \uACB0\uC81C\uC790\uAC00 \uC790\uB3D9\uC73C\uB85C \uC815\uD574\uC9D1\uB2C8\uB2E4.")), cardRootsList.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\uCE74\uB4DC \uBB38\uC790\xB7\uC601\uC218\uC99D\xB7\uCE74\uB4DC\uC0AC \uD30C\uC77C\uC5D0\uC11C \uCC98\uC74C \uBCF4\uB294 \uCE74\uB4DC\uBC88\uD638(\uB4A4 4\uC790\uB9AC)\uB294 \uC790\uB3D9\uC73C\uB85C \uB4F1\uB85D\uB429\uB2C8\uB2E4. ", /*#__PURE__*/React.createElement("b", null, "*"), "\uB294 \uCE74\uB4DC\uC0AC\uAC00 \uAC00\uB9B0 \uC22B\uC790\uC608\uC694. \uAC19\uC740 \uCE74\uB4DC\uB294 \uD569\uCE58\uACE0 \uC8FC\uC778\uC744 \uC815\uD558\uBA74, \uADF8 \uCE74\uB4DC\uB85C \uACB0\uC81C\uD55C \uB0B4\uC5ED\uC758 \uACB0\uC81C\uC790\uAC00 \uC790\uB3D9\uC73C\uB85C \uC815\uD574\uC9D1\uB2C8\uB2E4.")), cardAdd === null || cardAdd.at ? /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCardAdd({
+      issuer: '',
+      num: '',
+      name: '',
+      owner: currentUser
+    }),
+    className: "w-full py-2 rounded-xl bg-slate-800 border border-slate-700 text-sky-200 font-bold text-xs"
+  }, "\uFF0B \uCE74\uB4DC \uC9C1\uC811 \uCD94\uAC00 ", /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-400 font-normal"
+  }, "(\uBB38\uC790 \uC54C\uB9BC\uC774 \uC5C6\uB294 \uCCB4\uD06C\uCE74\uB4DC \uB4F1)")) : cardAddFormEl(), cardRootsList.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs text-slate-500"
   }, "\uC544\uC9C1 \uB4F1\uB85D\uB41C \uCE74\uB4DC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uCE74\uB4DC \uBB38\uC790\uAC00 \uC624\uAC70\uB098 \uC601\uC218\uC99D\uC744 \uCC0D\uC73C\uBA74 \uC5EC\uAE30\uC5D0 \uB098\uD0C0\uB0A9\uB2C8\uB2E4."), cardRootsList.map(root => {
     const groupCards = cards.filter(c => cardRoot(cards, c).id === root.id);
@@ -9307,7 +9461,7 @@ function App() {
           return n;
         });
       },
-      placeholder: `${root.issuer || '카드'} ${root.num} — 이름 붙이기`,
+      placeholder: `${root.issuer || '카드'} ${/^m\d{3}$/.test(root.num) ? '' : root.num} — 이름 붙이기`,
       className: "flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-bold"
     }), /*#__PURE__*/React.createElement("div", {
       className: `flex flex-wrap gap-0.5 bg-slate-800 p-0.5 rounded-lg ${members.length <= 2 ? 'shrink-0' : ''}`
@@ -9325,7 +9479,9 @@ function App() {
       className: "flex items-center gap-1 bg-slate-800 text-slate-200 px-2 py-1 rounded-md border border-slate-700"
     }, m.issuer || '카드사?', " ", /*#__PURE__*/React.createElement("b", {
       className: "tracking-wider"
-    }, m.num), m.id !== root.id && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    }, /^m\d{3}$/.test(m.num) ? '번호 없음' : m.num), m.manual && /*#__PURE__*/React.createElement("span", {
+      className: "text-[0.625rem] text-sky-300"
+    }, "\uC9C1\uC811 \uCD94\uAC00"), m.id !== root.id && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
       className: "text-[0.625rem] text-slate-400"
     }, m.auto_linked ? '자동 연결' : '연결'), /*#__PURE__*/React.createElement("button", {
       onClick: () => unlinkCard(m.id),
@@ -9598,8 +9754,9 @@ function App() {
     })), !scanInc && /*#__PURE__*/React.createElement("select", {
       value: scanResult.pay,
       onChange: e => {
-        const v = e.target.value,
-          f = payFieldsOf(v);
+        const v = e.target.value;
+        if (v === PAY_ADD) return openCardAddAt('scan', scanResult.payer);
+        const f = payFieldsOf(v);
         setScanResult({
           ...scanResult,
           pay: v,
@@ -9610,7 +9767,9 @@ function App() {
     }, payOptions(scanResult.pay).map(o => /*#__PURE__*/React.createElement("option", {
       key: o.value,
       value: o.value
-    }, o.label))))), !scanInc && /*#__PURE__*/React.createElement("div", {
+    }, o.label)), /*#__PURE__*/React.createElement("option", {
+      value: PAY_ADD
+    }, "\uFF0B \uCE74\uB4DC \uC9C1\uC811 \uCD94\uAC00\u2026")), !scanInc && cardAdd && cardAdd.at === 'scan' && cardAddFormEl())), !scanInc && /*#__PURE__*/React.createElement("div", {
       className: "bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5 max-h-72 overflow-y-auto"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex justify-between items-center gap-2"
@@ -10601,8 +10760,9 @@ function App() {
     })), !inc && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
       value: manual.pay,
       onChange: e => {
-        const v = e.target.value,
-          f = payFieldsOf(v);
+        const v = e.target.value;
+        if (v === PAY_ADD) return openCardAddAt('manual', manual.payer);
+        const f = payFieldsOf(v);
         setManual({
           ...manual,
           pay: v,
@@ -10613,7 +10773,9 @@ function App() {
     }, payOptions(manual.pay).map(o => /*#__PURE__*/React.createElement("option", {
       key: o.value,
       value: o.value
-    }, o.label))), /*#__PURE__*/React.createElement("p", {
+    }, o.label)), /*#__PURE__*/React.createElement("option", {
+      value: PAY_ADD
+    }, "\uFF0B \uCE74\uB4DC \uC9C1\uC811 \uCD94\uAC00\u2026")), cardAdd && cardAdd.at === 'manual' && cardAddFormEl(), /*#__PURE__*/React.createElement("p", {
       className: "text-[0.625rem] text-slate-500 mt-0.5"
     }, "\uC790\uB3D9\uC774\uCCB4\xB7\uBB34\uD1B5\uC7A5\uC785\uAE08\xB7\uACC4\uC88C\uC774\uCCB4\uB294 \uD83C\uDFE6 \uACC4\uC88C\uC774\uCCB4\uB97C \uACE0\uB974\uC138\uC694."))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
       className: "text-[0.6875rem] text-slate-400"
