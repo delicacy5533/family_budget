@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>밑빠진독 v1.89</title>
+  <title>밑빠진독 v1.90</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -57,7 +57,7 @@ const START_TABS = [['list', '📋 내역'], ['stats', '📊 통계'], ['input',
 
 const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
-const APP_VERSION = 'v1.89';
+const APP_VERSION = 'v1.90';
 // 🐸 앱 아이콘 (밑 빠진 독을 막는 두꺼비, v1.75 그림) — 내려받은 html 파일에서도 보이게 그림을 코드에 넣어 둠
 const APP_ICON_URI = `data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"%3E%3Cdefs%3E%3ClinearGradient id="bg" x1="0" y1="0" x2="0" y2="1"%3E%3Cstop offset="0" stop-color="%23312e81"/%3E%3Cstop offset="1" stop-color="%235b21b6"/%3E%3C/linearGradient%3E%3ClinearGradient id="jar" x1="0" y1="0" x2="1" y2="1"%3E%3Cstop offset="0" stop-color="%23b8693a"/%3E%3Cstop offset="1" stop-color="%237a3b1c"/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width="512" height="512" rx="112" fill="url(%23bg)"/%3E%3Cg transform="translate(256 262) scale(0.86) translate(-256 -262)"%3E%3Cg%3E%3Ccircle cx="256" cy="74" r="38" fill="%23fbbf24"/%3E%3Ccircle cx="256" cy="74" r="30" fill="none" stroke="%23f59e0b" stroke-width="5"/%3E%3Ctext x="256" y="90" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="44" fill="%2392400e"%3E%E2%82%A9%3C/text%3E%3C/g%3E%3Cpath d="M 198 138 C 146 156, 110 196, 112 254 C 114 322, 156 378, 194 404 L 318 404 C 356 378, 398 322, 400 254 C 402 196, 366 156, 314 138 Z" fill="url(%23jar)"/%3E%3Cpath d="M 150 214 C 176 202, 196 226, 222 214 C 248 202, 264 226, 290 214 C 316 202, 336 226, 362 214" fill="none" stroke="%23e9c49a" stroke-width="7" stroke-linecap="round" opacity="0.85"/%3E%3Cpath d="M 150 196 C 140 240, 146 300, 178 352" fill="none" stroke="%23f3d3ad" stroke-width="12" stroke-linecap="round" opacity="0.35"/%3E%3Crect x="178" y="112" width="156" height="34" rx="16" fill="%236b3518"/%3E%3Cellipse cx="256" cy="118" rx="64" ry="9" fill="%232a1408"/%3E%3Cg%3E%3Cellipse cx="180" cy="452" rx="34" ry="18" fill="%233f6212"/%3E%3Cellipse cx="332" cy="452" rx="34" ry="18" fill="%233f6212"/%3E%3Cellipse cx="256" cy="414" rx="100" ry="56" fill="%2365a30d"/%3E%3Cellipse cx="256" cy="430" rx="64" ry="28" fill="%23d9f99d" opacity="0.6"/%3E%3Ccircle cx="208" cy="366" r="30" fill="%2365a30d"/%3E%3Ccircle cx="304" cy="366" r="30" fill="%2365a30d"/%3E%3Ccircle cx="208" cy="364" r="18" fill="%23fff"/%3E%3Ccircle cx="304" cy="364" r="18" fill="%23fff"/%3E%3Ccircle cx="212" cy="366" r="9" fill="%230f172a"/%3E%3Ccircle cx="300" cy="366" r="9" fill="%230f172a"/%3E%3Cpath d="M 214 410 Q 256 444 298 410" fill="none" stroke="%231a2e05" stroke-width="7" stroke-linecap="round"/%3E%3Ccircle cx="196" cy="414" r="10" fill="%23f9a8d4" opacity="0.8"/%3E%3Ccircle cx="316" cy="414" r="10" fill="%23f9a8d4" opacity="0.8"/%3E%3Ccircle cx="236" cy="392" r="4" fill="%23365314"/%3E%3Ccircle cx="280" cy="392" r="4" fill="%23365314"/%3E%3Ccircle cx="176" cy="392" r="7" fill="%234d7c0f"/%3E%3Ccircle cx="336" cy="392" r="7" fill="%234d7c0f"/%3E%3Ccircle cx="170" cy="428" r="6" fill="%234d7c0f"/%3E%3Ccircle cx="342" cy="428" r="6" fill="%234d7c0f"/%3E%3Ccircle cx="256" cy="376" r="5" fill="%234d7c0f"/%3E%3Ccircle cx="190" cy="342" r="5" fill="%234d7c0f"/%3E%3Ccircle cx="322" cy="342" r="5" fill="%234d7c0f"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E `;
 // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
@@ -646,6 +646,10 @@ const STORE_RULES = {
   current: {}
 };
 const STORE_RULE_SKIP_NAMES = ['승인', '취소', '카드결제가맹점', '미상가맹점'];
+// [v1.90] 결제대행사(PG)·간편결제 이름: 여러 가게의 결제가 이 이름으로 찍혀서, 분류를 기억하면 다른 가게 결제까지 같은 분류가 됨 → 새로 기억하지 않음
+//   (찾기는 그대로: 예전에 기억한 규칙은 서버 문자 등록과 똑같이 적용되고, 🏷️ 목록에서 ⚠️로 보여 지울 수 있음)
+const PG_STORE_RE = /페이먼츠|파이낸셜|이지피[쥐지]|이니시스|KCP|케이씨피|엔에이치엔케이씨|한국사이버결제|케이아이씨씨|한국결제네트웍스|비바리퍼블리카|나이스페이|다날|KSNET|케이에스넷|스마트로|페이레터|갤럭시아|섹타나인|키움페이|KICC|한국정보통신|이지페이|페이코|PAYCO|카카오페이|네이버페이|쿠팡페이|스마일페이|토스페이|삼성페이|삼성월렛|SSG\s*페이|엘페이|L\.?PAY|페이북/i;
+const isPgStoreName = store => PG_STORE_RE.test(String(store || ''));
 // [v1.87] 예전 규칙으로 저장된 이름표('스타벅스인천점')를 새 규칙('스타벅스인천')으로. 겹치면 이미 새 규칙인 것을 남김
 const rekeyStoreRules = r => {
   const src = r && typeof r === 'object' && !Array.isArray(r) ? r : {};
@@ -1299,6 +1303,11 @@ const EMBEDDED_SQL_SCRIPT = "-- ================================================
 // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
 // =====================================================================
 const VERSION_HISTORY = [{
+  version: 'v1.90',
+  date: '2026-11-19',
+  title: '🐞 동작 기록 · 🍎 아이폰 단축어 · 결제 취소로 잘못 읽힌 결제',
+  changes: ['[기록] ⚙️ 설정 맨 아래 🐞 동작 기록: 동기화·사진 읽기·등록·삭제·오류를 이 폰에만 기록 (서버로 보내지 않음, 최근 300줄). 이상하면 [📋 복사]해서 보내기 — 긴 숫자(카드·계좌번호)는 끝 4자리만, 보안 코드·사진·문자 원문은 남기지 않음', '[기록] 화면을 그리다 오류가 나면 빈 화면 대신 안내와 [📋 기록 복사]·[🔄 다시 열기]', "[영수증] 결제 앱 화면의 '결제 취소' 버튼 때문에 취소(−금액)로 읽힌 결제: 확인 화면의 취소 안내에서 [💸 결제로 바꾸기] (금액·부가세·품목 부호를 한 번에) — 서버: scan-receipt v1.90 (버튼 글자는 상태가 아님 · '포인트 적립됨'은 정상 결제)", "[영수증] 품목이 '결제 9,000원'처럼 총액과 같은 한 줄뿐이면 품목으로 넣지 않음", '[분류 기억] 결제대행사(PG)·간편결제 이름(이지피쥐·KG이니시스·엔에이치엔케이씨(NHN KCP)·토스페이먼츠·카카오페이 등)은 가게 분류로 기억하지 않음 — 여러 가게의 결제가 같은 이름으로 들어와 다른 가게까지 같은 분류가 됨 (예전에 기억한 것은 🏷️ 목록에 ⚠️ 표시)', '[자동연동] ⚡자동연동에 🍎 아이폰 단축어 설명서: 홈 화면에 추가 → 메시지 자동화 → 서버로 보내기 (값마다 복사 버튼)', '[오프라인] 폰 저장 공간이 모자라 새 오프라인 사본을 못 쓰면 예전 사본을 지움 (인터넷이 끊겼을 때 오래된 내역이 보이던 문제)']
+}, {
   version: 'v1.89',
   date: '2026-11-18',
   title: '✂️ 사진 돌리기·자르기 · 영수증 따로 등록',
@@ -2128,6 +2137,303 @@ function PhotoEditor({
     className: "px-4 py-2.5 bg-slate-800 text-slate-300 rounded-lg"
   }, "\uCDE8\uC18C"))));
 }
+
+// =====================================================================
+// 🐞 동작 기록 — 이 폰(localStorage 'APP_LOG')에만 저장하고 서버로 보내지 않음. 최근 APP_LOG_MAX줄만 보관
+//   문제가 생기면 ⚙️ 설정 › 🐞 동작 기록 › [📋 복사]해서 보내기
+//   남기지 않는 것: 보안 코드(가족 코드)·사진·문자 원문. 6자리 넘게 이어진 숫자(카드·계좌번호 등)는 끝 4자리만
+//   한 줄: { t: 'MM-DD HH:MM:SS'(한국 시각), lv: 'I'|'W'|'E', c: 분야, m: 내용, d: 덧붙인 값 }
+// =====================================================================
+const APP_LOG_KEY = 'APP_LOG';
+const APP_LOG_MAX = 300;
+const APP_LOG = {
+  buf: null,
+  timer: null,
+  secret: '',
+  rt: '',
+  rtBadAt: 0,
+  listeners: new Set()
+};
+const appLogLoad = () => {
+  if (APP_LOG.buf) return APP_LOG.buf;
+  try {
+    const v = JSON.parse(localStorage.getItem(APP_LOG_KEY) || '[]');
+    APP_LOG.buf = Array.isArray(v) ? v.slice(-APP_LOG_MAX) : [];
+  } catch (e) {
+    APP_LOG.buf = [];
+  }
+  return APP_LOG.buf;
+};
+const appLogFlush = () => {
+  if (APP_LOG.timer) {
+    clearTimeout(APP_LOG.timer);
+    APP_LOG.timer = null;
+  }
+  if (!APP_LOG.buf) return;
+  try {
+    localStorage.setItem(APP_LOG_KEY, JSON.stringify(APP_LOG.buf));
+  } catch (e) {
+    // 저장 공간이 모자라면 최근 100줄만 남겨 다시
+    try {
+      APP_LOG.buf = APP_LOG.buf.slice(-100);
+      localStorage.setItem(APP_LOG_KEY, JSON.stringify(APP_LOG.buf));
+    } catch (e2) {}
+  }
+};
+const appLogNotify = () => APP_LOG.listeners.forEach(f => {
+  try {
+    f();
+  } catch (e) {}
+});
+// 보안 코드·긴 숫자 가리기 (keepDigits: 내역 id처럼 숫자를 그대로 둘 값)
+const logMask = (str, keepDigits = false) => {
+  let t = String(str == null ? '' : str);
+  if (APP_LOG.secret && APP_LOG.secret.length >= 6) t = t.split(APP_LOG.secret).join('(보안코드)');
+  t = t.replace(/fam_[A-Za-z0-9]{6,}/g, 'fam_(보안코드)');
+  return keepDigits ? t : t.replace(/[0-9]{6,}/g, m => '…' + m.slice(-4));
+};
+// 이 이름(또는 '_'로 나눈 조각)의 칸은 값을 남기지 않음: sms_text·fam_code·apikey·image …
+const LOG_HIDE_PARTS = new Set(['pass', 'password', 'code', 'key', 'apikey', 'token', 'secret', 'image', 'images', 'photo', 'photos', 'base64', 'sms', 'text', 'body', 'raw']);
+const logHideKey = k => String(k).toLowerCase().split(/[_-]/).some(p => LOG_HIDE_PARTS.has(p)) || /familycode|famcode|apikey/i.test(k);
+const logSafe = (v, depth = 0, key = '') => {
+  if (v == null || typeof v === 'number' || typeof v === 'boolean') return v;
+  if (typeof v === 'string') return logMask(v, /(^|_)id$|^ids?$/i.test(key)).slice(0, 300);
+  if (depth >= 3) return '…';
+  if (Array.isArray(v)) return v.slice(0, 12).map(x => logSafe(x, depth + 1, key));
+  if (typeof v === 'object') {
+    const o = {};
+    for (const [k, x] of Object.entries(v).slice(0, 24)) if (x !== undefined) o[k] = logHideKey(k) ? '(생략)' : logSafe(x, depth + 1, k);
+    return o;
+  }
+  return logMask(String(v)).slice(0, 100);
+};
+const appLog = (lv, cat, msg, meta) => {
+  try {
+    const buf = appLogLoad();
+    const t = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(5, 19).replace('T', ' ');
+    const line = {
+      t,
+      lv: lv === 'E' || lv === 'W' ? lv : 'I',
+      c: String(cat || '').slice(0, 12),
+      m: logMask(msg).slice(0, 300)
+    };
+    if (meta !== undefined && meta !== null) line.d = logSafe(meta);
+    buf.push(line);
+    if (buf.length > APP_LOG_MAX) buf.splice(0, buf.length - APP_LOG_MAX);
+    if (line.lv === 'E') appLogFlush();else if (!APP_LOG.timer) APP_LOG.timer = setTimeout(appLogFlush, 2000);
+    if (APP_LOG.listeners.size) setTimeout(appLogNotify, 0); // 기록 보기 화면만 다시 그림 (그리는 중에 부르지 않게 다음 차례에)
+  } catch (e) {}
+};
+const appLogClear = () => {
+  APP_LOG.buf = [];
+  if (APP_LOG.timer) {
+    clearTimeout(APP_LOG.timer);
+    APP_LOG.timer = null;
+  }
+  try {
+    localStorage.removeItem(APP_LOG_KEY);
+  } catch (e) {}
+  appLogNotify();
+};
+const appLogLine = x => {
+  let d = '';
+  if (x.d !== undefined) {
+    try {
+      d = ' ' + JSON.stringify(x.d);
+    } catch (e) {}
+  }
+  return `${x.t} ${x.lv} [${x.c}] ${x.m}${d}`;
+};
+const appLogText = (head, onlyWarn = false) => [head, '', ...appLogLoad().filter(x => !onlyWarn || x.lv !== 'I').map(appLogLine)].join('\n');
+// 기기 요약: 'iOS 18.5 · Safari 18 · 홈 화면 앱'
+const uaSummary = () => {
+  try {
+    const ua = navigator.userAgent || '';
+    const m = re => (ua.match(re) || [])[1] || '';
+    const os = /iPhone|iPad|iPod/.test(ua) ? `iOS ${m(/OS (\d+[_.]\d+)/).replace('_', '.')}` : /Android/.test(ua) ? `Android ${m(/Android (\d+(?:\.\d+)?)/)}` : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'Mac' : navigator.platform || '기타';
+    const br = m(/SamsungBrowser\/(\d+)/) ? `삼성인터넷 ${m(/SamsungBrowser\/(\d+)/)}` : m(/CriOS\/(\d+)/) ? `Chrome ${m(/CriOS\/(\d+)/)}` : m(/EdgA?\/(\d+)/) ? `Edge ${m(/EdgA?\/(\d+)/)}` : m(/Chrome\/(\d+)/) ? `Chrome ${m(/Chrome\/(\d+)/)}` : m(/Version\/(\d+(?:\.\d+)?).*Safari/) ? `Safari ${m(/Version\/(\d+(?:\.\d+)?).*Safari/)}` : '웹보기';
+    const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    return `${os} · ${br} · ${standalone ? '홈 화면 앱' : '브라우저'}`;
+  } catch (e) {
+    return '알 수 없음';
+  }
+};
+try {
+  // 코드 오류만 (그림·파일을 못 받은 것은 message가 없어 빠짐)
+  window.addEventListener('error', e => {
+    if (!e || !e.message && !e.error) return;
+    appLog('E', 'js', e.message || String(e.error), {
+      at: `${String(e.filename || '').split('/').pop().slice(0, 40)}:${e.lineno || 0}:${e.colno || 0}`,
+      stack: String(e.error && e.error.stack || '').split('\n').slice(0, 4).join(' | ')
+    });
+  });
+  window.addEventListener('unhandledrejection', e => {
+    const r = e && e.reason;
+    appLog('E', 'js', '처리 안 된 오류: ' + String(r && r.message || r || ''), {
+      stack: String(r && r.stack || '').split('\n').slice(0, 4).join(' | ')
+    });
+  });
+  // 앱을 내리거나 닫을 때 아직 안 쓴 기록을 저장
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') appLogFlush();
+  });
+  window.addEventListener('pagehide', appLogFlush);
+} catch (e) {}
+appLog('I', 'app', `앱 시작 ${APP_VERSION}`, {
+  ua: uaSummary(),
+  online: navigator.onLine,
+  screen: `${window.screen ? window.screen.width + 'x' + window.screen.height : '?'}@${window.devicePixelRatio || 1}`
+});
+
+// 📋 클립보드 복사 (App 밖에서도) → 되면 true
+const copyPlainText = async text => {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return !!ok;
+  } catch (e) {
+    return false;
+  }
+};
+
+// 😵 화면을 그리다 오류가 나면 빈 화면 대신 안내 (기록을 남기고 복사·다시 열기)
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      err: null,
+      copied: ''
+    };
+  }
+  static getDerivedStateFromError(err) {
+    return {
+      err
+    };
+  }
+  componentDidCatch(err, info) {
+    appLog('E', 'react', '화면 오류: ' + String(err && err.message || err), {
+      stack: String(err && err.stack || '').split('\n').slice(0, 5).join(' | '),
+      comp: String(info && info.componentStack || '').split('\n').map(x => x.trim()).filter(Boolean).slice(0, 5).join(' < ')
+    });
+    appLogFlush();
+  }
+  render() {
+    if (!this.state.err) return this.props.children;
+    const copy = async () => {
+      const ok = await copyPlainText(appLogText(`[밑빠진독 ${APP_VERSION} 동작 기록 · 화면 오류]\n기기 ${MY_DEVICE_ID} · ${uaSummary()}`));
+      this.setState({
+        copied: ok ? '📋 복사했어요. 카톡 등에 붙여넣어 보내 주세요.' : '⚠️ 복사하지 못했어요. 한 번 더 눌러 주세요.'
+      });
+    };
+    return /*#__PURE__*/React.createElement("div", {
+      className: "min-h-screen flex items-center justify-center p-4 bg-slate-950 text-slate-100",
+      "data-app-crash": true
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-slate-900 border border-rose-800 rounded-2xl p-5 max-w-sm w-full space-y-3 text-center"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "text-3xl"
+    }, "\uD83D\uDE35"), /*#__PURE__*/React.createElement("h2", {
+      className: "font-bold text-white"
+    }, "\uD654\uBA74\uC744 \uADF8\uB9AC\uB2E4 \uC624\uB958\uAC00 \uB0AC\uC5B4\uC694"), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-slate-400 leading-relaxed"
+    }, "\uAC00\uACC4\uBD80 \uB0B4\uC5ED\uC740 \uC11C\uBC84\uC5D0 \uADF8\uB300\uB85C \uC788\uC5B4\uC694. [\uD83D\uDD04 \uB2E4\uC2DC \uC5F4\uAE30]\uB97C \uB20C\uB7EC \uBCF4\uACE0, \uACC4\uC18D \uC774\uB7EC\uBA74 [\uD83D\uDCCB \uAE30\uB85D \uBCF5\uC0AC]\uD574\uC11C \uBCF4\uB0B4 \uC8FC\uC138\uC694."), /*#__PURE__*/React.createElement("p", {
+      className: "text-[0.6875rem] text-rose-300 break-all"
+    }, logMask(String(this.state.err && this.state.err.message || this.state.err)).slice(0, 160)), /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-2 gap-2"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: copy,
+      className: "py-2.5 rounded-xl bg-slate-800 text-slate-100 font-bold text-sm"
+    }, "\uD83D\uDCCB \uAE30\uB85D \uBCF5\uC0AC"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => window.location.reload(),
+      className: "py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm"
+    }, "\uD83D\uDD04 \uB2E4\uC2DC \uC5F4\uAE30")), this.state.copied && /*#__PURE__*/React.createElement("p", {
+      className: "text-[0.6875rem] text-emerald-300"
+    }, this.state.copied)));
+  }
+}
+
+// 🐞 동작 기록 보기 (⚙️ 설정 맨 아래). 펼쳤을 때만 새 기록을 따라 이 칸만 다시 그림
+//   header(): 복사할 때 맨 위에 붙일 요약 (버전·기기·사용자·연결 상태·건수) · onCopy(text)
+function AppLogPanel({
+  header,
+  onCopy
+}) {
+  const [open, setOpen] = useState(false);
+  const [onlyWarn, setOnlyWarn] = useState(false);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    const f = () => setTick(t => t + 1);
+    APP_LOG.listeners.add(f);
+    return () => {
+      APP_LOG.listeners.delete(f);
+    };
+  }, [open]);
+  const all = appLogLoad();
+  const nWarn = all.filter(x => x.lv !== 'I').length;
+  const shown = (onlyWarn ? all.filter(x => x.lv !== 'I') : all).slice(-200).reverse();
+  const tab = on => `px-2.5 py-1 rounded-lg font-bold ${on ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs",
+    "data-app-log": true
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOpen(o => !o),
+    className: "w-full flex justify-between items-center gap-2 text-left"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-bold text-white text-base"
+  }, "\uD83D\uDC1E \uB3D9\uC791 \uAE30\uB85D ", /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-slate-400 font-normal"
+  }, all.length, "\uC904", nWarn ? ` · 경고·오류 ${nWarn}` : '')), /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-400 whitespace-nowrap"
+  }, open ? '접기 ▲' : '펼치기 ▼')), /*#__PURE__*/React.createElement("p", {
+    className: "text-[0.6875rem] text-slate-400 leading-relaxed"
+  }, "\uC774 \uD3F0\uC5D0\uB9CC \uC800\uC7A5\uB3FC\uC694 (\uC11C\uBC84\uB85C \uBCF4\uB0B4\uC9C0 \uC54A\uC74C, \uCD5C\uADFC ", APP_LOG_MAX, "\uC904). \uC774\uC0C1\uD55C \uC77C\uC774 \uC0DD\uAE30\uBA74 [\uD83D\uDCCB \uBCF5\uC0AC]\uD574\uC11C \uBCF4\uB0B4 \uC8FC\uC138\uC694 (\uACBD\uACE0\xB7\uC624\uB958\uB97C \uACE0\uB974\uACE0 \uBCF5\uC0AC\uD558\uBA74 \uADF8\uAC83\uB9CC). \uAE34 \uC22B\uC790(\uCE74\uB4DC\xB7\uACC4\uC88C\uBC88\uD638)\uB294 \uB05D 4\uC790\uB9AC\uB9CC \uB0A8\uAE30\uACE0, \uBCF4\uC548 \uCF54\uB4DC\xB7\uC0AC\uC9C4\xB7\uBB38\uC790 \uC6D0\uBB38\uC740 \uB0A8\uAE30\uC9C0 \uC54A\uC544\uC694."), open && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1.5 items-center flex-wrap"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOnlyWarn(false),
+    className: tab(!onlyWarn)
+  }, "\uC804\uCCB4 ", all.length), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOnlyWarn(true),
+    className: tab(onlyWarn)
+  }, "\uACBD\uACE0\xB7\uC624\uB958 ", nWarn), /*#__PURE__*/React.createElement("span", {
+    className: "flex-1"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onCopy(appLogText(header() + (onlyWarn ? '\n(경고·오류만 복사)' : ''), onlyWarn)),
+    className: "px-2.5 py-1 rounded-lg bg-emerald-700 text-white font-bold"
+  }, "\uD83D\uDCCB \uBCF5\uC0AC"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (window.confirm('이 폰의 동작 기록을 모두 지울까요?')) appLogClear();
+    },
+    className: "px-2.5 py-1 rounded-lg bg-slate-800 text-rose-300 font-bold"
+  }, "\uD83D\uDDD1 \uBE44\uC6B0\uAE30")), /*#__PURE__*/React.createElement("div", {
+    className: "max-h-80 overflow-y-auto space-y-1 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-[0.625rem] leading-snug select-text",
+    "data-app-log-list": true
+  }, shown.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-slate-500"
+  }, "\uAE30\uB85D\uC774 \uC5C6\uC5B4\uC694.") : shown.map((x, i) => /*#__PURE__*/React.createElement("div", {
+    key: `${x.t}-${i}`,
+    className: x.lv === 'E' ? 'text-rose-300' : x.lv === 'W' ? 'text-amber-200' : 'text-slate-300'
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-500"
+  }, x.t), " ", /*#__PURE__*/React.createElement("span", {
+    className: "text-sky-300"
+  }, "[", x.c, "]"), " ", x.m, x.d !== undefined && /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-500 break-all"
+  }, " ", JSON.stringify(x.d)))))));
+}
 function App() {
   const [familyPass, setFamilyPass] = useState(() => {
     try {
@@ -2512,6 +2818,7 @@ function App() {
     setInstallPrompt(null);
   };
   const familyCode = `fam_${familyPass}`;
+  APP_LOG.secret = familyPass || '';
   const supabaseClient = useMemo(() => createSecuredClient(familyCode), [familyCode]);
   // 🏦 자산 탭을 열면 급여명세서를 불러옴 (대출·저축은 앱을 열 때 이미 불러옴)
   useEffect(() => {
@@ -2780,6 +3087,7 @@ function App() {
   // 이전 알림의 타이머가 새 알림을 일찍 지우지 않도록 타이머를 하나만 유지
   const toastTimerRef = useRef(null);
   const showToast = (msg, ms = 3800) => {
+    appLog(/^\s*(⚠️|❌)|실패/.test(String(msg)) ? 'W' : 'I', 'toast', msg);
     setToastMsg(msg);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToastMsg(''), ms);
@@ -2845,6 +3153,8 @@ function App() {
   // ★ content:// (로컬 파일) 환경에서도 100% 작동하는 클립보드 복사 함수 (폴백 지원)
   // MacroDroid 헤더 x-payer 값: 남편 m1 · 아내 m2 · 새 구성원 m3 … (husband·wife도 계속 됨)
   const payerHeader = k => k === '남편' ? 'm1' : k === '아내' ? 'm2' : k;
+  // 🐞 동작 기록을 복사할 때 맨 위에 붙이는 요약 (보안 코드는 넣지 않음)
+  const logHeader = () => [`[밑빠진독 ${APP_VERSION} 동작 기록] ${getKSTDateTimeString()} 복사`, `기기 ${MY_DEVICE_ID} · ${uaSummary()} · 화면 ${window.innerWidth}x${window.innerHeight}@${window.devicePixelRatio || 1} · 글자 ${uiSize.app}배`, `사용자 ${mName(currentUser)}(${currentUser}) · 연결 ${syncStatus}${lastSyncTime ? ` (${lastSyncTime})` : ''} · 인터넷 ${navigator.onLine ? '켜짐' : '꺼짐'} · DB 스키마 ${dbSchemaVersion ?? '?'}`, `내역 ${expenses.length} · 휴지통 ${trash.length} · 카드 ${cards.length} · 분류 ${categories.length} · 기억한 가게 ${Object.keys(storeRules).length} · 구성원 ${members.length}`].join('\n');
   const copyToClipboard = (text, label) => {
     const fallbackCopy = str => {
       try {
@@ -2971,6 +3281,7 @@ function App() {
     showSpinner: false,
     showSuccessToast: false
   }) => {
+    const syncT0 = Date.now();
     try {
       if (options.showSpinner) setSyncStatus('connecting');
       const {
@@ -2981,6 +3292,7 @@ function App() {
       const ver = parseInt(meta?.value || '0', 10);
       setDbSchemaVersion(ver);
       if (ver < REQUIRED_SCHEMA_VERSION) {
+        appLog('W', 'sync', `DB 스키마 ${ver} → 앱은 ${REQUIRED_SCHEMA_VERSION} 필요`);
         setSyncStatus('schema_old');
         setErrorDetail(`DB 스키마 버전 ${ver} → 앱은 ${REQUIRED_SCHEMA_VERSION} 필요. [⚡자동연동/SQL]의 설정 SQL(폰에서는 짧은 업데이트 SQL${ver === 9 ? ' v1.53 → v1.54 → v1.55 → v1.60 → v1.61 → v1.64 → v1.66 → v1.68 → v1.69 → v1.71 → v1.83' : ver === 10 ? ' v1.54 → v1.55 → v1.60 → v1.61 → v1.64 → v1.66 → v1.68 → v1.69 → v1.71 → v1.83' : ver === 11 ? ' v1.55 → v1.60 → v1.61 → v1.64 → v1.66 → v1.68 → v1.69 → v1.71 → v1.83' : ver === 12 ? ' v1.60 → v1.61 → v1.64 → v1.66 → v1.68 → v1.69 → v1.71 → v1.83' : ver === 13 ? ' v1.61 → v1.64 → v1.66 → v1.68 → v1.69 → v1.71 → v1.83' : ver === 14 ? ' v1.64 → v1.66 → v1.68 → v1.69 → v1.71 → v1.83' : ver === 15 ? ' v1.66 → v1.68 → v1.69 → v1.71 → v1.83' : ver === 16 ? ' v1.68 → v1.69 → v1.71 → v1.83 (v1.68_업데이트_문자보완.sql을 안 했으면 그것부터)' : ver === 17 ? ' v1.71 → v1.83' : ver === 18 ? ' v1.83_업데이트_가게분류기억.sql (그 전에 v1.74 · v1.82 문자 SQL을 안 했으면 그것부터)' : ''})을 실행해주세요.`);
         return;
@@ -2992,6 +3304,7 @@ function App() {
       if (cfgErr) throw cfgErr;
       if (!cfgData) {
         // 코드 오타로 빈 가계부가 따로 생기지 않도록, 새로 만들지 사용자에게 묻는다
+        appLog('W', 'sync', '이 보안 코드의 가계부가 없음 (처음 쓰는 코드 확인)');
         setExpenses([]);
         setSyncStatus('no_family');
         setErrorDetail('');
@@ -3021,7 +3334,10 @@ function App() {
         supabaseClient.from('expenses').delete().in('id', expired.map(e => e.id)).eq('family_code', familyCode).then(({
           error
         }) => {
-          if (error) console.warn('휴지통 정리 실패', error.message);
+          if (error) {
+            console.warn('휴지통 정리 실패', error.message);
+            appLog('W', 'sync', '30일 지난 휴지통 정리 실패: ' + error.message);
+          } else appLog('I', 'sync', `30일 지난 휴지통 ${expired.length}건 영구 삭제`);
         });
       }
       allExpenses = allExpenses.filter(e => !e.deleted_at);
@@ -3029,11 +3345,21 @@ function App() {
       setExpenses(allExpenses);
       try {
         localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(allExpenses));
-      } catch (e) {}
+      } catch (e) {
+        // [v1.90] 폰 저장 공간이 모자라 새 사본을 못 쓰면 예전 사본을 지움 (인터넷이 끊겼을 때 오래된 내역이 보이지 않게)
+        try {
+          localStorage.removeItem(STORAGE_KEY_CACHE);
+        } catch (e2) {}
+        appLog('W', 'sync', '저장 공간이 모자라 오프라인 사본을 지움', {
+          n: allExpenses.length,
+          err: String(e && e.name || e)
+        });
+      }
       let cats = Array.isArray(cfgData.categories) && cfgData.categories.length > 0 ? cfgData.categories : DEFAULT_CATEGORIES;
       // 새로 생긴 기본 세부 항목(동네마트/슈퍼 등)을 기존 가계부에 한 번만 추가해 저장
       const seededCats = seedNewDefaultSubs(cats);
       if (seededCats) {
+        appLog('I', 'sync', '새 기본 세부 항목을 분류에 추가');
         cats = seededCats;
         supabaseClient.from('family_config').update({
           categories: seededCats,
@@ -3062,7 +3388,11 @@ function App() {
       const cfgCards = Array.isArray(cfgData.cards) ? cfgData.cards : [];
       setCards(cfgCards);
       // 문자 자동등록 등으로 들어온 처음 보는 카드번호를 카드 목록에 추가
-      if (registerNewCards(cfgCards, cardRefsOf(allExpenses))) {
+      const newCardList = registerNewCards(cfgCards, cardRefsOf(allExpenses));
+      if (newCardList) {
+        appLog('I', 'card', '처음 보는 카드번호를 카드 목록에 추가', {
+          n: Array.isArray(newCardList) ? newCardList.length - cfgCards.length : 1
+        });
         saveCards(cur => registerNewCards(cur, cardRefsOf(allExpenses)), {
           silent: true
         });
@@ -3078,9 +3408,18 @@ function App() {
         minute: '2-digit',
         second: '2-digit'
       }));
+      appLog('I', 'sync', `동기화 ${allExpenses.length}건`, {
+        trash: trashed.length - expired.length,
+        ms: Date.now() - syncT0
+      });
       if (options.showSuccessToast) showToast(`☁️ 총 ${allExpenses.length}건 동기화 완료!`);
     } catch (err) {
       const msg = err.message || '';
+      appLog('W', 'sync', '동기화 실패: ' + (msg || String(err)), {
+        ec: err.code,
+        ms: Date.now() - syncT0,
+        online: navigator.onLine
+      });
       if (err.code === '42P01' || err.code === 'PGRST205' || /relation|does not exist|schema cache/i.test(msg)) {
         setSyncStatus('table_missing');
         setErrorDetail('Supabase에 테이블이 없습니다. [⚡자동연동/SQL]의 초기화·설정 SQL을 실행해주세요.');
@@ -3090,7 +3429,11 @@ function App() {
       }
       try {
         const cached = localStorage.getItem(STORAGE_KEY_CACHE);
-        if (cached) setExpenses(JSON.parse(cached).filter(e => !e.deleted_at));
+        if (cached) {
+          const list = JSON.parse(cached).filter(e => !e.deleted_at);
+          setExpenses(list);
+          appLog('W', 'sync', `오프라인 사본 ${list.length}건으로 표시`);
+        }
       } catch (e) {}
     }
   };
@@ -3154,7 +3497,16 @@ function App() {
         filter: `signal_id=eq.${signalId}`
       }, () => triggerDebouncedSync('📩 새 카드 승인 문자가 자동 등록되었습니다!'));
     }
-    channel.subscribe();
+    channel.subscribe((status, err) => {
+      // 바뀔 때만 기록. 끊김(다시 연결 시도)이 이어지면 5분에 한 줄만 (기록이 이것으로 가득 차지 않게)
+      const bad = status === 'CHANNEL_ERROR' || status === 'TIMED_OUT';
+      if (bad ? APP_LOG.rtBadAt && Date.now() - APP_LOG.rtBadAt < 300000 : APP_LOG.rt === status) return;
+      APP_LOG.rt = status;
+      APP_LOG.rtBadAt = bad ? Date.now() : 0;
+      appLog(bad ? 'W' : 'I', 'rt', `실시간 ${status}`, err ? {
+        err: String(err.message || err)
+      } : undefined);
+    });
     broadcastChannelRef.current = channel;
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
@@ -3262,11 +3614,20 @@ function App() {
         error
       } = await supabaseClient.from('expenses').insert(chunk);
       if (error) {
+        appLog('E', 'db', '내역 등록 실패', {
+          ec: error.code,
+          n: chunk.length,
+          err: error.message
+        });
         showToast('⚠️ 저장 실패: ' + error.message);
         return false;
       }
     }
     setExpenses(prev => [...rowsWithMeta, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
+    appLog('I', 'db', `내역 ${rowsWithMeta.length}건 등록`, {
+      src: [...new Set(rowsWithMeta.map(r => r.source))].slice(0, 4),
+      id: rowsWithMeta[0] && rowsWithMeta[0].id
+    });
     notifyPartner();
     registerCardsFrom(rowsWithMeta);
     return true;
@@ -3308,6 +3669,15 @@ function App() {
       p_id: row.id
     });
     setInboxBusyId(null);
+    appLog(error ? 'W' : 'I', 'sms', '📨 다시 처리', error ? {
+      id: row.id,
+      err: error.message
+    } : {
+      id: row.id,
+      st: data?.status,
+      reason: data?.reason,
+      payer: data?.payer_fixed || ''
+    });
     if (error) return showToast('⚠️ 다시 처리 실패: ' + error.message);
     const st = data?.status;
     if (data?.payer_fixed) {
@@ -3362,6 +3732,11 @@ function App() {
       error
     } = await supabaseClient.from('expenses').update(patchWithMeta).eq('id', id).eq('family_code', familyCode);
     if (error) {
+      appLog('E', 'db', '내역 수정 실패', {
+        id,
+        ec: error.code,
+        err: error.message
+      });
       showToast('⚠️ 수정 실패: ' + error.message);
       return false;
     }
@@ -3369,6 +3744,10 @@ function App() {
       ...e,
       ...patchWithMeta
     } : e));
+    appLog('I', 'db', '내역 수정', {
+      id,
+      fields: Object.keys(patch).slice(0, 10)
+    });
     notifyPartner();
     if (patchWithMeta.card_num) registerCardsFrom([{
       ...patchWithMeta,
@@ -3416,6 +3795,10 @@ function App() {
       deleted_at,
       linked_backup: backups[e.id] || null
     })), ...prev.filter(e => !ids.includes(e.id))]);
+    appLog('I', 'db', `휴지통으로 ${ids.length}건`, {
+      linked: Object.keys(backups).length,
+      id: ids[0]
+    });
     notifyPartner();
     return true;
   };
@@ -3570,6 +3953,11 @@ function App() {
       deleted_at,
       linked_backup: backup
     }, ...prev]);
+    appLog('I', 'db', '휴지통으로 1건', {
+      id: item.id,
+      src: item.source,
+      linked: backup ? backup.type || 'yes' : ''
+    });
     notifyPartner();
     showToast(backup ? `🗑️ 휴지통으로 옮기고 연결된 ${backup.label}도 지웠습니다. (휴지통에서 복원하면 함께 되살릴 수 있어요)` : '🗑️ 휴지통으로 옮겼습니다. (내역 탭 위 🗑️ 휴지통에서 복원)');
     return true;
@@ -3580,7 +3968,7 @@ function App() {
   const askTrashedLinked = async (id, what) => {
     const t = trash.find(e => e.id === id);
     if (!t || expenses.some(e => e.id === id)) return 'none';
-    return askChoice('🗑️ 연결된 내역이 휴지통에 있어요', `${what}에 연결된 내역 [${t.store} · ${Number(t.amount).toLocaleString()}원]을 휴지통으로 옮겨 두었어요.`, [{
+    const v = await askChoice('🗑️ 연결된 내역이 휴지통에 있어요', `${what}에 연결된 내역 [${t.store} · ${Number(t.amount).toLocaleString()}원]을 휴지통으로 옮겨 두었어요.`, [{
       value: 'revive',
       label: '휴지통에서 꺼내 기록에 맞추기'
     }, {
@@ -3590,6 +3978,11 @@ function App() {
       value: null,
       label: '취소'
     }]);
+    appLog('I', 'db', '연결된 내역이 휴지통에 있음 → ' + (v || '취소'), {
+      id,
+      what: String(what || '').slice(0, 40)
+    });
+    return v;
   };
   // 휴지통 내역을 row 값으로 되살림 (id·가족 코드는 그대로)
   const reviveTrashed = async row => {
@@ -3618,6 +4011,9 @@ function App() {
     const t = trash.find(e => e.id === id) || {
       id
     };
+    appLog('I', 'db', '휴지통에서 꺼내 기록에 맞춤', {
+      id
+    });
     setTrash(prev => prev.filter(e => e.id !== id));
     setExpenses(prev => [{
       ...t,
@@ -4197,7 +4593,12 @@ function App() {
         fixed++;
       }
     }
-    if (fixed) notifyPartner();
+    if (fixed) {
+      notifyPartner();
+      appLog('I', 'loan', '예전 대출 상환 내역 금액을 원금 포함으로 바로잡음', {
+        n: fixed
+      });
+    }
   };
   const openLoans = () => {
     setInputReturn(null);
@@ -4871,6 +5272,10 @@ function App() {
     }
     if (exRows.length) setExpenses(prev => [...exRows.filter(r => !prev.some(e => e.id === r.id)), ...prev].sort((a, b) => b.date.localeCompare(a.date)));
     notifyPartner();
+    appLog('I', 'sav', '저축 납입 자동 기록', {
+      n: rows.length,
+      ex: exRows.length
+    });
     const merged = [...rows, ...pays].sort((a, b) => b.pay_date.localeCompare(a.pay_date));
     setSavPays(merged);
     return merged;
@@ -6623,6 +7028,11 @@ function App() {
       linked_backup: null
     }].sort((a, b) => b.date.localeCompare(a.date)));
     const msg = withLinked ? await restoreLinked(item, b) : '';
+    appLog(msg ? 'W' : 'I', 'db', '휴지통에서 복원', {
+      id: item.id,
+      linked: withLinked ? b.type || 'yes' : '',
+      err: msg || ''
+    });
     notifyPartner();
     showToast(withLinked && !msg ? `↩️ 복원했습니다: ${item.store} + ${b.label}` : `↩️ 복원했습니다: ${item.store} ${Number(item.amount).toLocaleString()}원${msg ? ` · ⚠️ ${msg}` : ''}`, msg ? 6000 : 3800);
   };
@@ -6689,6 +7099,13 @@ function App() {
   const saveStoreRule = async (store, value, opts = {}) => {
     const key = opts.key || storeRuleKey(store);
     if (!key) return false;
+    // [v1.90] 결제대행사(PG)·간편결제 이름은 기억하지 않음 → 'pg' (지우기·'기억 안 함'은 됨)
+    if (value && !value.skip && !opts.force && isPgStoreName(store)) {
+      appLog('I', 'cat', '결제대행사 이름이라 분류 기억 안 함', {
+        store: String(store || '').slice(0, 30)
+      });
+      return 'pg';
+    }
     const {
       data,
       error: readErr
@@ -6746,8 +7163,13 @@ function App() {
       c: cat,
       s: sub
     });
+    appLog('I', 'cat', '미분류 정리', {
+      n: ids.length,
+      cat: `${cat}›${sub}`,
+      remembered
+    });
     notifyPartner();
-    showToast(`🏷️ ${g.name} ${ids.length}건 → ${cat} › ${sub}${remembered ? ' · 다음부터 자동' : ''}`);
+    showToast(`🏷️ ${g.name} ${ids.length}건 → ${cat} › ${sub}${remembered === 'pg' ? ' · 결제대행사 이름이라 가게로 기억하지 않음' : remembered ? ' · 다음부터 자동' : ''}`);
   };
   const changeRowCategory = async (item, newCat, newSub) => {
     const patch = {
@@ -6762,6 +7184,8 @@ function App() {
       if (!toUncat || storeRules[storeRuleKey(item.store)]) saveStoreRule(item.store, toUncat ? null : {
         c: newCat,
         s: newSub
+      }).then(r => {
+        if (r === 'pg') showToast(`ℹ️ '${item.store}'은(는) 결제대행사 이름이라 가게 분류로 기억하지 않아요 (다른 가게 결제도 이 이름으로 들어와요)`);
       });
     }
     if (ok && patch.items && patch.items.some(it => it.category && (it.category !== newCat || it.sub_category !== newSub))) {
@@ -7139,9 +7563,14 @@ function App() {
   };
   const registerCardsFrom = rows => {
     const refs = cardRefsOf(rows);
-    if (refs.length && registerNewCards(cards, refs)) saveCards(cur => registerNewCards(cur, refs), {
-      silent: true
-    });
+    if (refs.length && registerNewCards(cards, refs)) {
+      appLog('I', 'card', '새 카드번호를 카드 목록에 추가', {
+        refs: refs.length
+      });
+      saveCards(cur => registerNewCards(cur, refs), {
+        silent: true
+      });
+    }
   };
   const updateCard = (id, patch) => saveCards(cur => cur.map(c => c.id === id ? {
     ...c,
@@ -7592,6 +8021,10 @@ function App() {
     // 카드 문자·알림 캡처: AI가 옮겨 적은 문자 본문을 문자 자동등록과 같은 규칙으로 읽음 (읽히면 그 결과를 씀)
     const sms = r.sms_text && !r.is_income ? parseSingleSmsBlock(r.sms_text, categories, currentUser, cards) : null;
     if (sms) {
+      appLog('I', 'scan', '결과: 카드 문자 캡처', {
+        amt: sms.amount,
+        src: sms.source
+      });
       return {
         model: data.model || '',
         fallback: !!data.fallback,
@@ -7638,6 +8071,9 @@ function App() {
     };
     // 입금(받은 돈) 화면 → 수입. 보낸 사람·적요로 분류 추천
     if (r.is_income === true) {
+      appLog('I', 'scan', '결과: 입금(수입)', {
+        amt: Math.abs(Number(r.total) || 0)
+      });
       const store = String(r.store || '입금').trim();
       const ic = classifyIncome(`${store} ${r.memo || ''}`, incomeCategories);
       return {
@@ -7663,7 +8099,11 @@ function App() {
     const sign = isCancel ? -1 : 1;
     // 취소·반품: AI가 품목을 정상 결제 부호(반품 상품 +, 쿠폰 −)로 주면 뒤집고,
     //           영수증에 찍힌 그대로(반품 상품 −, 쿠폰 +) 주면 그대로 둠 → 품목 합계가 항상 −금액
-    const rawItems = (r.items || []).filter(it => it.name);
+    let rawItems = (r.items || []).filter(it => it.name);
+    // [v1.90] 상품 이름 없이 '결제 9,000원'처럼 총액을 다시 쓴 한 줄뿐이면 품목이 아님 (결제 앱 화면)
+    const GENERIC_ITEM_RE = /^(결제|결제\s*금액|결제\s*내역|승인\s*금액|이용\s*금액|사용\s*금액|합계|합계\s*금액|총\s*액|총\s*금액|총\s*결제\s*금액|금액|상품|상품\s*금액|구매|구매\s*금액|주문\s*금액|결제\s*취소|취소\s*금액|간편\s*결제)$/;
+    const genericDropped = rawItems.length === 1 && r.total != null && GENERIC_ITEM_RE.test(String(rawItems[0].name).trim()) && Math.abs(Number(rawItems[0].price) || 0) === Math.abs(Number(r.total) || 0);
+    if (genericDropped) rawItems = [];
     const rawSum = rawItems.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
     const itemSign = isCancel && rawSum > 0 ? -1 : 1;
     const items = rawItems.map(it => cleanItemCategory({
@@ -7690,6 +8130,15 @@ function App() {
     const cardNum = isMembership ? '' : normalizeCardNum(r.card_number);
     const pay = r.pay_method === '현금' ? 'cash' : cardNum || cardIssuer || r.pay_method === '카드' && !isMembership ? `card:${cardIssuer}|${cardNum}` : 'none';
     const payFields = payFieldsOf(pay);
+    appLog('I', 'scan', '결과: 지출', {
+      cancel: isCancel,
+      amt: amount || 0,
+      items: items.length,
+      generic: genericDropped,
+      pay: pay.startsWith('card:') ? 'card' : pay,
+      cat: `${category}›${sub_category}`,
+      date: meta.dateMissing ? 'none' : meta.dateOdd ? 'odd' : meta.dateSwappedFrom ? 'swapped' : 'ok'
+    });
     return {
       ...meta,
       kind: 'expense',
@@ -7719,6 +8168,12 @@ function App() {
     const requestId = ++scanRequestRef.current;
     const isCurrent = () => scanRequestRef.current === requestId;
     const limitMs = Math.min(SCAN_TIMEOUT_MS + (photos.length - 1) * SCAN_EXTRA_MS, SCAN_LIMIT_MAX_MS);
+    const scanT0 = Date.now();
+    const scanMs = () => Date.now() - scanT0;
+    appLog('I', 'scan', `사진 ${photos.length}장 보냄`, {
+      kb: Math.round(photos.reduce((t, p) => t + String(p.base64 || '').length * 0.75, 0) / 1024),
+      auto: !!opts.auto
+    });
     try {
       setScanPreview(photos.map(p => p.preview));
       let timer;
@@ -7751,15 +8206,35 @@ function App() {
       } finally {
         clearTimeout(timer);
       }
-      if (!isCurrent()) return; // 그 사이 취소했거나 새 사진을 보냈으면 이 답은 버림
+      if (!isCurrent()) {
+        appLog('I', 'scan', '그만둔 뒤에 온 답은 버림', {
+          ms: scanMs()
+        });
+        return;
+      } // 그 사이 취소했거나 새 사진을 보냈으면 이 답은 버림
       const {
         data,
         error
       } = response;
       if (error) {
-        setScanError(await describeScanError(error));
+        const em = await describeScanError(error);
+        appLog('W', 'scan', '서버 함수 오류: ' + em, {
+          ms: scanMs(),
+          st: error?.context?.status
+        });
+        setScanError(em);
         return;
       }
+      appLog(data?.status === 'success' ? 'I' : 'W', 'scan', `답 ${data?.status || '없음'}`, {
+        ms: scanMs(),
+        model: data?.model,
+        fb: !!data?.fallback,
+        skipped: data?.skipped,
+        grouped: !!data?.grouped,
+        n: Array.isArray(data?.receipts) ? data.receipts.length : data?.receipt ? 1 : 0,
+        reason: data?.reason,
+        msg: data?.message
+      });
       if (data?.status === 'not_receipt') {
         setScanError(data.reason === 'list' ? '결제 여러 건이 나열된 목록 화면입니다. 앱에서 결제 1건을 눌러 상세 화면을 캡처해주세요.' : '영수증이나 결제 상세 화면이 아닌 사진 같습니다. 전체가 보이게 다시 찍어주세요.');
         return;
@@ -7810,6 +8285,9 @@ function App() {
       setScanResult(buildScanResult(data.receipt, data, photos.length));
     } catch (err) {
       if (!isCurrent()) return;
+      appLog('W', 'scan', err.message === 'SCAN_TIMEOUT' ? '시간이 지나 중단' : '읽기 실패: ' + (err.message || String(err)), {
+        ms: scanMs()
+      });
       setScanError(err.message === 'SCAN_TIMEOUT' ? `⏱️ ${Math.round(limitMs / 1000)}초 동안 답이 없어 중단했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.` : err.message || String(err));
     } finally {
       if (isCurrent()) setIsScanning(false);
@@ -8121,9 +8599,15 @@ function App() {
         memo: [userMemo(target.memo), (sr.memo || '').trim()].filter(Boolean).join(' / ')
       });
       if (ok) showToast(`✨ 같은 결제의 카드 내역에 영수증 품목을 합쳤습니다.${linkPlan ? ` (영수증 카드번호 ${payFields.card_num}도 같은 카드로 연결)` : ''}`);
-      if (ok && linkPlan) saveCards(cur => receiptCardLink(cur, payFields, target), {
-        silent: true
-      });
+      if (ok && linkPlan) {
+        appLog('I', 'card', '영수증 카드번호를 문자 카드와 같은 카드로 연결', {
+          from: payFields.card_num,
+          to: target.card_num
+        });
+        saveCards(cur => receiptCardLink(cur, payFields, target), {
+          silent: true
+        });
+      }
     } else {
       ok = await insertExpenseRows([{
         id: 'rcpt-' + Date.now(),
@@ -8144,6 +8628,14 @@ function App() {
       }]);
       if (ok) showToast(sr.fromSms ? `📩 문자 내역이 등록되었습니다: ${sr.store}` : '☁️ 영수증 내역이 등록되었습니다.');
     }
+    appLog(ok ? 'I' : 'W', 'scan', ok ? '등록' : '등록 안 됨', {
+      how: sr.kind === 'income' ? 'income' : target ? 'merge' : opts.separate ? 'separate' : sr.fromSms ? 'sms' : 'new',
+      target: target ? target.id : '',
+      amt: amount,
+      cancel: !!sr.isCancel,
+      items: sr.items.length,
+      pay: String(sr.pay || '').startsWith('card:') ? 'card' : sr.pay
+    });
     if (ok) {
       setScanResult(null);
       setScanPreview([]);
@@ -8162,7 +8654,12 @@ function App() {
     const parsedRows = pasted.filter(r => r.status === 'new').map(r => r.row);
     const duplicateCount = pasted.filter(r => r.status === 'dup').length;
     const trashHits = pasted.filter(r => r.status === 'trash').map(r => r.bin); // 휴지통에 버린 결제와 같은 문자 → 다시 등록할지 물어봄
-
+    appLog('I', 'sms', '문자 붙여넣기', {
+      new: parsedRows.length,
+      dup: duplicateCount,
+      bin: trashHits.length,
+      spam: spamIgnoredCount
+    });
     const tr = await askRestoreFromTrash(trashHits);
     const trashSkipCount = tr.total - tr.restored;
     if (parsedRows.length === 0) {
@@ -8225,6 +8722,10 @@ function App() {
           rows2D = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(splitCsvLine);
         }
       } catch (parseErr) {
+        appLog('W', 'file', '파일 읽기 오류', {
+          ext: fileName.split('.').pop(),
+          err: String(parseErr && parseErr.message || parseErr)
+        });
         return showToast('⚠️ 파일을 읽는 중 오류가 발생했습니다.');
       }
       if (!rows2D || rows2D.length < 2) {
@@ -8429,6 +8930,15 @@ function App() {
         newRows.push(cancelCandidate);
       }
       e.target.value = '';
+      appLog('I', 'file', '카드사 파일 읽음', {
+        ext: fileName.split('.').pop(),
+        rows: rows2D.length,
+        header: headerIdx,
+        new: newRows.length,
+        dup: dupCount,
+        bin: trashHits.length,
+        lone: autoIgnoredCancelCount
+      });
       const tr = await askRestoreFromTrash(trashHits);
       const trashSkipCount = tr.total - tr.restored;
       if (newRows.length === 0) {
@@ -10025,7 +10535,10 @@ function App() {
       className: "flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-slate-200"
     }, v.n || k, " ", /*#__PURE__*/React.createElement("span", {
       className: "text-slate-500"
-    }, "\u2192 ", v.skip ? '기억 안 함' : `${v.c} › ${v.s}`)), !v.skip && /*#__PURE__*/React.createElement("button", {
+    }, "\u2192 ", v.skip ? '기억 안 함' : `${v.c} › ${v.s}`), !v.skip && isPgStoreName(v.n || k) && /*#__PURE__*/React.createElement("span", {
+      className: "text-amber-300",
+      title: "\uACB0\uC81C\uB300\uD589\uC0AC \uC774\uB984\uC774\uB77C \uB2E4\uB978 \uAC00\uAC8C \uACB0\uC81C\uB3C4 \uC774 \uBD84\uB958\uAC00 \uB420 \uC218 \uC788\uC5B4\uC694"
+    }, " \u26A0\uFE0F \uACB0\uC81C\uB300\uD589\uC0AC")), !v.skip && /*#__PURE__*/React.createElement("button", {
       onClick: () => saveStoreRule(v.n || k, {
         skip: true
       }, {
@@ -10216,7 +10729,10 @@ function App() {
       onClick: () => handleDeleteSubCategory(targetCat.id, sub),
       className: "text-rose-400 font-bold ml-1"
     }, "\u2715")))));
-  })()), activeTab === 'input' && /*#__PURE__*/React.createElement("div", {
+  })()), activeTab === 'cats' && /*#__PURE__*/React.createElement(AppLogPanel, {
+    header: logHeader,
+    onCopy: t => copyToClipboard(t, '동작 기록')
+  }), activeTab === 'input' && /*#__PURE__*/React.createElement("div", {
     className: "space-y-3"
   }, (isScanning || scanResult || scanError) && /*#__PURE__*/React.createElement("div", {
     className: "bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-4"
@@ -10274,6 +10790,26 @@ function App() {
         pay: toInc ? 'none' : scanResult.pay,
         isCancel: false,
         amount: Math.abs(Number(scanResult.amount) || 0)
+      });
+    };
+    // [v1.90] 결제 앱 화면의 '결제 취소' 버튼 때문에 취소로 잘못 읽힌 결제 → 정상 결제로 (금액·부가세·품목 부호를 함께)
+    const flipScanCancel = () => {
+      const num = v => Math.round(Number(String(v ?? '').replace(/[^0-9-]/g, '')) || 0);
+      const items = (scanResult.items || []).map(it => ({
+        ...it,
+        price: -num(it.price)
+      }));
+      appLog('I', 'scan', '취소 → 결제로 바꿈', {
+        amt: scanResult.amount,
+        items: items.length
+      });
+      setScanResult({
+        ...scanResult,
+        isCancel: false,
+        amount: Math.abs(num(scanResult.amount)),
+        tax: Math.abs(Number(scanResult.tax) || 0),
+        items,
+        itemsSum: items.reduce((t, x) => t + (Number(x.price) || 0), 0)
       });
     };
     const cat = scanCats.find(c => c.name === scanResult.category);
@@ -10507,9 +11043,15 @@ function App() {
         ...scanResult,
         is_business: e.target.checked
       })
-    }), "\uD83D\uDCBC \uC5C5\uBB34 \uACBD\uBE44\uB85C \uB4F1\uB85D"), scanResult.isCancel && /*#__PURE__*/React.createElement("p", {
-      className: "text-emerald-300 bg-emerald-950/40 border border-emerald-800 rounded-lg p-2"
-    }, "\u21A9\uFE0F \uACB0\uC81C \uCDE8\uC18C(\uD658\uBD88) \uB0B4\uC5ED\uC774\uB77C \u2212\uAE08\uC561\uC73C\uB85C \uB4F1\uB85D\uD569\uB2C8\uB2E4."), dateHint && /*#__PURE__*/React.createElement("div", {
+    }), "\uD83D\uDCBC \uC5C5\uBB34 \uACBD\uBE44\uB85C \uB4F1\uB85D"), scanResult.isCancel && /*#__PURE__*/React.createElement("div", {
+      className: "text-emerald-300 bg-emerald-950/40 border border-emerald-800 rounded-lg p-2 space-y-1.5",
+      "data-scan-cancel": true
+    }, /*#__PURE__*/React.createElement("p", null, "\u21A9\uFE0F \uACB0\uC81C \uCDE8\uC18C(\uD658\uBD88) \uB0B4\uC5ED\uC774\uB77C \u2212\uAE08\uC561\uC73C\uB85C \uB4F1\uB85D\uD569\uB2C8\uB2E4."), !scanResult.fromSms && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+      className: "text-[0.625rem] text-emerald-200/80"
+    }, "\uACB0\uC81C \uC571 \uD654\uBA74 \uC704\xB7\uC544\uB798\uC758 '\uACB0\uC81C \uCDE8\uC18C' \uBC84\uD2BC\uC744 \uBCF4\uACE0 \uCDE8\uC18C\uB85C \uC798\uBABB \uC77D\uC5C8\uC744 \uC218 \uC788\uC5B4\uC694. \uC2E4\uC81C\uB85C \uB3C8\uC774 \uB098\uAC04 \uACB0\uC81C\uB77C\uBA74 \u2193"), /*#__PURE__*/React.createElement("button", {
+      onClick: flipScanCancel,
+      className: "w-full py-1.5 bg-slate-800 border border-emerald-700/60 text-emerald-100 font-bold rounded-lg"
+    }, "\uD83D\uDCB8 \uACB0\uC81C\uB85C \uBC14\uAFB8\uAE30 (+\uAE08\uC561\uC73C\uB85C)"))), dateHint && /*#__PURE__*/React.createElement("div", {
       className: "text-amber-200 bg-amber-950/50 border border-amber-700/60 rounded-lg p-2 space-y-1.5"
     }, /*#__PURE__*/React.createElement("p", null, "\uD83D\uDCC5 \uB0A0\uC9DC\uAC00 \uC798\uBABB \uC77D\uD614\uC744 \uC218 \uC788\uC5B4\uC694. \uAE08\uC561\uC774 \uAC19\uC740 \uCE74\uB4DC \uB0B4\uC5ED\uC774 \uC788\uC2B5\uB2C8\uB2E4: ", /*#__PURE__*/React.createElement("b", null, dateHint.date), " \xB7 ", dateHint.store, " \xB7 ", dateHint.amount.toLocaleString(), "\uC6D0"), /*#__PURE__*/React.createElement("button", {
       onClick: () => setScanResult({
@@ -11074,7 +11616,97 @@ function App() {
     className: `${mOn(m.key)} px-2.5 py-1.5 rounded font-bold`
   }, m.name, "\uC6A9 \uBCF5\uC0AC"))), /*#__PURE__*/React.createElement("p", {
     className: "text-[0.6875rem] text-slate-400 leading-relaxed"
-  }, /*#__PURE__*/React.createElement("code", null, '{발신번호}'), ", ", /*#__PURE__*/React.createElement("code", null, '{문자내용}'), "\uC740 \uD3EC\uC6CC\uB354 \uC571\uC774\uB098 \uB2E8\uCD95\uC5B4\uC5D0\uC11C \uC4F0\uB294 \uC790\uB9AC\uD45C\uC2DC\uC790\uB85C \uBC14\uAFD4 \uB123\uC73C\uC138\uC694(\uC571\uB9C8\uB2E4 \uC774\uB984\uC774 \uB2E4\uB985\uB2C8\uB2E4). \uCF54\uB4DC\uB97C \uBC14\uAFB8\uBA74 ", /*#__PURE__*/React.createElement("code", null, "fam_code"), "\uB3C4 \uAF2D \uC0C8 \uAC12\uC73C\uB85C \uBC14\uAFD4\uC57C \uD569\uB2C8\uB2E4.")), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("code", null, '{발신번호}'), ", ", /*#__PURE__*/React.createElement("code", null, '{문자내용}'), "\uC740 \uD3EC\uC6CC\uB354 \uC571\uC774\uB098 \uB2E8\uCD95\uC5B4\uC5D0\uC11C \uC4F0\uB294 \uC790\uB9AC\uD45C\uC2DC\uC790\uB85C \uBC14\uAFD4 \uB123\uC73C\uC138\uC694(\uC571\uB9C8\uB2E4 \uC774\uB984\uC774 \uB2E4\uB985\uB2C8\uB2E4). \uCF54\uB4DC\uB97C \uBC14\uAFB8\uBA74 ", /*#__PURE__*/React.createElement("code", null, "fam_code"), "\uB3C4 \uAF2D \uC0C8 \uAC12\uC73C\uB85C \uBC14\uAFD4\uC57C \uD569\uB2C8\uB2E4. \uC544\uC774\uD3F0\uC740 \uC544\uB798 ", /*#__PURE__*/React.createElement("b", null, "\uD83C\uDF4E \uC544\uC774\uD3F0 \uB2E8\uCD95\uC5B4 \uC124\uBA85\uC11C"), "\uB97C \uBCF4\uC138\uC694.")), /*#__PURE__*/React.createElement("details", {
+    className: "bg-slate-950 rounded-xl border border-sky-600/50",
+    "data-ios-guide": true
+  }, /*#__PURE__*/React.createElement("summary", {
+    className: "px-3 py-2.5 font-bold text-sky-200 cursor-pointer"
+  }, "\uD83C\uDF4E \uC544\uC774\uD3F0 \uB2E8\uCD95\uC5B4 \uC124\uBA85\uC11C (\uC571 \uC124\uCE58 \xB7 \uCE74\uB4DC \uBB38\uC790 \uC790\uB3D9 \uB4F1\uB85D)"), /*#__PURE__*/React.createElement("div", {
+    className: "px-3 pb-3 space-y-3 text-[0.6875rem] text-slate-300 leading-relaxed"
+  }, (() => {
+    // [v1.90] 아이폰은 MacroDroid 대신 단축어 앱의 '메시지' 자동화로 위 1~3번(JSON 방식)을 보냄
+    //   필터 정규식은 앞뒤 살피기((?=…)) 없이: 금액(숫자+원)과 승인·취소 같은 낱말이 둘 다 있는 문자만 (순서 상관없이)
+    const KW = '승인|취소|교통|사용처|가맹점|거래시간|일시불|할부|누적';
+    const IOS_REGEX = String.raw`[0-9]\s*원[\s\S]*(${KW})|(${KW})[\s\S]*[0-9]\s*원`;
+    const URL_JSON = `${SUPABASE_URL}/rest/v1/rpc/receive_sms`;
+    const appUrl = /^https?:$/.test(window.location.protocol) ? window.location.origin + window.location.pathname : '';
+    const cp = (text, label) => /*#__PURE__*/React.createElement("button", {
+      onClick: () => copyToClipboard(text, label),
+      className: "ml-1 px-1.5 py-0.5 rounded bg-sky-700 text-white text-[0.625rem] font-bold align-middle"
+    }, "\uBCF5\uC0AC");
+    const H = ({
+      children
+    }) => /*#__PURE__*/React.createElement("p", {
+      className: "font-bold text-sky-200 pt-1"
+    }, children);
+    const C = ({
+      children
+    }) => /*#__PURE__*/React.createElement("code", {
+      className: "bg-slate-900 px-1 rounded text-sky-200 break-all"
+    }, children);
+    const V = ({
+      children
+    }) => /*#__PURE__*/React.createElement("span", {
+      className: "px-1 rounded bg-sky-900/70 text-sky-100 font-bold whitespace-nowrap"
+    }, children); // 단축어의 변수(파란 글자)
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+      className: "text-slate-400"
+    }, "\uC544\uC774\uD3F0\uC740 MacroDroid\uAC00 \uC5C6\uC5B4\uC11C ", /*#__PURE__*/React.createElement("b", null, "\uB2E8\uCD95\uC5B4"), " \uC571\uC758 ", /*#__PURE__*/React.createElement("b", null, "\uBA54\uC2DC\uC9C0 \uC790\uB3D9\uD654"), "\uB85C \uCE74\uB4DC \uBB38\uC790\uB97C \uAC00\uACC4\uBD80 \uC11C\uBC84\uC5D0 \uBCF4\uB0C5\uB2C8\uB2E4 (\uC704 1~3\uBC88 JSON \uBC29\uC2DD). ", /*#__PURE__*/React.createElement("b", null, "iOS 17 \uC774\uC0C1"), "\uC5D0\uC11C \uB429\uB2C8\uB2E4 (\uC124\uC815 \u203A \uC77C\uBC18 \u203A \uC815\uBCF4\uC5D0\uC11C iOS \uBC84\uC804 \uD655\uC778). \uBA54\uB274 \uC774\uB984\uC740 iOS \uBC84\uC804\uB9C8\uB2E4 \uC870\uAE08 \uB2E4\uB97C \uC218 \uC788\uC5B4\uC694."), /*#__PURE__*/React.createElement(H, null, "0. \uAC00\uACC4\uBD80 \uC571 \uC124\uCE58 (\uC544\uC774\uD3F0\uC5D0 \uD55C \uBC88)"), /*#__PURE__*/React.createElement("ol", {
+      className: "list-decimal pl-4 space-y-0.5"
+    }, /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("b", null, "Safari"), "\uB85C \uAC00\uACC4\uBD80 \uC8FC\uC18C \uC5F4\uAE30", appUrl ? /*#__PURE__*/React.createElement(React.Fragment, null, cp(appUrl, '가계부 주소'), " ", /*#__PURE__*/React.createElement("span", {
+      className: "text-slate-500 break-all"
+    }, appUrl)) : ' (가계부를 올린 GitHub Pages 주소)', " \u2014 \uCE74\uD1A1\uC73C\uB85C \uBC1B\uC740 \uC8FC\uC18C\uB294 \uAE38\uAC8C \uB20C\uB7EC Safari\uB85C \uC5F4\uAE30"), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("b", null, "\uACF5\uC720"), " \uBC84\uD2BC(\uB124\uBAA8\uC5D0\uC11C \uC704\uB85C \uD654\uC0B4\uD45C, \uC548 \uBCF4\uC774\uBA74 \uC8FC\uC18C\uCC3D \uC606 ", /*#__PURE__*/React.createElement("b", null, "\u22EF"), " \uC548) \u2192 \uC544\uB798\uB85C \uB0B4\uB824 ", /*#__PURE__*/React.createElement("b", null, "\uD648 \uD654\uBA74\uC5D0 \uCD94\uAC00"), " \u2192 \u2018\uC6F9 \uC571\uC73C\uB85C \uC5F4\uAE30\u2019\uAC00 \uBCF4\uC774\uBA74 \uCF20 \uCC44\uB85C \u2192 ", /*#__PURE__*/React.createElement("b", null, "\uCD94\uAC00")), /*#__PURE__*/React.createElement("li", null, "\uD648 \uD654\uBA74\uC758 \uD83D\uDC38 ", /*#__PURE__*/React.createElement("b", null, "\uBC11\uBE60\uC9C4\uB3C5"), "\uC73C\uB85C \uC5F4\uAE30 \u2192 ", /*#__PURE__*/React.createElement("b", null, "\uBCF4\uC548 \uCF54\uB4DC"), " \uC785\uB825 \u2192 [\uC7A0\uAE08 \uD574\uC81C \uBC0F \uC2E4\uC2DC\uAC04 \uC5F0\uACB0]. \uD648 \uD654\uBA74 \uC571\uC740 Safari\uC640 \uC800\uC7A5 \uACF5\uAC04\uC774 \uB530\uB85C\uB77C \uCF54\uB4DC\uB97C \uC5EC\uAE30\uC11C \uD55C \uBC88 \uB354 \uB123\uC5B4\uC694"), /*#__PURE__*/React.createElement("li", null, "\uB9E8 \uC704 \uC624\uB978\uCABD\uC5D0\uC11C ", /*#__PURE__*/React.createElement("b", null, "\uC774 \uD3F0\uC744 \uC4F0\uB294 \uC0AC\uB78C"), "(", members.map(m => `${m.emoji} ${m.name}`).join(' · '), ")\uC744 \uB20C\uB7EC \uACE0\uB974\uAE30 \u2014 \uC9C1\uC811 \uC785\uB825\xB7\uC0AC\uC9C4 \uB4F1\uB85D\uC774 \uC774 \uC0AC\uB78C \uC774\uB984\uC73C\uB85C \uB4E4\uC5B4\uAC00\uC694")), /*#__PURE__*/React.createElement(H, null, "1. \uC790\uB3D9\uD654 \uB9CC\uB4E4\uAE30 (\uB2E8\uCD95\uC5B4 \uC571)"), /*#__PURE__*/React.createElement("ol", {
+      className: "list-decimal pl-4 space-y-0.5"
+    }, /*#__PURE__*/React.createElement("li", null, "\uB2E8\uCD95\uC5B4 \uC571 \u2192 \uC544\uB798 ", /*#__PURE__*/React.createElement("b", null, "\uC790\uB3D9\uD654"), " \uD0ED \u2192 \uC624\uB978\uCABD \uC704 ", /*#__PURE__*/React.createElement("b", null, "\uFF0B"), " (\uCC98\uC74C\uC774\uBA74 ", /*#__PURE__*/React.createElement("b", null, "\uC0C8\uB85C\uC6B4 \uC790\uB3D9\uD654"), ")"), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("b", null, "\uBA54\uC2DC\uC9C0"), " \uACE0\uB974\uAE30 \u2192 ", /*#__PURE__*/React.createElement("b", null, "\uBA54\uC2DC\uC9C0 \uD3EC\uD568"), ": ", /*#__PURE__*/React.createElement(C, null, "\uC6D0"), " (\uAE08\uC561\uC774 \uC788\uB294 \uBB38\uC790\uC5D0\uC11C\uB9CC \uC2E4\uD589) \xB7 ", /*#__PURE__*/React.createElement("b", null, "\uBCF4\uB0B8 \uC0AC\uB78C"), ": \uBE44\uC6CC \uB450\uAE30"), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("b", null, "\uC989\uC2DC \uC2E4\uD589"), " \uACE0\uB974\uAE30 (\u2018\uD655\uC778 \uD6C4 \uC2E4\uD589\u2019\uC774\uBA74 \uBB38\uC790\uB9C8\uB2E4 \uB20C\uB7EC\uC57C \uD568) \u2192 ", /*#__PURE__*/React.createElement("b", null, "\uB2E4\uC74C"), " \u2192 ", /*#__PURE__*/React.createElement("b", null, "\uC0C8\uB85C\uC6B4 \uBE48 \uC790\uB3D9\uD654"))), /*#__PURE__*/React.createElement(H, null, "2. \uB3D9\uC791 \uB123\uAE30 (\uC774 \uC21C\uC11C\uB85C \xB7 \uC544\uB798 \uAC80\uC0C9 \uCE78\uC5D0 \uC774\uB984\uC744 \uCCD0\uC11C \uCD94\uAC00)"), /*#__PURE__*/React.createElement("ol", {
+      className: "list-decimal pl-4 space-y-1.5"
+    }, /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("b", null, "\uD14D\uC2A4\uD2B8 \uC77C\uCE58"), /*#__PURE__*/React.createElement("ul", {
+      className: "list-disc pl-4"
+    }, /*#__PURE__*/React.createElement("li", null, "\uD14D\uC2A4\uD2B8 \uCE78: ", /*#__PURE__*/React.createElement(V, null, "\uB2E8\uCD95\uC5B4 \uC785\uB825"), " \uB123\uAE30 \u2192 \uB123\uC740 \uD30C\uB780 \uAE00\uC790\uB97C \uB2E4\uC2DC \uB20C\uB7EC ", /*#__PURE__*/React.createElement("b", null, "\uB0B4\uC6A9"), " \uACE0\uB974\uAE30"), /*#__PURE__*/React.createElement("li", null, "\uD328\uD134(\uC815\uADDC\uC2DD): \uC544\uB798 \uAE00\uC790 \uADF8\uB300\uB85C ", cp(IOS_REGEX, '아이폰 정규식'))), /*#__PURE__*/React.createElement("p", {
+      className: "bg-slate-900 rounded p-1.5 break-all text-sky-200 mt-0.5"
+    }, IOS_REGEX), /*#__PURE__*/React.createElement("p", {
+      className: "text-slate-400"
+    }, "\uAE08\uC561(\uC22B\uC790+\uC6D0)\uACFC \uC2B9\uC778\xB7\uCDE8\uC18C \uAC19\uC740 \uB0B1\uB9D0\uC774 \uB458 \uB2E4 \uC788\uB294 \uBB38\uC790\uB9CC \uBCF4\uB0B4\uC694 \u2192 \uAC1C\uC778 \uBB38\uC790\uB294 \uD3F0 \uBC16\uC73C\uB85C \uB098\uAC00\uC9C0 \uC54A\uC544\uC694.")), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("b", null, "\uB9CC\uC57D"), " \u2014 \uC785\uB825: ", /*#__PURE__*/React.createElement(V, null, "\uC77C\uCE58 \uD56D\uBAA9"), " \xB7 \uC870\uAC74: ", /*#__PURE__*/React.createElement("b", null, "\uAC12\uC774 \uC788\uC74C")), /*#__PURE__*/React.createElement("li", {
+      className: "ml-3"
+    }, /*#__PURE__*/React.createElement("b", null, "\uD14D\uC2A4\uD2B8"), " (\uB9CC\uC57D \uC548\uCABD) \u2014 \uB450 \uC904\uB85C", /*#__PURE__*/React.createElement("ul", {
+      className: "list-disc pl-4"
+    }, /*#__PURE__*/React.createElement("li", null, "\uCCAB \uC904: ", /*#__PURE__*/React.createElement(C, null, "\uBCF4\uB0B8\uC0AC\uB78C : "), " \uC4F0\uACE0 ", /*#__PURE__*/React.createElement(V, null, "\uB2E8\uCD95\uC5B4 \uC785\uB825"), " \uB123\uC5B4 ", /*#__PURE__*/React.createElement("b", null, "\uBCF4\uB0B8 \uC0AC\uB78C"), " \uACE0\uB974\uAE30"), /*#__PURE__*/React.createElement("li", null, "\uC904\uC744 \uBC14\uAFD4 \uB458\uC9F8 \uC904: ", /*#__PURE__*/React.createElement(V, null, "\uB2E8\uCD95\uC5B4 \uC785\uB825"), " \uB123\uC5B4 ", /*#__PURE__*/React.createElement("b", null, "\uB0B4\uC6A9"), " \uACE0\uB974\uAE30"))), /*#__PURE__*/React.createElement("li", {
+      className: "ml-3"
+    }, /*#__PURE__*/React.createElement("b", null, "URL \uCF58\uD150\uCE20 \uAC00\uC838\uC624\uAE30"), " (\uB9CC\uC57D \uC548\uCABD)", /*#__PURE__*/React.createElement("ul", {
+      className: "list-disc pl-4 space-y-0.5"
+    }, /*#__PURE__*/React.createElement("li", null, "URL: ", cp(URL_JSON, '요청 URL'), " ", /*#__PURE__*/React.createElement("span", {
+      className: "text-slate-500 break-all"
+    }, URL_JSON)), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("b", null, "\uB354 \uBCF4\uAE30"), "(\u25B8)\uB97C \uD3BC\uCCD0 \uBA54\uC11C\uB4DC ", /*#__PURE__*/React.createElement("b", null, "POST")), /*#__PURE__*/React.createElement("li", null, "\uD5E4\uB354 \u2192 ", /*#__PURE__*/React.createElement("b", null, "\uC0C8\uB85C\uC6B4 \uD5E4\uB354 \uCD94\uAC00"), ": \uD0A4 ", /*#__PURE__*/React.createElement(C, null, "apikey"), " \xB7 \uAC12 ", cp(SUPABASE_KEY, 'apikey 값')), /*#__PURE__*/React.createElement("li", null, "\uBCF8\uBB38 \uC694\uCCAD ", /*#__PURE__*/React.createElement("b", null, "JSON"), " \u2192 ", /*#__PURE__*/React.createElement("b", null, "\uC0C8\uB85C\uC6B4 \uD544\uB4DC \uCD94\uAC00"), " \u2192 ", /*#__PURE__*/React.createElement("b", null, "\uD14D\uC2A4\uD2B8"), "\uB85C 3\uAC1C", /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 mt-1 items-center"
+    }, /*#__PURE__*/React.createElement(C, null, "sms_text"), /*#__PURE__*/React.createElement("span", null, "\uAC12: \uBC14\uB85C \uC704 ", /*#__PURE__*/React.createElement(V, null, "\uD14D\uC2A4\uD2B8")), /*#__PURE__*/React.createElement(C, null, "payer_name"), /*#__PURE__*/React.createElement("span", null, "\uAC12: \uC774 \uD3F0\uC744 \uC4F0\uB294 \uC0AC\uB78C ", members.map(m => /*#__PURE__*/React.createElement("button", {
+      key: m.key,
+      onClick: () => copyToClipboard(m.key, `${m.name}의 payer_name`),
+      className: `ml-1 mt-0.5 px-1.5 py-0.5 rounded font-bold text-[0.625rem] ${mOn(m.key)}`
+    }, m.emoji, " ", m.name, " \uBCF5\uC0AC"))), /*#__PURE__*/React.createElement(C, null, "fam_code"), /*#__PURE__*/React.createElement("span", null, "\uAC12: ", cp(familyCode, 'fam_code(보안 코드)'), " ", /*#__PURE__*/React.createElement("span", {
+      className: "text-slate-500"
+    }, "\uBCF4\uC548 \uCF54\uB4DC\uAC00 \uB4E4\uC5B4 \uC788\uC5B4 \uD654\uBA74\uC5D0\uB294 \uC548 \uBCF4\uC5EC\uC694")))))), /*#__PURE__*/React.createElement("li", {
+      className: "ml-3"
+    }, "(\uCC98\uC74C \uBA70\uCE60\uB9CC) ", /*#__PURE__*/React.createElement("b", null, "\uC54C\uB9BC \uBCF4\uAE30"), " \u2014 \uB0B4\uC6A9\uC5D0 ", /*#__PURE__*/React.createElement(V, null, "URL\uC758 \uCF58\uD150\uCE20"), " \u2192 \uC11C\uBC84 \uB2F5\uC774 \uC54C\uB9BC\uC73C\uB85C \uB5A0\uC694. \uC798 \uB418\uBA74 \uC9C0\uC6B0\uAE30")), /*#__PURE__*/React.createElement("p", null, "\u2018\uB9CC\uC57D \uC885\uB8CC\u2019\uB294 \uC800\uC808\uB85C \uBD99\uC5B4\uC694. \uC624\uB978\uCABD \uC704 ", /*#__PURE__*/React.createElement("b", null, "\uC644\uB8CC"), "\uB97C \uB20C\uB7EC\uC57C \uC800\uC7A5\uB3FC\uC694."), /*#__PURE__*/React.createElement(H, null, "3. \uD655\uC778"), /*#__PURE__*/React.createElement("ul", {
+      className: "list-disc pl-4 space-y-0.5"
+    }, /*#__PURE__*/React.createElement("li", null, "\uCE74\uB4DC\uB85C \uACB0\uC81C \u2192 (\uC54C\uB9BC \uBCF4\uAE30\uB97C \uB123\uC5C8\uB2E4\uBA74) ", /*#__PURE__*/React.createElement(C, null, '{"status":"success" …}'), " \uC54C\uB9BC \u2192 \uAC00\uACC4\uBD80 \uD83D\uDCE8 \uBB38\uC790 \uC218\uC2E0 \uAE30\uB85D\uC5D0 \u2705 \uB4F1\uB85D\uB428 (\uACB0\uC81C\uC790 = payer_name)"), /*#__PURE__*/React.createElement("li", null, "\uC2E4\uD589\uB420 \uB54C\uB9C8\uB2E4 iOS\uAC00 \u2018\uC790\uB3D9\uD654 \uC2E4\uD589\u2019 \uC54C\uB9BC\uC744 \uC7A0\uAE50 \uB744\uC6B8 \uC218 \uC788\uC5B4\uC694 (\uBA54\uC2DC\uC9C0 \uC790\uB3D9\uD654\uB294 \uB044\uB294 \uCE78\uC774 \uC5C6\uB294 \uACBD\uC6B0\uAC00 \uB9CE\uC74C) \u2014 \uADF8\uB798\uC11C \u2018\uC6D0\u2019\uC774 \uB4E0 \uBB38\uC790\uC5D0\uC11C\uB9CC \uC2E4\uD589\uB418\uAC8C \uD574\uC694"), /*#__PURE__*/React.createElement("li", null, "\uB2E8\uCD95\uC5B4 \uC571\uC5D0\uC11C \u25B6\uB85C \uC9C1\uC811 \uC2E4\uD589\uD558\uBA74 \uBC1B\uC740 \uBB38\uC790\uAC00 \uC5C6\uC5B4 \uC544\uBB34\uAC83\uB3C4 \uBCF4\uB0B4\uC9C0 \uC54A\uC544\uC694 (\uC815\uC0C1)")), /*#__PURE__*/React.createElement(H, null, "4. \uBB38\uC81C \uD574\uACB0"), /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-[auto_1fr] gap-x-2 gap-y-1"
+    }, /*#__PURE__*/React.createElement("b", {
+      className: "text-amber-200"
+    }, "\uC2E4\uD589 \uC548 \uB428"), /*#__PURE__*/React.createElement("span", null, "\uC989\uC2DC \uC2E4\uD589\uC778\uC9C0 \xB7 \uBA54\uC2DC\uC9C0 \uD3EC\uD568 \u2018\uC6D0\u2019 \xB7 \uCE74\uB4DC \uC54C\uB9BC\uC774 \uBB38\uC790\uAC00 \uC544\uB2C8\uB77C ", /*#__PURE__*/React.createElement("b", null, "\uCE74\uB4DC\uC0AC \uC571 \uD478\uC2DC"), "\uB85C\uB9CC \uC624\uBA74 \uB2E8\uCD95\uC5B4\uAC00 \uBABB \uBC1B\uC544\uC694 \u2192 \uCE74\uB4DC\uC0AC \uC571\uC5D0\uC11C \uBB38\uC790(SMS) \uC54C\uB9BC\uC744 \uC2E0\uCCAD\uD558\uAC70\uB098 \uC0AC\uC9C4\xB7\uCEA1\uCC98\uB85C \uB4F1\uB85D"), /*#__PURE__*/React.createElement("b", {
+      className: "text-amber-200"
+    }, "401\xB7403"), /*#__PURE__*/React.createElement("span", null, "\uD5E4\uB354 apikey\uAC00 \uBE60\uC84C\uAC70\uB098 \uD2C0\uB9BC"), /*#__PURE__*/React.createElement("b", {
+      className: "text-amber-200"
+    }, "404"), /*#__PURE__*/React.createElement("span", null, "URL \uC624\uD0C0 (\uB05D\uC774 receive_sms)"), /*#__PURE__*/React.createElement("b", {
+      className: "text-amber-200"
+    }, "'\uB4F1\uB85D\uB418\uC9C0 \uC54A\uC740 \uAC00\uC871 \uCF54\uB4DC'"), /*#__PURE__*/React.createElement("span", null, "fam_code \uAC12 \uD655\uC778 (\uBCF4\uC548 \uCF54\uB4DC\uB97C \uBC14\uAFE8\uC73C\uBA74 \uC0C8 \uAC12)"), /*#__PURE__*/React.createElement("b", {
+      className: "text-amber-200"
+    }, "'\uB4F1\uB85D\uB418\uC9C0 \uC54A\uC740 \uBC1C\uC2E0\uBC88\uD638'"), /*#__PURE__*/React.createElement("span", null, "\uC774 \uCC3D \uC704 \uD83D\uDCDE \uBC1B\uC744 \uCE74\uB4DC\uC0AC \uBC1C\uC2E0\uBC88\uD638\uC5D0 \uADF8 \uCE74\uB4DC\uC0AC \uBC88\uD638\uB97C \uCD94\uAC00 (\uB610\uB294 \uBAA9\uB85D \uBE44\uC6B0\uAE30)"), /*#__PURE__*/React.createElement("b", {
+      className: "text-amber-200"
+    }, "'\uCE74\uB4DC \uC2B9\uC778 \uBB38\uC790 \uC544\uB2D8'"), /*#__PURE__*/React.createElement("span", null, "\uACB0\uC81C \uBB38\uC790\uAC00 \uC544\uB2D8(\uC815\uC0C1). \uACB0\uC81C \uBB38\uC790\uC778\uB370 \uC774\uB807\uAC8C \uB098\uC624\uBA74 \uD83D\uDCE8 \uAE30\uB85D\uC758 \uC6D0\uBB38\uC744 \uC54C\uB824\uC8FC\uC138\uC694"), /*#__PURE__*/React.createElement("b", {
+      className: "text-amber-200"
+    }, "\uACB0\uC81C\uC790\uAC00 \uB2E4\uB978 \uC0AC\uB78C"), /*#__PURE__*/React.createElement("span", null, "payer_name \uAC12 \uD655\uC778 \xB7 \u2699\uFE0F \uCE74\uB4DC \uAD00\uB9AC\uC5D0\uC11C \uADF8 \uCE74\uB4DC \uC8FC\uC778\uC774 \uC815\uD574\uC838 \uC788\uC73C\uBA74 \uCE74\uB4DC \uC8FC\uC778\uC774 \uC6B0\uC120")), /*#__PURE__*/React.createElement(H, null, "5. \uBCF4\uC548"), /*#__PURE__*/React.createElement("ul", {
+      className: "list-disc pl-4 space-y-0.5"
+    }, /*#__PURE__*/React.createElement("li", null, "fam_code(\uBCF4\uC548 \uCF54\uB4DC)\uB97C \uC54C\uBA74 \uAC00\uACC4\uBD80 \uC804\uCCB4\uB97C \uBCFC \uC218 \uC788\uC5B4\uC694 \u2192 \uC774 \uC790\uB3D9\uD654\uB97C \uB2E4\uB978 \uC0AC\uB78C\uC5D0\uAC8C \uACF5\uC720\uD558\uC9C0 \uC54A\uAE30"), /*#__PURE__*/React.createElement("li", null, "\uBCF4\uC548 \uCF54\uB4DC\uB97C \uBC14\uAFB8\uBA74 \uC544\uC774\uD3F0 \uB2E8\uCD95\uC5B4\uC758 fam_code\uB3C4 \uC0C8 \uAC12\uC73C\uB85C")));
+  })())), /*#__PURE__*/React.createElement("div", {
     className: "bg-slate-950 p-3 rounded-xl border border-violet-500/40 space-y-2"
   }, /*#__PURE__*/React.createElement("span", {
     className: "font-bold text-violet-300"
@@ -14552,7 +15184,7 @@ function App() {
     className: `inline-block whitespace-nowrap px-[0.45em] py-[0.15em] rounded-full ${activeTab === 'cats' ? 'bg-indigo-600/90 text-white' : ''}`
   }, "\u2699\uFE0F \uC124\uC815"))))));
 }
-ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));
+ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(AppErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));
 </script>
   <script id="sw-register">
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
