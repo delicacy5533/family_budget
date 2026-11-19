@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>밑빠진독 v1.91</title>
+  <title>밑빠진독 v1.92</title>
   <!-- PWA: 홈 화면에 추가하면 앱처럼 실행 -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0f172a" />
@@ -57,7 +57,7 @@ const START_TABS = [['list', '📋 내역'], ['stats', '📊 통계'], ['input',
 
 const SUPABASE_URL = 'https://lkmhimcvtevmpnzoccax.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_dLOvYlQtvmUEzVpU89jxmw_RT62v5NL';
-const APP_VERSION = 'v1.91';
+const APP_VERSION = 'v1.92';
 // 🐸 앱 아이콘 (밑 빠진 독을 막는 두꺼비, v1.75 그림) — 내려받은 html 파일에서도 보이게 그림을 코드에 넣어 둠
 const APP_ICON_URI = `data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"%3E%3Cdefs%3E%3ClinearGradient id="bg" x1="0" y1="0" x2="0" y2="1"%3E%3Cstop offset="0" stop-color="%23312e81"/%3E%3Cstop offset="1" stop-color="%235b21b6"/%3E%3C/linearGradient%3E%3ClinearGradient id="jar" x1="0" y1="0" x2="1" y2="1"%3E%3Cstop offset="0" stop-color="%23b8693a"/%3E%3Cstop offset="1" stop-color="%237a3b1c"/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width="512" height="512" rx="112" fill="url(%23bg)"/%3E%3Cg transform="translate(256 262) scale(0.86) translate(-256 -262)"%3E%3Cg%3E%3Ccircle cx="256" cy="74" r="38" fill="%23fbbf24"/%3E%3Ccircle cx="256" cy="74" r="30" fill="none" stroke="%23f59e0b" stroke-width="5"/%3E%3Ctext x="256" y="90" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="44" fill="%2392400e"%3E%E2%82%A9%3C/text%3E%3C/g%3E%3Cpath d="M 198 138 C 146 156, 110 196, 112 254 C 114 322, 156 378, 194 404 L 318 404 C 356 378, 398 322, 400 254 C 402 196, 366 156, 314 138 Z" fill="url(%23jar)"/%3E%3Cpath d="M 150 214 C 176 202, 196 226, 222 214 C 248 202, 264 226, 290 214 C 316 202, 336 226, 362 214" fill="none" stroke="%23e9c49a" stroke-width="7" stroke-linecap="round" opacity="0.85"/%3E%3Cpath d="M 150 196 C 140 240, 146 300, 178 352" fill="none" stroke="%23f3d3ad" stroke-width="12" stroke-linecap="round" opacity="0.35"/%3E%3Crect x="178" y="112" width="156" height="34" rx="16" fill="%236b3518"/%3E%3Cellipse cx="256" cy="118" rx="64" ry="9" fill="%232a1408"/%3E%3Cg%3E%3Cellipse cx="180" cy="452" rx="34" ry="18" fill="%233f6212"/%3E%3Cellipse cx="332" cy="452" rx="34" ry="18" fill="%233f6212"/%3E%3Cellipse cx="256" cy="414" rx="100" ry="56" fill="%2365a30d"/%3E%3Cellipse cx="256" cy="430" rx="64" ry="28" fill="%23d9f99d" opacity="0.6"/%3E%3Ccircle cx="208" cy="366" r="30" fill="%2365a30d"/%3E%3Ccircle cx="304" cy="366" r="30" fill="%2365a30d"/%3E%3Ccircle cx="208" cy="364" r="18" fill="%23fff"/%3E%3Ccircle cx="304" cy="364" r="18" fill="%23fff"/%3E%3Ccircle cx="212" cy="366" r="9" fill="%230f172a"/%3E%3Ccircle cx="300" cy="366" r="9" fill="%230f172a"/%3E%3Cpath d="M 214 410 Q 256 444 298 410" fill="none" stroke="%231a2e05" stroke-width="7" stroke-linecap="round"/%3E%3Ccircle cx="196" cy="414" r="10" fill="%23f9a8d4" opacity="0.8"/%3E%3Ccircle cx="316" cy="414" r="10" fill="%23f9a8d4" opacity="0.8"/%3E%3Ccircle cx="236" cy="392" r="4" fill="%23365314"/%3E%3Ccircle cx="280" cy="392" r="4" fill="%23365314"/%3E%3Ccircle cx="176" cy="392" r="7" fill="%234d7c0f"/%3E%3Ccircle cx="336" cy="392" r="7" fill="%234d7c0f"/%3E%3Ccircle cx="170" cy="428" r="6" fill="%234d7c0f"/%3E%3Ccircle cx="342" cy="428" r="6" fill="%234d7c0f"/%3E%3Ccircle cx="256" cy="376" r="5" fill="%234d7c0f"/%3E%3Ccircle cx="190" cy="342" r="5" fill="%234d7c0f"/%3E%3Ccircle cx="322" cy="342" r="5" fill="%234d7c0f"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E `;
 // ★ 이 앱이 필요로 하는 DB 스키마 버전 (Supabase의 schema_meta.schema_version과 비교)
@@ -1359,6 +1359,11 @@ const EMBEDDED_SQL_SCRIPT = "-- ================================================
 // ▼▼▼ [버전 히스토리 붙여넣는 공간 시작] (업데이트 시 이 블록을 교체하세요) ▼▼▼
 // =====================================================================
 const VERSION_HISTORY = [{
+  version: 'v1.92',
+  date: '2026-11-19',
+  title: '🧾 카드 명세서 대조',
+  changes: ['[카드사 파일] 파일을 올리면 바로 등록하지 않고 🧾 카드 명세서 대조 화면: 카드별로 명세서 합계 · 가계부 합계(체크한 것을 넣은 뒤) · 차이를 보여 줌', '[카드사 파일] 🆕 명세서에만 있음(체크한 것만 등록) · ⚠️ 취소·금액 확인(부분 취소인지 모르는 취소 · 원거래 없는 취소 · 금액이 다른 같은 결제 · 휴지통에 있는 결제) · 📒 가계부에만 있음(같은 카드·기간인데 명세서에 없음) · ✅ 이미 일치', '[카드사 파일] 금액이 다른 같은 결제는 [가계부 고치기]로 명세서 금액에 맞춤 · 가계부에만 있는 내역은 그 자리에서 [🗑] 휴지통으로', '[카드사 파일] 같은 카드·같은 날·같은 금액이면 문자와 명세서의 가게 이름이 달라도 같은 결제로 봄 (예전에는 새로 넣어 두 번 들어감) · 다른 카드의 승인과는 취소를 짝짓지 않음', '[카드사 파일] 명세서 한 줄은 가계부 한 건과만 짝지음: 같은 가게·같은 금액을 두 번 결제했으면 두 건 (예전에는 파일 안의 같은 줄·가계부에 한 건만 있는 둘째 결제를 중복으로 뺌)']
+}, {
   version: 'v1.91',
   date: '2026-11-19',
   title: '검토 반영: 함께 복구·삭제 · 각자 결제 · 영수증 합치기 · 파일 환불',
@@ -2704,6 +2709,7 @@ function App() {
   // ➕ 입력 탭에서 연 급여명세서·대출 입력 창: 닫으면 목록 창까지 닫고 입력 탭으로 돌아옴 ('payslip' | 'loan' | null)
   const [inputReturn, setInputReturn] = useState(null);
   const [showFileImport, setShowFileImport] = useState(false); // ➕ 입력 탭의 카드사 파일 올리기 칸
+  const [stmtRecon, setStmtRecon] = useState(null); // [v1.92] 🧾 카드 명세서 대조 창 (buildStmtPlan 결과)
   const pendingDocsRef = useRef([]); // 사진에서 급여명세서·대출·저축 화면이 함께 나오면 차례로 보여줄 확인 창 [{type, read}]
   // 💼 급여명세서
   const [showPayslips, setShowPayslips] = useState(false);
@@ -2933,16 +2939,16 @@ function App() {
 
   // 안드로이드 뒤로가기: 팝업·수정창이 열려 있으면 앱을 닫지 않고 그 창만 닫음
   // (창이 열릴 때 방문 기록을 한 칸 쌓아 두고, 뒤로가기가 그 칸을 지우면 창을 닫음)
-  const overlayOpen = photoEdit !== null || showGifts || giftRecEdit !== null || giftEventEdit !== null || assetEdit !== null || showVersionModal || showWebhookModal || showInbox || showTrash || showUncat || manual !== null || showPayslips || showLoans || showSavings || statDrill !== null || budgetEdit !== null || showPeriod || showCodeMigrateModal || choiceDlg !== null || editingId !== null || catAdder !== null || memoEdit !== null;
+  const overlayOpen = stmtRecon !== null || photoEdit !== null || showGifts || giftRecEdit !== null || giftEventEdit !== null || assetEdit !== null || showVersionModal || showWebhookModal || showInbox || showTrash || showUncat || manual !== null || showPayslips || showLoans || showSavings || statDrill !== null || budgetEdit !== null || showPeriod || showCodeMigrateModal || choiceDlg !== null || editingId !== null || catAdder !== null || memoEdit !== null;
   const closeTopOverlayRef = useRef(() => true);
   // 겹쳐 열린 창 수 (예: 급여명세서 목록 위에 편집 화면) → 위 창만 닫으면 방문 기록 칸을 다시 쌓음
   const overlayLayersRef = useRef(0);
-  const fullModalOpen = photoEdit !== null || showGifts || giftRecEdit !== null || giftEventEdit !== null || assetEdit !== null || showVersionModal || showWebhookModal || showInbox || showTrash || showUncat || manual !== null || showPayslips || showLoans || showSavings || statDrill !== null || budgetEdit !== null || showPeriod || showCodeMigrateModal || choiceDlg !== null;
+  const fullModalOpen = stmtRecon !== null || photoEdit !== null || showGifts || giftRecEdit !== null || giftEventEdit !== null || assetEdit !== null || showVersionModal || showWebhookModal || showInbox || showTrash || showUncat || manual !== null || showPayslips || showLoans || showSavings || statDrill !== null || budgetEdit !== null || showPeriod || showCodeMigrateModal || choiceDlg !== null;
   // 내역 카드 안의 수정·메모·새 분류 입력은 큰 창이 열리면 곧 닫히므로 그때는 세지 않음
   //   (세면 방문 기록을 한 칸 쌓았다가 바로 지우는 왕복이 생김)
   const inlineLayer = open => open && !fullModalOpen;
   // ➕ 입력 탭에서 연 급여·대출 입력 창은 뒤에 깔린 목록 창을 세지 않음 (입력 창을 닫으면 목록도 함께 닫히므로 한 칸만)
-  overlayLayersRef.current = [photoEdit !== null, showGifts, giftPersonId !== null, giftEventId !== null, giftRecEdit !== null, giftEventEdit !== null, assetEdit !== null, showVersionModal, showWebhookModal, showInbox, showTrash, showUncat, manual !== null, showPayslips && inputReturn !== 'payslip', psEdit !== null, showLoans && inputReturn !== 'loan', loanOpenId !== null, showSavings && inputReturn !== 'savings', savOpenId !== null, savEdit !== null, savPayEdit !== null, savClose !== null, savRead !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null, showPeriod, showCodeMigrateModal, choiceDlg !== null, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null),
+  overlayLayersRef.current = [stmtRecon !== null, photoEdit !== null, showGifts, giftPersonId !== null, giftEventId !== null, giftRecEdit !== null, giftEventEdit !== null, assetEdit !== null, showVersionModal, showWebhookModal, showInbox, showTrash, showUncat, manual !== null, showPayslips && inputReturn !== 'payslip', psEdit !== null, showLoans && inputReturn !== 'loan', loanOpenId !== null, showSavings && inputReturn !== 'savings', savOpenId !== null, savEdit !== null, savPayEdit !== null, savClose !== null, savRead !== null, loanEdit !== null, loanRead !== null, payEdit !== null, statDrill !== null, budgetEdit !== null, showPeriod, showCodeMigrateModal, choiceDlg !== null, inlineLayer(editingId !== null), catAdder !== null && (catAdder.where === 'manual' || !fullModalOpen), inlineLayer(memoEdit !== null),
   // 내역 탭 = 홈: 다른 탭에 있으면 한 칸 (탭을 누를 때 쌓음 → 뒤로가기 = 내역 탭으로. 입력→통계처럼 옮겨 다녀도 한 칸)
   activeTab !== 'list' && tabLayerOk].filter(Boolean).length;
   closeTopOverlayRef.current = () => {
@@ -2954,6 +2960,10 @@ function App() {
       setPhotoEdit(null);
       return true;
     } // ✂️ 사진 고치기 (입력 탭 위 전체 화면)
+    if (stmtRecon) {
+      setStmtRecon(null);
+      return true;
+    } // 🧾 카드 명세서 대조
     if (catAdder) {
       setCatAdder(null);
       return true;
@@ -3098,7 +3108,7 @@ function App() {
   };
   // 맨 위 창이 입력하는 창인지 (바깥 터치로 닫지 않음). 순서는 위 closeTopOverlayRef와 같음
   const topIsFormRef = useRef(false);
-  topIsFormRef.current = choiceDlg ? false : photoEdit ? true : catAdder || manual || psEdit ? true : showPayslips ? false : payEdit || loanEdit || loanRead ? true : loanOpenId || showLoans ? false : giftRecEdit || giftEventEdit ? true : giftPersonId || giftEventId || showGifts ? false : assetEdit || savRead || savClose || savPayEdit || savEdit ? true : savOpenId || showSavings || statDrill || showPeriod ? false : budgetEdit ? true : showInbox || showTrash || showUncat || showVersionModal || showWebhookModal ? false : !!showCodeMigrateModal;
+  topIsFormRef.current = choiceDlg ? false : photoEdit || stmtRecon ? true : catAdder || manual || psEdit ? true : showPayslips ? false : payEdit || loanEdit || loanRead ? true : loanOpenId || showLoans ? false : giftRecEdit || giftEventEdit ? true : giftPersonId || giftEventId || showGifts ? false : assetEdit || savRead || savClose || savPayEdit || savEdit ? true : savOpenId || showSavings || statDrill || showPeriod ? false : budgetEdit ? true : showInbox || showTrash || showUncat || showVersionModal || showWebhookModal ? false : !!showCodeMigrateModal;
   // 팝업 바깥(어두운 배경)을 터치하면 맨 위 창을 닫음 (뒤로가기와 같음). 입력 창은 안내만
   //   누른 곳과 뗀 곳이 모두 배경일 때만 (창 안에서 누르고 바깥에서 떼거나, 그 반대는 무시)
   useEffect(() => {
@@ -7248,6 +7258,15 @@ function App() {
         restored: 0
       };
     }
+    return {
+      total: uniq.length,
+      restored: await reviveTrashRows(uniq)
+    };
+  };
+  // [v1.92] 휴지통 내역을 꺼냄 → 꺼낸 건수 (실패하면 0)
+  const reviveTrashRows = async rows => {
+    const uniq = [...new Map((rows || []).filter(Boolean).map(e => [e.id, e])).values()];
+    if (uniq.length === 0) return 0;
     const ids = uniq.map(e => e.id);
     const {
       error
@@ -7258,22 +7277,19 @@ function App() {
     }).in('id', ids).eq('family_code', familyCode);
     if (error) {
       showToast('⚠️ 휴지통에서 꺼내기 실패: ' + error.message);
-      return {
-        total: uniq.length,
-        restored: 0
-      };
+      return 0;
     }
     setTrash(prev => prev.filter(e => !ids.includes(e.id)));
-    setExpenses(prev => [...prev, ...uniq.map(e => ({
+    setExpenses(prev => [...prev.filter(e => !ids.includes(e.id)), ...uniq.map(e => ({
       ...e,
       deleted_at: null,
       linked_backup: null
     }))].sort((a, b) => b.date.localeCompare(a.date)));
+    appLog('I', 'db', `휴지통에서 ${uniq.length}건 꺼냄`, {
+      id: ids[0]
+    });
     notifyPartner();
-    return {
-      total: uniq.length,
-      restored: uniq.length
-    };
+    return uniq.length;
   };
   const purgeExpenseRows = async items => {
     if (!ensureConnected() || items.length === 0) return;
@@ -8913,6 +8929,438 @@ function App() {
       setActiveTab('list');
     }
   };
+
+  // =====================================================================
+  // 🧾 카드 명세서 대조 [v1.92]: 카드사 파일의 줄을 가계부와 맞춰 보고, 체크한 것만 등록
+  //   ✅ 이미 일치(match · alike) · 🆕 명세서에만(new · partial) · ⚠️ 취소·금액 확인(unsure · lone · diff · trash) · 📒 가계부에만(appOnly)
+  //   · 명세서 한 줄은 가계부 한 건과만 짝지음 (같은 결제를 두 번 했는데 가계부에 한 건뿐이면 나머지가 '명세서에만')
+  //   · 취소 줄 짝 찾기는 v1.91 규칙 (같은 가게·60일 안, 금액이 같으면 전체 취소, 음수 환불 줄·'부분취소'는 부분 취소) + 다른 카드의 승인과는 짝짓지 않음
+  //   · '가계부에만'·금액 다름·가게 이름 다름은 명세서의 카드(파일의 카드번호 칸 또는 고른 카드)·기간 안의 내역만
+  // =====================================================================
+  const buildStmtPlan = (raw, fileName) => {
+    const source = fileName.endsWith('.csv') ? 'CSV일괄등록' : '엑셀일괄등록';
+    const expenseOnly = expenses.filter(ex => !isIncome(ex)); // 수입(입금)은 짝 후보가 아님
+    const trashExp = trash.filter(t => !isIncome(t));
+    const dm = new Map();
+    const nd = d => {
+      let v = dm.get(d);
+      if (v === undefined) {
+        v = normalizeDateString(d);
+        dm.set(d, v);
+      }
+      return v;
+    };
+    const day = d => nd(d).slice(0, 10);
+    const hm = d => nd(d).slice(11, 16);
+    const mins = d => {
+      const t = hm(d);
+      return t === '00:00' ? null : Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    };
+    const dayNum = ymd => Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10)) / 86400000;
+    // 카드 묶음: 카드 관리의 대표 카드 (같은 카드로 연결한 실물·모바일 번호는 한 묶음)
+    const gOf = p => {
+      if (!p || !p.card_num && !p.card_issuer) return 'none';
+      const r = resolveCard(cards, p.card_issuer, p.card_num);
+      return r ? 'c:' + r.id : 'k:' + cardKey(p.card_issuer, p.card_num);
+    };
+    const gName = p => {
+      if (!p || !p.card_num && !p.card_issuer) return p && p.pay_method && p.pay_method !== '카드' ? p.pay_method : '카드 모름';
+      const r = resolveCard(cards, p.card_issuer, p.card_num);
+      return r ? cardDisplayName(r, cards) : `${p.card_issuer || '카드'} ${p.card_num || ''}`.trim();
+    };
+    const sameCard = (p, e) => {
+      if (!p.card_num || !e.card_num) return false;
+      const ra = resolveCard(cards, p.card_issuer, p.card_num),
+        rb = resolveCard(cards, e.card_issuer, e.card_num);
+      if (ra && rb) return ra.id === rb.id;
+      const iss = x => normalizeCardIssuer(x || '') || String(x || '');
+      return cardNumMatch(p.card_num, e.card_num) && (!p.card_issuer || !e.card_issuer || iss(p.card_issuer) === iss(e.card_issuer));
+    };
+    const cardClash = (a, b) => !!(a.card_num && b.card_num && !sameCard(a, b));
+    // 결제자: 카드 주인 → 없으면 가계부에서 이 카드로 가장 많이 낸 사람 → 없으면 지금 사용자 (취소는 아래에서 원거래의 결제자로)
+    const ownerOf = p => cardOwner(cards, p.card_issuer, p.card_num);
+    const payerMemo = new Map();
+    const payerOf = p => {
+      const own = ownerOf(p);
+      if (own) return own;
+      if (!p.card_num) return currentUser;
+      const key = gOf(p);
+      if (!payerMemo.has(key)) {
+        const n = {};
+        for (const e of expenseOnly) if (e.payer && e.card_num && sameCard(p, e)) n[e.payer] = (n[e.payer] || 0) + 1;
+        const top = Object.entries(n).sort((a, b) => b[1] - a[1])[0];
+        payerMemo.set(key, top ? top[0] : currentUser);
+      }
+      return payerMemo.get(key);
+    };
+    const stamp = Date.now();
+    const mk = it => {
+      const sign = it.isCancelRow ? -1 : 1;
+      const {
+        category,
+        sub_category
+      } = classifyStoreAndText(it.store, categories);
+      return {
+        id: (sign < 0 ? 'xls-cancel-' : 'xls-') + stamp + '-' + it.rowIdx,
+        date: it.date,
+        store: it.store,
+        category,
+        sub_category,
+        amount: sign * it.absAmount,
+        tax: sign * Math.round(it.absAmount / 11),
+        payer: payerOf(it.pay),
+        ...it.pay,
+        is_business: false,
+        source,
+        verified: true,
+        memo: '',
+        items: []
+      };
+    };
+    const C = new Map(raw.map(it => [it.rowIdx, mk(it)]));
+    const payerFrom = (it, e) => {
+      if (e && e.payer && !ownerOf(it.pay)) C.get(it.rowIdx).payer = e.payer;
+    }; // 취소 = 원거래(또는 가계부의 같은 취소)의 결제자
+    // 명세서 기간: 줄 날짜의 처음~끝. 단 앞쪽에 동떨어진 몇 줄(지난 할부·예전 결제 등: 20일 넘게 떨어져 있고 전체의 20%가 안 됨)은 기간에서 뺌
+    const days = raw.map(r => day(r.date)).sort();
+    let k0 = 0;
+    for (let i = 0; i < days.length - 1; i++) if (dayNum(days[i + 1]) - dayNum(days[i]) > 20 && i + 1 < days.length * 0.2) k0 = i + 1;
+    const from = days[k0] || '',
+      to = days[days.length - 1] || '';
+    const fileCards = [...new Map(raw.filter(r => r.pay.card_num).map(r => [gOf(r.pay), r.pay])).values()];
+    const cardIds = new Set(fileCards.length ? expenseOnly.filter(e => e.card_num && fileCards.some(p => sameCard(p, e))).map(e => e.id) : []); // 명세서 카드의 가계부 내역 (날짜 무관)
+    const scopeRows = expenseOnly.filter(e => {
+      if (!cardIds.has(e.id)) return false;
+      const d = day(e.date);
+      return d >= from && d <= to;
+    }); // 그중 명세서 기간 안
+    const scopeIds = new Set(scopeRows.map(e => e.id));
+    const byDay = new Map();
+    for (const e of expenseOnly) {
+      const d = day(e.date);
+      if (!byDay.has(d)) byDay.set(d, []);
+      byDay.get(d).push(e);
+    }
+    const sameDay = d => byDay.get(day(d)) || [];
+    // 파일 안에 같은 줄이 또 있음 (같은 결제를 두 번 했을 수도, 파일에 두 번 들어갔을 수도 → 둘 다 넣되 알려 줌)
+    const again = new Set(),
+      bucket = new Map();
+    for (const it of raw) {
+      const c = C.get(it.rowIdx),
+        key = `${c.amount}|${day(c.date)}`;
+      const prev = bucket.get(key) || [];
+      if (prev.some(x => isDuplicateExpense(c, [x]))) again.add(it.rowIdx);
+      prev.push(c);
+      bucket.set(key, prev);
+    }
+    const used = new Set(); // 명세서 줄과 짝지은 가계부 내역 id
+    const rows = [];
+    const add = (it, status, extra = {}) => rows.push({
+      k: `r${it.rowIdx}`,
+      kind: it.isCancelRow ? 'cancel' : 'pay',
+      neg: !!it.neg,
+      abs: it.absAmount,
+      g: gOf(it.pay),
+      gName: gName(it.pay),
+      cand: C.get(it.rowIdx),
+      status,
+      pick: false,
+      again: again.has(it.rowIdx),
+      early: !!from && day(it.date) < from,
+      ...extra
+    });
+    // ① 이미 가계부에 있는 줄 (문자·영수증·예전 파일). 여러 건이면 같은 분 → 같은 카드 순
+    const score = (cand, e) => (hm(e.date) === hm(cand.date) ? 2 : 0) + (sameCard(cand, e) ? 1 : 0);
+    const pend = [];
+    for (const it of raw) {
+      const cand = C.get(it.rowIdx);
+      const app = sameDay(cand.date).filter(x => !used.has(x.id) && isDuplicateExpense(cand, [x])).sort((a, b) => score(cand, b) - score(cand, a))[0];
+      if (app) {
+        used.add(app.id);
+        add(it, 'match', {
+          app
+        });
+      } else pend.push(it);
+    }
+    // ② 승인 줄: 가게 이름만 다른 같은 결제(같은 카드·날·금액) · 금액만 다른 같은 결제(같은 날, 가게가 같거나 같은 분) · 휴지통 · 새로
+    const newRows = [];
+    const binUsed = new Set();
+    const binOf = cand => trashExp.find(t => !binUsed.has(t.id) && isDuplicateExpense(cand, [t])) || null;
+    const near5 = (a, b) => {
+      const x = mins(a),
+        y = mins(b);
+      return x === null || y === null || Math.abs(x - y) <= 5;
+    };
+    for (const it of pend.filter(x => !x.isCancelRow)) {
+      const cand = C.get(it.rowIdx);
+      const today = sameDay(cand.date).filter(e => !used.has(e.id) && cardIds.has(e.id) && e.amount > 0);
+      const alike = today.find(e => e.amount === cand.amount && sameCard(cand, e) && near5(cand.date, e.date));
+      if (alike) {
+        used.add(alike.id);
+        add(it, 'alike', {
+          app: alike
+        });
+        continue;
+      }
+      const twin = today.find(e => e.amount !== cand.amount && !cardClash(cand, e) && (isSimilarStoreName(cand.store, e.store) || mins(cand.date) !== null && hm(e.date) === hm(cand.date)));
+      if (twin) {
+        used.add(twin.id);
+        add(it, 'diff', {
+          app: twin
+        });
+        continue;
+      }
+      const bin = binOf(cand);
+      if (bin) {
+        binUsed.add(bin.id);
+        add(it, 'trash', {
+          bin
+        });
+        continue;
+      }
+      newRows.push(cand);
+      add(it, 'new', {
+        pick: true
+      });
+    }
+    // ③ 취소 줄: 같은 가게·60일 안의 승인과 짝 (금액이 같으면 전체, 음수 환불 줄·'부분취소'는 부분). 원거래보다 작은 '취소' 표시만 있으면 확인
+    const CANCEL_LOOKBACK_DAYS = 60;
+    const pairedApprovalIds = new Set();
+    const refundedOf = {}; // 부분 환불: 승인 id → 이미 환불로 짝지은 금액
+    const pairOf = {}; // 가계부의 취소 id → 그 취소가 짝지은 승인
+    const nearOf = (cancelRow, pool) => {
+      const cDay = dayNum(day(cancelRow.date));
+      return pool.filter(ex => {
+        const diff = cDay - dayNum(day(ex.date));
+        return diff >= 0 && diff <= CANCEL_LOOKBACK_DAYS && !cardClash(cancelRow, ex) && isSimilarStoreName(cancelRow.store, ex.store);
+      }).sort((x, y) => nd(y.date).localeCompare(nd(x.date)));
+    };
+    const partialOf = (cancelRow, pool) => nearOf(cancelRow, pool).find(ex => !pairedApprovalIds.has(ex.id) && ex.amount - (refundedOf[ex.id] || 0) > Math.abs(cancelRow.amount)) || null;
+    const markPaired = (cancelRow, pool, allowPart = true) => {
+      const amt = Math.abs(cancelRow.amount);
+      const near = nearOf(cancelRow, pool);
+      const full = near.find(ex => ex.amount === amt && !pairedApprovalIds.has(ex.id) && !refundedOf[ex.id]);
+      if (full) {
+        pairedApprovalIds.add(full.id);
+        return full;
+      }
+      if (!allowPart) return null;
+      const part = near.find(ex => !pairedApprovalIds.has(ex.id) && ex.amount - (refundedOf[ex.id] || 0) >= amt);
+      if (part) {
+        refundedOf[part.id] = (refundedOf[part.id] || 0) + amt;
+        if (refundedOf[part.id] >= part.amount) pairedApprovalIds.add(part.id);
+        return part;
+      }
+      return null;
+    };
+    const approvalsPool = () => [...expenseOnly, ...newRows].filter(ex => ex.amount > 0);
+    // 이미 등록된 취소가 상계한 승인은 다시 쓰지 않음
+    expenseOnly.filter(ex => ex.amount < 0).forEach(ex => {
+      const a = markPaired(ex, approvalsPool());
+      if (a) pairOf[ex.id] = a;
+    });
+    // '취소'로 표시된 원래 승인 줄(음수가 아닌 줄)은 승인과 취소를 함께 뜻함 → 그 줄과 짝지은 가계부의 승인도 명세서에 있는 것으로 봄
+    const apprOf = (r, a) => !r.neg && a && cardIds.has(a.id) && !used.has(a.id) && Number(a.amount) === r.abs ? a : null;
+    for (const r of rows) {
+      if (r.kind !== 'cancel' || r.status !== 'match') continue;
+      const a = apprOf(r, pairOf[r.app.id]);
+      if (a) {
+        used.add(a.id);
+        r.appr = a;
+      }
+    }
+    // 취소 표시 줄을 음수 환불 줄보다 먼저 (둘 다 있으면 표시 줄이 원거래와 짝지음)
+    const pendCan = pend.filter(x => x.isCancelRow).sort((a, b) => (a.neg ? 1 : 0) - (b.neg ? 1 : 0));
+    for (const it of pendCan) {
+      const cand = C.get(it.rowIdx);
+      const cd = dayNum(day(cand.date));
+      // 가계부에 이미 있는 취소 (취소 문자 등): 같은 금액, 이 줄 날짜 7일 전 ~ 60일 뒤, 같은 카드이거나 같은 가게 (날짜가 가까운 것부터)
+      const gap = e => dayNum(day(e.date)) - cd;
+      const twinC = expenseOnly.filter(e => e.amount === cand.amount && !used.has(e.id) && !cardClash(cand, e) && (sameCard(cand, e) || isSimilarStoreName(cand.store, e.store)) && gap(e) >= -7 && gap(e) <= CANCEL_LOOKBACK_DAYS).sort((x, y) => Math.abs(gap(x)) - Math.abs(gap(y)))[0];
+      const asAlike = c => {
+        used.add(c.id);
+        payerFrom(it, c);
+        const appr = apprOf({
+          neg: it.neg,
+          abs: it.absAmount
+        }, pairOf[c.id]);
+        if (appr) used.add(appr.id);
+        add(it, 'alike', {
+          app: c,
+          appr
+        });
+      };
+      if (twinC) {
+        asAlike(twinC);
+        continue;
+      }
+      const bin = binOf(cand);
+      if (bin) {
+        binUsed.add(bin.id);
+        add(it, 'trash', {
+          bin
+        });
+        continue;
+      }
+      const of = markPaired(cand, approvalsPool(), it.neg || it.partial);
+      if (of) {
+        newRows.push(cand);
+        payerFrom(it, of);
+        const appr = apprOf({
+          neg: it.neg,
+          abs: it.absAmount
+        }, expenseOnly.includes(of) ? of : null);
+        if (appr) used.add(appr.id);
+        add(it, of.amount === it.absAmount ? 'new' : 'partial', {
+          of,
+          appr,
+          pick: true
+        });
+        continue;
+      }
+      // 이 줄이 짝지을 원거래를 가계부의 취소 문자가 이미 상계했으면 그 취소와 같은 취소 (날짜가 많이 달라도)
+      const viaPair = (() => {
+        for (const a of nearOf(cand, expenseOnly.filter(ex => ex.amount === it.absAmount))) {
+          const c = expenseOnly.find(x => x.amount < 0 && !used.has(x.id) && pairOf[x.id] === a && Number(x.amount) === cand.amount);
+          if (c) return c;
+        }
+        return null;
+      })();
+      if (viaPair) {
+        asAlike(viaPair);
+        continue;
+      }
+      const maybe = partialOf(cand, approvalsPool());
+      payerFrom(it, maybe);
+      add(it, maybe ? 'unsure' : 'lone', maybe ? {
+        of: maybe
+      } : {});
+    }
+    // ④ 가계부에만 있는 내역: 명세서 카드·기간 안에서 짝이 없는 것 (가계부 안에서 승인·취소가 짝지어 0원인 것은 뺌)
+    const left = scopeRows.filter(e => !used.has(e.id));
+    const leftIds = new Set(left.map(e => e.id)),
+      zero = new Set();
+    for (const c of left) {
+      const a = c.amount < 0 ? pairOf[c.id] : null;
+      if (a && leftIds.has(a.id) && !zero.has(a.id) && Number(a.amount) === -Number(c.amount)) {
+        zero.add(c.id);
+        zero.add(a.id);
+      }
+    }
+    const appOnly = left.filter(e => !zero.has(e.id)).map(e => ({
+      ...e,
+      __g: gOf(fileCards.find(p => sameCard(p, e)))
+    }));
+    const groups = [...new Map(rows.map(r => [r.g, {
+      key: r.g,
+      label: r.gName
+    }])).values()];
+    const cnt = (...st) => rows.filter(r => st.includes(r.status)).length;
+    rows.sort((a, b) => nd(a.cand.date).localeCompare(nd(b.cand.date)));
+    return {
+      file: fileName,
+      from,
+      to,
+      scoped: fileCards.length > 0,
+      groups,
+      rows,
+      appOnly,
+      busy: false,
+      counts: {
+        match: cnt('match'),
+        alike: cnt('alike'),
+        new: cnt('new', 'partial'),
+        diff: cnt('diff'),
+        trash: cnt('trash'),
+        unsure: cnt('unsure'),
+        lone: cnt('lone'),
+        again: again.size,
+        appOnly: appOnly.length,
+        zero: zero.size
+      }
+    };
+  };
+  const toggleStmt = (k, v) => setStmtRecon(s => s && {
+    ...s,
+    rows: s.rows.map(r => r.k === k ? {
+      ...r,
+      pick: v === undefined ? !r.pick : v
+    } : r)
+  });
+  const pickAllStmt = (statuses, v) => setStmtRecon(s => s && {
+    ...s,
+    rows: s.rows.map(r => statuses.includes(r.status) ? {
+      ...r,
+      pick: v
+    } : r)
+  });
+  // 금액이 다른 같은 결제: 가계부 내역의 금액을 명세서대로 (부가세는 원래 비율대로)
+  const fixStmtDiff = async r => {
+    const e = expenses.find(x => x.id === r.app.id);
+    if (!e || !ensureConnected()) return;
+    const amt = r.cand.amount;
+    const tax = Number(e.amount) ? Math.round(Number(e.tax ?? Math.round(e.amount / 11)) * amt / Number(e.amount)) : Math.round(amt / 11);
+    const ok = await updateExpenseRow(e.id, {
+      amount: amt,
+      tax
+    });
+    if (!ok) return;
+    setStmtRecon(s => s && {
+      ...s,
+      rows: s.rows.map(x => x.k === r.k ? {
+        ...x,
+        fixed: true,
+        pick: false
+      } : x)
+    });
+    showToast(`✏️ ${e.store}: 가계부 금액을 명세서대로 ${amt.toLocaleString()}원으로 고쳤어요.`);
+  };
+  // [선택한 n건 등록]: 체크한 줄은 등록, 체크한 휴지통 줄은 휴지통에서 꺼냄
+  const registerStmt = async () => {
+    const s = stmtRecon;
+    if (!s || s.busy) return;
+    const picked = s.rows.filter(r => r.pick);
+    const adds = picked.filter(r => r.status !== 'trash').map(r => r.cand);
+    const bins = picked.filter(r => r.status === 'trash').map(r => r.bin);
+    const nUn = (...st) => s.rows.filter(r => st.includes(r.status) && !r.pick).length;
+    const nFixed = s.rows.filter(r => r.fixed).length;
+    const dup = nUn('match', 'alike');
+    const skipped = [nUn('trash') ? `휴지통에 있는 ${nUn('trash')}건` : '', nUn('unsure', 'lone') ? `취소 ${nUn('unsure', 'lone')}건` : '', nUn('new', 'partial') ? `체크 뺀 ${nUn('new', 'partial')}건` : ''].filter(Boolean);
+    if (!adds.length && !bins.length) {
+      setStmtRecon(null);
+      appLog('I', 'file', '명세서 대조 닫음 (넣은 것 없음)', {
+        dup,
+        fixed: nFixed,
+        appOnly: s.appOnly.length
+      });
+      const why = [dup ? `중복 ${dup}건` : '', ...skipped].filter(Boolean).join(', ');
+      return showToast(nFixed ? `✏️ 가계부 금액 ${nFixed}건을 명세서대로 고쳤어요. 새로 넣은 것은 없어요.` : `ℹ️ 신규 내역 없음${why ? ` (${why} 제외)` : ''}`);
+    }
+    if (!ensureConnected()) return;
+    setStmtRecon(x => x && {
+      ...x,
+      busy: true
+    });
+    const restored = bins.length ? await reviveTrashRows(bins) : 0;
+    const ok = adds.length ? await insertExpenseRows(adds) : true;
+    appLog('I', 'file', '명세서 대조 등록', {
+      add: adds.length,
+      ok,
+      restored,
+      dup,
+      skipTrash: nUn('trash'),
+      skipCancel: nUn('unsure', 'lone'),
+      skipNew: nUn('new', 'partial'),
+      fixed: nFixed,
+      appOnly: s.appOnly.length
+    });
+    setStmtRecon(null);
+    if (!ok) return; // 실패 안내는 insertExpenseRows가 (일부만 저장됐으면 몇 건인지도)
+    const extra = [dup ? `중복 ${dup}건 제외` : '', restored ? `휴지통에서 ${restored}건 다시 등록` : '', ...skipped.map(x => x + ' 제외'), nFixed ? `가계부 금액 ${nFixed}건 고침` : ''].filter(Boolean).join(', ');
+    showToast(adds.length ? `📥 총 ${adds.length}건 등록 완료!${extra ? ` (${extra})` : ''}` : `↩️ 휴지통에서 ${restored}건을 다시 등록했습니다.${dup ? ` (중복 ${dup}건 제외)` : ''}`);
+    showRegistered([...adds, ...bins].map(r => r.date));
+    setActiveTab('list');
+  };
   const handleFileUpload = e => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -9086,172 +9534,17 @@ function App() {
           });
         }
       }
-      const normalItems = rawExtracted.filter(r => !r.isCancelRow);
-      const cancelItems = rawExtracted.filter(r => r.isCancelRow);
-      const newRows = [];
-      const expenseOnly = expenses.filter(ex => !isIncome(ex)); // [v1.91] 수입(입금)은 카드 지출의 중복·환불 짝 후보가 아님
-      const unsureCancels = []; // [v1.91] 부분 취소인지 물어볼 줄
-      let dupCount = 0;
-      const trashHits = []; // 휴지통에 버린 결제와 같은 행 → 다시 등록할지 물어봄
-      let autoIgnoredCancelCount = 0;
-      for (const item of normalItems) {
-        const {
-          category,
-          sub_category
-        } = classifyStoreAndText(item.store, categories);
-        const candidate = {
-          id: 'xls-' + Date.now() + '-' + item.rowIdx,
-          date: item.date,
-          store: item.store,
-          category,
-          sub_category,
-          amount: item.absAmount,
-          tax: Math.round(item.absAmount / 11),
-          payer: cardOwner(cards, item.pay.card_issuer, item.pay.card_num) || currentUser,
-          ...item.pay,
-          is_business: false,
-          source: fileName.endsWith('.csv') ? 'CSV일괄등록' : '엑셀일괄등록',
-          verified: true,
-          memo: '',
-          items: []
-        };
-        if (isDuplicateExpense(candidate, [...expenseOnly, ...newRows])) {
-          dupCount++;
-        } else if (isDuplicateExpense(candidate, trash.filter(t => !isIncome(t)))) {
-          trashHits.push(trash.find(t => isDuplicateExpense(candidate, [t])));
-        } else {
-          newRows.push(candidate);
-        }
-      }
-
-      // ★ 취소 상계: 취소일 기준 60일 안(취소일 포함 이전)의 짝 승인 건을 찾아 한 번만 상계.
-      //   짝 승인 건이 없으면(카드사가 원래 승인 행을 '취소'로 표시만 한 경우) 등록하지 않음
-      const CANCEL_LOOKBACK_DAYS = 60;
-      const dayNum = ymd => Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10)) / 86400000;
-      const pairedApprovalIds = new Set();
-      const refundedOf = {}; // [v1.91] 부분 환불: 승인 id → 이미 환불로 짝지은 금액
-      // 이미 등록된 취소(음수) 건이 상계한 승인 건은 다시 쓰지 않도록 먼저 표시
-      //   ① 금액이 똑같은 승인(전체 취소) ② 없으면 같은 가게에서 남은 금액이 환불 금액 이상인 승인(부분 환불, 여러 번이어도 원거래 금액까지)
-      //   [v1.91] 부분 환불은 allowPart일 때만 (환불 줄이 음수이거나 '부분취소' 표시). 아니면 partialOf로 후보만 찾아 사용자에게 물어봄
-      const nearOf = (cancelRow, pool) => {
-        const cDay = dayNum(normalizeDateString(cancelRow.date).slice(0, 10));
-        return pool.filter(ex => {
-          const diff = cDay - dayNum(normalizeDateString(ex.date).slice(0, 10));
-          return diff >= 0 && diff <= CANCEL_LOOKBACK_DAYS && isSimilarStoreName(cancelRow.store, ex.store);
-        }).sort((x, y) => normalizeDateString(y.date).localeCompare(normalizeDateString(x.date)));
-      };
-      const partialOf = (cancelRow, pool) => nearOf(cancelRow, pool).find(ex => !pairedApprovalIds.has(ex.id) && ex.amount - (refundedOf[ex.id] || 0) > Math.abs(cancelRow.amount)) || null;
-      const markPaired = (cancelRow, pool, allowPart = true) => {
-        const amt = Math.abs(cancelRow.amount);
-        const near = nearOf(cancelRow, pool);
-        const full = near.find(ex => ex.amount === amt && !pairedApprovalIds.has(ex.id) && !refundedOf[ex.id]);
-        if (full) {
-          pairedApprovalIds.add(full.id);
-          return full;
-        }
-        if (!allowPart) return null;
-        const part = near.find(ex => !pairedApprovalIds.has(ex.id) && ex.amount - (refundedOf[ex.id] || 0) >= amt);
-        if (part) {
-          refundedOf[part.id] = (refundedOf[part.id] || 0) + amt;
-          if (refundedOf[part.id] >= part.amount) pairedApprovalIds.add(part.id);
-          return part;
-        }
-        return null;
-      };
-      const approvalsPool = () => [...expenseOnly, ...newRows].filter(ex => ex.amount > 0);
-      expenseOnly.filter(ex => ex.amount < 0).forEach(ex => markPaired(ex, approvalsPool()));
-      for (const cItem of cancelItems) {
-        const {
-          category,
-          sub_category
-        } = classifyStoreAndText(cItem.store, categories);
-        const cancelCandidate = {
-          id: 'xls-cancel-' + Date.now() + '-' + cItem.rowIdx,
-          date: cItem.date,
-          store: cItem.store,
-          category,
-          sub_category,
-          amount: -cItem.absAmount,
-          tax: -Math.round(cItem.absAmount / 11),
-          payer: cardOwner(cards, cItem.pay.card_issuer, cItem.pay.card_num) || currentUser,
-          ...cItem.pay,
-          is_business: false,
-          source: fileName.endsWith('.csv') ? 'CSV일괄등록' : '엑셀일괄등록',
-          verified: true,
-          memo: '',
-          items: []
-        };
-
-        // 같은 취소가 이미 등록돼 있으면(예: 취소 문자) 건너뜀
-        if (isDuplicateExpense(cancelCandidate, [...expenseOnly, ...newRows])) {
-          dupCount++;
-          continue;
-        }
-        if (isDuplicateExpense(cancelCandidate, trash.filter(t => !isIncome(t)))) {
-          trashHits.push(trash.find(t => isDuplicateExpense(cancelCandidate, [t])));
-          continue;
-        }
-        if (!markPaired(cancelCandidate, approvalsPool(), cItem.neg || cItem.partial)) {
-          // [v1.91] '취소'로만 표시된 줄이 원거래보다 작으면 부분 취소인지, 따로 취소된 다른 결제인지 알 수 없음 → 모아서 한 번 물어봄
-          const of = partialOf(cancelCandidate, approvalsPool());
-          if (of) {
-            unsureCancels.push({
-              row: cancelCandidate,
-              of
-            });
-            continue;
-          }
-          autoIgnoredCancelCount++;
-          continue;
-        }
-        newRows.push(cancelCandidate);
-      }
-      if (unsureCancels.length) {
-        const lines = unsureCancels.slice(0, 5).map(u => `· ${normalizeDateString(u.row.date).slice(5, 16)} ${u.row.store} 취소 ${Math.abs(u.row.amount).toLocaleString()}원 (원거래 ${Number(u.of.amount).toLocaleString()}원)`).join('\n');
-        const v = await askChoice('🧾 부분 취소 확인', `원거래보다 금액이 작은 취소가 ${unsureCancels.length}건 있어요.\n${lines}${unsureCancels.length > 5 ? `\n… 외 ${unsureCancels.length - 5}건` : ''}\n\n일부만 환불받은 부분 취소면 −금액으로 넣고, 따로 취소된 다른 결제면 넣지 않아요.`, [{
-          value: 'yes',
-          label: '부분 취소로 넣기 (−금액)'
-        }, {
-          value: 'no',
-          label: '넣지 않기'
-        }]);
-        for (const u of unsureCancels) {
-          if (v === 'yes' && markPaired(u.row, approvalsPool(), true)) newRows.push(u.row);else autoIgnoredCancelCount++;
-        }
-        appLog('I', 'file', '부분 취소 확인', {
-          n: unsureCancels.length,
-          v: v || '닫음'
-        });
-      }
       e.target.value = '';
-      appLog('I', 'file', '카드사 파일 읽음', {
+      // [v1.92] 🧾 카드 명세서 대조: 바로 등록하지 않고 '이미 일치 · 명세서에만 · 취소·금액 확인 · 가계부에만'으로 나눠 보여 줌 → 체크한 것만 등록
+      if (rawExtracted.length === 0) return showToast('⚠️ 파일에서 등록할 결제 내역을 찾지 못했습니다.');
+      const plan = buildStmtPlan(rawExtracted, fileName);
+      appLog('I', 'file', '카드사 파일 읽음 → 명세서 대조', {
         ext: fileName.split('.').pop(),
         rows: rows2D.length,
         header: headerIdx,
-        new: newRows.length,
-        dup: dupCount,
-        bin: trashHits.length,
-        lone: autoIgnoredCancelCount
+        ...plan.counts
       });
-      const tr = await askRestoreFromTrash(trashHits);
-      const trashSkipCount = tr.total - tr.restored;
-      if (newRows.length === 0) {
-        if (tr.restored > 0) {
-          setActiveTab('list');
-          return showToast(`↩️ 휴지통에서 ${tr.restored}건을 다시 등록했습니다.${dupCount ? ` (중복 ${dupCount}건 제외)` : ''}`);
-        }
-        if (dupCount > 0 || trashSkipCount > 0 || autoIgnoredCancelCount > 0) {
-          return showToast(`ℹ️ 신규 내역 없음 (중복 ${dupCount}건${trashSkipCount ? `, 휴지통에 있는 ${trashSkipCount}건` : ''}, 단독취소 ${autoIgnoredCancelCount}건 제외)`);
-        }
-        return showToast('⚠️ 파일에서 등록할 결제 내역을 찾지 못했습니다.');
-      }
-      const ok = await insertExpenseRows(newRows);
-      if (ok) {
-        const extraMsg = [dupCount > 0 ? `중복 ${dupCount}건 제외` : '', tr.restored > 0 ? `휴지통에서 ${tr.restored}건 다시 등록` : '', trashSkipCount > 0 ? `휴지통에 있는 ${trashSkipCount}건 제외` : '', autoIgnoredCancelCount > 0 ? `단독취소 ${autoIgnoredCancelCount}건 자동제외` : ''].filter(Boolean).join(', ');
-        showToast(`📥 총 ${newRows.length}건 등록 완료!${extraMsg ? ` (${extraMsg})` : ''}`);
-        showRegistered(newRows.map(r => r.date));
-        setActiveTab('list');
-      }
+      setStmtRecon(plan);
     };
     reader.readAsArrayBuffer(file);
   };
@@ -11480,13 +11773,13 @@ function App() {
     className: "w-full flex items-center justify-between px-3 py-2.5 text-slate-300"
   }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCC4 \uCE74\uB4DC\uC0AC \uC5D1\uC140\xB7CSV \uD30C\uC77C \uC62C\uB9AC\uAE30 ", /*#__PURE__*/React.createElement("span", {
     className: "text-[0.625rem] text-slate-500 ml-1"
-  }, "\uD55C \uB2EC \uCE58\uB97C \uD55C \uBC88\uC5D0")), /*#__PURE__*/React.createElement("span", {
+  }, "\uD55C \uB2EC \uCE58\uB97C \uD55C \uBC88\uC5D0 \xB7 \uD83E\uDDFE \uBA85\uC138\uC11C \uB300\uC870")), /*#__PURE__*/React.createElement("span", {
     className: "text-slate-500"
   }, showFileImport ? '▾' : '›')), showFileImport && /*#__PURE__*/React.createElement("div", {
     className: "px-3 pb-3 space-y-2"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[0.6875rem] text-slate-400"
-  }, "\uCE74\uB4DC\uC0AC \uC571\xB7\uD648\uD398\uC774\uC9C0\uC5D0\uC11C \uBC1B\uC740 \uC774\uC6A9\uB0B4\uC5ED \uD30C\uC77C(.xls, .xlsx, .csv)\uC744 \uC62C\uB9BD\uB2C8\uB2E4. \uC774\uBBF8 \uC788\uB294 \uB0B4\uC5ED\uC740 \uAC74\uB108\uB6F0\uACE0, \uCDE8\uC18C \uD589\uC740 60\uC77C \uC548\uC758 \uC9DD\uC774 \uB418\uB294 \uC2B9\uC778 \uAC74\uC774 \uC788\uC744 \uB54C\uB9CC ", /*#__PURE__*/React.createElement("code", null, "-\uAE08\uC561"), "\uC73C\uB85C \uC0C1\uACC4\uD569\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("div", {
+  }, "\uCE74\uB4DC\uC0AC \uC571\xB7\uD648\uD398\uC774\uC9C0\uC5D0\uC11C \uBC1B\uC740 \uC774\uC6A9\uB0B4\uC5ED\xB7\uBA85\uC138\uC11C \uD30C\uC77C(.xls, .xlsx, .csv)\uC744 \uC62C\uB9AC\uBA74 \uD83E\uDDFE ", /*#__PURE__*/React.createElement("b", null, "\uBA85\uC138\uC11C \uB300\uC870"), " \uD654\uBA74\uC5D0\uC11C \uC774\uBBF8 \uC788\uB294 \uAC83 \xB7 \uC0C8\uB85C \uB123\uC744 \uAC83 \xB7 \uD655\uC778\uD560 \uAC83 \xB7 \uAC00\uACC4\uBD80\uC5D0\uB9CC \uC788\uB294 \uAC83\uC744 \uB098\uB220 \uBCF4\uC5EC \uC8FC\uACE0, \uCCB4\uD06C\uD55C \uAC83\uB9CC \uB4F1\uB85D\uD569\uB2C8\uB2E4. \uD30C\uC77C\uC5D0 \uCE74\uB4DC\uBC88\uD638 \uCE78\uC774 \uC5C6\uC73C\uBA74 \uC544\uB798\uC5D0\uC11C \uC774 \uD30C\uC77C\uC758 \uCE74\uB4DC\uB97C \uACE0\uB974\uC138\uC694 \u2014 \uADF8 \uCE74\uB4DC\uC758 \uAC00\uACC4\uBD80 \uB0B4\uC5ED\uACFC \uD569\uACC4\uB97C \uB9DE\uCDB0 \uBD05\uB2C8\uB2E4."), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-slate-400 whitespace-nowrap"
@@ -15305,7 +15598,248 @@ function App() {
     maxSide: SCAN_MAX_SIDE,
     onDone: photoEditDone,
     onCancel: () => setPhotoEdit(null)
-  }), showUncat && (() => {
+  }), stmtRecon && (() => {
+    // 🧾 카드 명세서 대조 [v1.92]
+    const sR = stmtRecon;
+    const exMap = new Map(expenses.map(e => [e.id, e]));
+    const now = id => exMap.get(id) || null; // 지금 가계부 (고치거나 지운 것 반영)
+    const won = n => `${Number(n) < 0 ? '−' : ''}${Math.abs(Number(n) || 0).toLocaleString()}원`;
+    const sgn = n => n === 0 ? '0 ✅' : `${n > 0 ? '+' : '−'}${Math.abs(n).toLocaleString()}`;
+    const md = d => {
+      const t = normalizeDateString(d);
+      return t.slice(5, 10) + (t.slice(11, 16) !== '00:00' ? ' ' + t.slice(11, 16) : '');
+    };
+    const ymd5 = d => normalizeDateString(d).slice(5, 10);
+    const of = sts => sR.rows.filter(r => sts.includes(r.status));
+    const newR = of(['new', 'partial']),
+      checkR = of(['unsure', 'lone', 'diff', 'trash']),
+      matchR = of(['match', 'alike']);
+    // 다른 결제로 넣기로 한(체크한) '가게 이름 다름·금액 다름'의 가계부 쪽은 '가계부에만'으로
+    const moved = sR.rows.filter(r => r.pick && (r.status === 'alike' || r.status === 'diff')).map(r => ({
+      id: r.app.id,
+      __g: r.g
+    }));
+    const appOnlyNow = [...sR.appOnly, ...moved].map(e => {
+      const n = now(e.id);
+      return n ? {
+        ...n,
+        __g: e.__g
+      } : null;
+    }).filter(Boolean);
+    const valOf = r => r.status === 'trash' ? Number(r.bin.amount) : r.cand.amount;
+    const counted = r => !['unsure', 'lone'].includes(r.status) || r.pick; // 확인할 취소는 체크했을 때만 명세서 합계에
+    const stmtOf = r => r.cand.amount + (r.appr ? r.abs : 0); // 취소 표시된 승인 줄 = 승인 + 취소
+    const picked = sR.rows.filter(r => r.pick);
+    const pickedSum = picked.reduce((t, r) => t + valOf(r), 0);
+    const stat = sR.groups.map(g => {
+      const rs = sR.rows.filter(r => r.g === g.key),
+        rp = rs.filter(r => r.pick);
+      const ids = new Set([...rs.flatMap(r => [r.app && r.app.id, r.appr && r.appr.id]).filter(Boolean), ...appOnlyNow.filter(e => e.__g === g.key).map(e => e.id)]);
+      const appNow = [...ids].map(now).filter(Boolean);
+      const stmtNet = rs.filter(counted).reduce((t, r) => t + stmtOf(r), 0);
+      const after = appNow.reduce((t, e) => t + Number(e.amount), 0) + rp.reduce((t, r) => t + valOf(r), 0);
+      return {
+        ...g,
+        nStmt: rs.filter(counted).length,
+        stmtNet,
+        nApp: appNow.length + rp.length,
+        after,
+        diff: stmtNet - after
+      };
+    });
+    const what = r => r.kind === 'cancel' ? '취소' : '결제';
+    const noteOf = r => r.status === 'partial' ? `부분 취소 · 원거래 ${ymd5(r.of.date)} ${won(r.of.amount)}` : r.status === 'new' && r.kind === 'cancel' ? `취소 · 원거래 ${ymd5(r.of.date)} ${won(r.of.amount)}` : r.status === 'unsure' ? `원거래 ${ymd5(r.of.date)} ${won(r.of.amount)}보다 작은 취소 — 일부만 환불받았으면 체크` : r.status === 'lone' ? "원거래를 못 찾은 취소 — 원래 승인 줄을 '취소'로 표시한 것이면 넣지 않아요" : r.status === 'trash' ? `🗑️ 휴지통에 있음 (${sourceLabel(r.bin.source)}) — 체크하면 휴지통에서 꺼내요` : r.status === 'diff' ? r.pick ? '다른 결제로 새로 넣어요 — 가계부 쪽은 📒 가계부에만 있음으로' : '같은 결제 같은데 금액이 달라요 — [가계부 고치기], 다른 결제면 체크' : r.status === 'match' ? `가계부: ${sourceLabel(r.app.source)}${r.app.payer ? ` · ${mName(r.app.payer)}` : ''}` : r.status === 'alike' ? r.pick ? `다른 ${what(r)}로 새로 넣어요 — 가계부의 '${r.app.store}'는 📒 가계부에만 있음으로` : `가계부의 '${r.app.store}' ${ymd5(r.app.date)} (${sourceLabel(r.app.source)})와 같은 ${what(r)}로 봤어요 — 다른 ${what(r)}면 체크` : '';
+    const canPick = r => ['new', 'partial', 'unsure', 'lone', 'trash', 'alike'].includes(r.status) || r.status === 'diff' && !r.fixed;
+    // 체크할 수 있는 줄은 줄 어디를 눌러도 체크 (label 안의 [가계부 고치기] 버튼은 체크를 바꾸지 않음)
+    const box = (r, right) => {
+      const Row = canPick(r) ? 'label' : 'div';
+      return /*#__PURE__*/React.createElement(Row, {
+        key: r.k,
+        className: `flex items-center gap-2 bg-slate-950 border rounded-lg px-2 py-1.5 ${r.pick ? 'border-indigo-700/70' : 'border-slate-800'} ${canPick(r) ? 'cursor-pointer' : ''}`,
+        "data-stmt-row": r.status
+      }, canPick(r) ? /*#__PURE__*/React.createElement("input", {
+        type: "checkbox",
+        checked: !!r.pick,
+        onChange: () => toggleStmt(r.k),
+        className: "shrink-0 w-5 h-5 accent-indigo-500"
+      }) : null, /*#__PURE__*/React.createElement("div", {
+        className: "flex-1 min-w-0"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "truncate text-slate-200"
+      }, md(r.cand.date), " \xB7 ", r.cand.store, sR.groups.length > 1 ? /*#__PURE__*/React.createElement("span", {
+        className: "text-slate-500"
+      }, " \xB7 ", r.gName) : null), noteOf(r) ? /*#__PURE__*/React.createElement("p", {
+        className: "text-[0.625rem] text-slate-400 leading-snug"
+      }, noteOf(r)) : null, r.again && r.kind === 'pay' && (r.status === 'new' || r.status === 'trash') ? /*#__PURE__*/React.createElement("p", {
+        className: "text-[0.625rem] text-amber-200/80 leading-snug",
+        "data-stmt-again": true
+      }, "\uD30C\uC77C\uC5D0 \uAC19\uC740 \uC904\uC774 \uB610 \uC788\uC5B4\uC694 \u2014 \uD55C \uBC88\uB9CC \uACB0\uC81C\uD588\uC73C\uBA74 \uD558\uB098\uB294 \uCCB4\uD06C\uB97C \uBE7C\uC138\uC694") : null, r.early && r.kind === 'pay' && r.status === 'new' ? /*#__PURE__*/React.createElement("p", {
+        className: "text-[0.625rem] text-amber-200/80 leading-snug",
+        "data-stmt-early": true
+      }, "\uBA85\uC138\uC11C \uAE30\uAC04(", sR.from.slice(5), "~)\uBCF4\uB2E4 \uC55E\uC120 \uB0A0\uC9DC \u2014 \uC9C0\uB09C \uD560\uBD80\xB7\uC608\uC804 \uACB0\uC81C\uB77C \uAC00\uACC4\uBD80\uC5D0 \uC774\uBBF8 \uC788\uC73C\uBA74 \uCCB4\uD06C\uB97C \uBE7C\uC138\uC694") : null, right), /*#__PURE__*/React.createElement("span", {
+        className: `font-bold whitespace-nowrap ${r.cand.amount < 0 ? 'text-emerald-400' : 'text-slate-100'}`
+      }, won(r.cand.amount)));
+    };
+    const diffRight = r => {
+      const a = now(r.app.id);
+      const done = r.fixed || a && Number(a.amount) === r.cand.amount;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-1.5 flex-wrap mt-0.5"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[0.625rem] text-amber-200"
+      }, "\uAC00\uACC4\uBD80 ", a ? won(a.amount) : '(지움)', " \xB7 ", (a || r.app).store, " (", sourceLabel(r.app.source), ") \u2194 \uBA85\uC138\uC11C ", won(r.cand.amount)), r.pick ? null : done ? /*#__PURE__*/React.createElement("span", {
+        className: "text-[0.625rem] text-emerald-300"
+      }, "\u2714 \uACE0\uCE68") : a ? /*#__PURE__*/React.createElement("button", {
+        onClick: () => fixStmtDiff(r),
+        className: "px-1.5 py-0.5 rounded bg-amber-700/80 text-white text-[0.625rem] font-bold",
+        "data-stmt-fix": true
+      }, "\uAC00\uACC4\uBD80 \uACE0\uCE58\uAE30") : null);
+    };
+    // 묶음 칸 (컴포넌트가 아니라 함수로 그림 → 체크할 때마다 펼침 상태가 초기화되지 않음)
+    const sec = ({
+      id,
+      title,
+      n,
+      sum,
+      open,
+      children,
+      tone,
+      extra
+    }) => /*#__PURE__*/React.createElement("details", {
+      open: open,
+      className: `rounded-xl border ${tone || 'border-slate-800'} bg-slate-900/60`,
+      "data-stmt-sec": id
+    }, /*#__PURE__*/React.createElement("summary", {
+      className: "px-2.5 py-2 font-bold text-slate-100 cursor-pointer"
+    }, title, " ", /*#__PURE__*/React.createElement("span", {
+      className: "font-normal text-slate-400"
+    }, n, "\uAC74", sum !== undefined ? ` · ${won(sum)}` : '')), /*#__PURE__*/React.createElement("div", {
+      className: "px-2 pb-2 space-y-1.5"
+    }, extra, children));
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-3.5 space-y-2.5 max-h-[90vh] overflow-y-auto text-xs",
+      "data-stmt": true
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between items-center border-b border-slate-800 pb-2"
+    }, /*#__PURE__*/React.createElement("h3", {
+      className: "font-bold text-white text-sm"
+    }, "\uD83E\uDDFE \uCE74\uB4DC \uBA85\uC138\uC11C \uB300\uC870"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setStmtRecon(null),
+      className: "text-slate-400"
+    }, "\u2715")), /*#__PURE__*/React.createElement("p", {
+      className: "text-[0.6875rem] text-slate-400 break-all"
+    }, sR.file, " \xB7 ", sR.from.slice(5), "~", sR.to.slice(5), " \xB7 ", sR.rows.length, "\uC904"), /*#__PURE__*/React.createElement("div", {
+      className: "bg-slate-950 border border-slate-800 rounded-xl p-2 space-y-1",
+      "data-stmt-sum": true
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-[1fr_auto_auto_auto] gap-x-2 text-[0.625rem] text-slate-500"
+    }, /*#__PURE__*/React.createElement("span", null, "\uCE74\uB4DC"), /*#__PURE__*/React.createElement("span", {
+      className: "text-right"
+    }, "\uBA85\uC138\uC11C"), /*#__PURE__*/React.createElement("span", {
+      className: "text-right"
+    }, "\uAC00\uACC4\uBD80*"), /*#__PURE__*/React.createElement("span", {
+      className: "text-right"
+    }, "\uCC28\uC774")), stat.map(g => /*#__PURE__*/React.createElement("div", {
+      key: g.key,
+      className: "grid grid-cols-[1fr_auto_auto_auto] gap-x-2 items-center",
+      "data-stmt-card": g.key
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "truncate text-slate-200"
+    }, "\uD83D\uDCB3 ", g.label), /*#__PURE__*/React.createElement("span", {
+      className: "text-right"
+    }, won(g.stmtNet), /*#__PURE__*/React.createElement("span", {
+      className: "block text-[0.5625rem] text-slate-500"
+    }, g.nStmt, "\uAC74")), /*#__PURE__*/React.createElement("span", {
+      className: "text-right"
+    }, won(g.after), /*#__PURE__*/React.createElement("span", {
+      className: "block text-[0.5625rem] text-slate-500"
+    }, g.nApp, "\uAC74")), /*#__PURE__*/React.createElement("span", {
+      className: `text-right font-bold ${g.diff === 0 ? 'text-emerald-300' : 'text-amber-300'}`,
+      "data-stmt-diff": g.diff
+    }, sgn(g.diff)))), /*#__PURE__*/React.createElement("p", {
+      className: "text-[0.5625rem] text-slate-500 leading-relaxed"
+    }, "* \uAC00\uACC4\uBD80 = \uC774 \uCE74\uB4DC\xB7\uAE30\uAC04\uC758 \uC9C0\uAE08 \uB0B4\uC5ED + \uCCB4\uD06C\uD55C \uAC83 \xB7 \uCC28\uC774 = \uBA85\uC138\uC11C \u2212 \uAC00\uACC4\uBD80 (+\uBA74 \uAC00\uACC4\uBD80\uC5D0 \uBE60\uC9C4 \uAC83, \u2212\uBA74 \uAC00\uACC4\uBD80\uC5D0 \uB354 \uC788\uB294 \uAC83). \uD655\uC778\uD560 \uCDE8\uC18C(\u26A0\uFE0F)\uB294 \uCCB4\uD06C\uD588\uC744 \uB54C\uB9CC \uBA85\uC138\uC11C \uD569\uACC4\uC5D0 \uB123\uC5B4\uC694."), !sR.scoped && /*#__PURE__*/React.createElement("p", {
+      className: "text-[0.625rem] text-amber-200/90",
+      "data-stmt-noscope": true
+    }, "\uD30C\uC77C\uC5D0 \uCE74\uB4DC\uBC88\uD638\uAC00 \uC5C6\uACE0 \uCE74\uB4DC\uB3C4 \uACE0\uB974\uC9C0 \uC54A\uC544 '\uAC00\uACC4\uBD80\uC5D0\uB9CC \uC788\uC74C'\uC740 \uBE44\uAD50\uD558\uC9C0 \uC54A\uC558\uC5B4\uC694. \uD30C\uC77C \uC62C\uB9AC\uAE30 \uCE78\uC5D0\uC11C \uC774 \uD30C\uC77C\uC758 \uCE74\uB4DC\uB97C \uACE0\uB974\uACE0 \uB2E4\uC2DC \uC62C\uB9AC\uBA74 \uADF8 \uCE74\uB4DC\uC758 \uAC00\uACC4\uBD80 \uB0B4\uC5ED\uACFC \uB9DE\uCDB0 \uBD10\uC694.")), newR.length > 0 && sec({
+      id: 'new',
+      title: '🆕 명세서에만 있음',
+      n: newR.length,
+      sum: newR.reduce((t, r) => t + r.cand.amount, 0),
+      open: true,
+      tone: 'border-indigo-800/70',
+      extra: /*#__PURE__*/React.createElement("div", {
+        className: "flex gap-1.5 justify-end"
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: () => pickAllStmt(['new', 'partial'], true),
+        className: "px-2 py-0.5 rounded bg-slate-800 text-slate-300"
+      }, "\uBAA8\uB450 \uCCB4\uD06C"), /*#__PURE__*/React.createElement("button", {
+        onClick: () => pickAllStmt(['new', 'partial'], false),
+        className: "px-2 py-0.5 rounded bg-slate-800 text-slate-300"
+      }, "\uBAA8\uB450 \uBE7C\uAE30")),
+      children: newR.map(r => box(r))
+    }), checkR.length > 0 && sec({
+      id: 'check',
+      title: '⚠️ 취소·금액 확인',
+      n: checkR.length,
+      open: true,
+      tone: 'border-amber-800/70',
+      children: checkR.map(r => r.status === 'diff' ? box(r, diffRight(r)) : box(r))
+    }), sR.scoped && sec({
+      id: 'app',
+      title: '📒 가계부에만 있음',
+      n: appOnlyNow.length,
+      sum: appOnlyNow.reduce((t, e) => t + Number(e.amount), 0),
+      open: appOnlyNow.length > 0,
+      tone: 'border-sky-800/70',
+      extra: appOnlyNow.length > 0 && /*#__PURE__*/React.createElement("p", {
+        className: "text-[0.625rem] text-slate-400 leading-relaxed"
+      }, "\uC774 \uCE74\uB4DC\xB7\uAE30\uAC04\uC5D0 \uAC00\uACC4\uBD80\uC5D0\uB294 \uC788\uB294\uB370 \uBA85\uC138\uC11C\uC5D0\uB294 \uC5C6\uC5B4\uC694. \uC544\uC9C1 \uBA85\uC138\uC11C\uC5D0 \uC548 \uC62C\uB77C\uC628 \uACB0\uC81C(\uB9C8\uC9C0\uB9C9 \uB0A0 \uB4F1)\uC77C \uC218\uB3C4 \uC788\uACE0, \uBB38\uC790\uAC00 \uB450 \uBC88 \uB4E4\uC5B4\uC654\uAC70\uB098 \uB2E4\uB978 \uCE74\uB4DC \uACB0\uC81C\uAC00 \uC774 \uCE74\uB4DC\uB85C \uB4E4\uC5B4\uAC14\uC744 \uC218\uB3C4 \uC788\uC5B4\uC694."),
+      children: appOnlyNow.length === 0 ? /*#__PURE__*/React.createElement("p", {
+        className: "text-slate-500 px-1"
+      }, "\uC5C6\uC5B4\uC694 \u2705") : appOnlyNow.map(e => /*#__PURE__*/React.createElement("div", {
+        key: e.id,
+        className: "flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5",
+        "data-stmt-app": true
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex-1 min-w-0"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "truncate text-slate-200"
+      }, md(e.date), " \xB7 ", e.store), /*#__PURE__*/React.createElement("p", {
+        className: "text-[0.625rem] text-slate-400"
+      }, sourceLabel(e.source), e.payer ? ` · ${mName(e.payer)}` : '')), /*#__PURE__*/React.createElement("span", {
+        className: `font-bold whitespace-nowrap ${Number(e.amount) < 0 ? 'text-emerald-400' : ''}`
+      }, won(e.amount)), /*#__PURE__*/React.createElement("button", {
+        onClick: () => {
+          const cur = now(e.id);
+          if (cur) deleteExpenseRow(cur);
+        },
+        className: "px-1.5 py-1 rounded bg-slate-800 text-rose-300",
+        title: "\uD734\uC9C0\uD1B5\uC73C\uB85C",
+        "data-stmt-del": true
+      }, "\uD83D\uDDD1")))
+    }), matchR.length > 0 && sec({
+      id: 'match',
+      title: '✅ 이미 일치',
+      n: matchR.length,
+      sum: matchR.reduce((t, r) => t + r.cand.amount, 0),
+      open: false,
+      tone: 'border-emerald-900/60',
+      children: matchR.map(r => box(r))
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-2 sticky bottom-0 bg-slate-900 pt-1.5"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: registerStmt,
+      disabled: sR.busy,
+      className: "flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl disabled:opacity-50",
+      "data-stmt-go": true
+    }, picked.length ? `선택한 ${picked.length}건 등록 (${won(pickedSum)})` : '닫기 (넣을 것 없음)'), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setStmtRecon(null),
+      className: "px-4 py-2.5 bg-slate-800 text-slate-300 rounded-xl"
+    }, "\uCDE8\uC18C"))));
+  })(), showUncat && (() => {
     // 🏷️ 미분류 정리: 가게별로 묶어 한 번에 분류 (건수 많은 묶음부터)
     const groups = Object.values(expenses.filter(isUncategorized).reduce((m, e) => {
       const key = storeRuleKey(e.store) || `__${String(e.store || '').trim()}`;
