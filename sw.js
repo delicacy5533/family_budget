@@ -5,6 +5,8 @@
 //  · 외부 라이브러리(React 등): 저장본으로 바로 실행하고 뒤에서 새로 받아 둠
 //  · Supabase 데이터 요청: 저장하지 않음 (항상 서버로)
 //  index.html만 고쳐서 올릴 때는 이 파일을 바꿀 필요가 없습니다.
+//  v1.91: 새 버전을 켤 때 이 앱이 만든 예전 저장본(couple-budget-…)만 지움
+//         (같은 주소 delicacy5533.github.io에 올린 다른 웹앱의 저장 파일은 건드리지 않음)
 // =====================================================================
 const CACHE = 'couple-budget-v6';   // v1.78: 아이콘을 v1.75 그림으로 → 새로 받으려고 v6
 const APP_SHELL = [
@@ -45,7 +47,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k.startsWith('couple-budget-')).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
